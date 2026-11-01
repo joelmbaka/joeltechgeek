@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 };
 
 const stages = [
-  { icon: HardHat, name: '01 · Supervisor', description: 'Peter requests materials against a site task and later records its actual completion percentage.' },
-  { icon: ClipboardCheck, name: '02 · Project Manager', description: 'Nia reviews the request, approves or rejects it, and creates supplier purchase orders.' },
-  { icon: PackageCheck, name: '03 · Storekeeper', description: 'Asha issues only approved quantities, receives partial deliveries, and monitors inventory.' },
-  { icon: BarChart3, name: '04 · Accountant', description: 'Samuel records fictional site expenses and views illustrative project cost and progress reports.' },
+  { icon: HardHat, name: 'Supervisor', description: 'Peter requests materials against a site task and later records its actual completion percentage.' },
+  { icon: ClipboardCheck, name: 'Project Manager', description: 'Nia reviews the request, approves or rejects it, and creates supplier purchase orders.' },
+  { icon: PackageCheck, name: 'Storekeeper', description: 'Asha issues only approved quantities, receives partial deliveries, and monitors inventory.' },
+  { icon: BarChart3, name: 'Accountant', description: 'Samuel records fictional site expenses and views illustrative project cost and progress reports.' },
 ];
 
 export default function ConstructionDemoPage() {
@@ -63,7 +63,7 @@ export default function ConstructionDemoPage() {
       </div>
 
       <section aria-labelledby="steps-title" className="mt-16">
-        <h2 id="steps-title" className="text-2xl font-bold text-gray-900 dark:text-white">Try the four-role walkthrough</h2>
+        <h2 id="steps-title" className="text-2xl font-bold text-gray-900 dark:text-white">Construction roles and capabilities</h2>
         <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
           Use the role selector inside the demo to explore these different team perspectives and verify how each action affects project data.
         </p>

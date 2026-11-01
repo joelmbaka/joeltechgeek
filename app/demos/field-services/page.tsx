@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 };
 
 const steps = [
-  { icon: CalendarCheck, title: '01 · Grace — Dispatcher', body: 'Create a service request for a customer asset and schedule an assigned technician visit.' },
-  { icon: Wrench, title: '02 · Daniel — Technician', body: 'Start the job, record used spare parts, complete four service checks and submit a service report.' },
-  { icon: ClipboardCheck, title: '03 · Nia — Service Manager', body: 'Review the checks and approve passing work, or return attention items to the technician for correction.' },
-  { icon: CreditCard, title: '04 · Amina — Billing', body: 'Create a fictional labour-and-parts invoice, then record a sample Cash or M-Pesa payment.' },
+  { icon: CalendarCheck, title: 'Grace — Dispatcher', body: 'Create a service request for a customer asset and schedule an assigned technician visit.' },
+  { icon: Wrench, title: 'Daniel — Technician', body: 'Start the job, record used spare parts, complete four service checks and submit a service report.' },
+  { icon: ClipboardCheck, title: 'Nia — Service Manager', body: 'Review the checks and approve passing work, or return attention items to the technician for correction.' },
+  { icon: CreditCard, title: 'Amina — Billing', body: 'Create a fictional labour-and-parts invoice, then record a sample Cash or M-Pesa payment.' },
 ];
 
 export default function FieldServicesDemoPage() {
@@ -61,9 +61,9 @@ export default function FieldServicesDemoPage() {
       </div>
 
       <section className="mt-16" aria-labelledby="walkthrough">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white" id="walkthrough">Try the four-role walkthrough</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white" id="walkthrough">Field service roles and capabilities</h2>
         <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
-          Switch between the roles at the top of the demo. Every step updates the same fictional service job, its parts inventory, and eventually the sample billing report.
+          Dispatchers, technicians, service managers and billing staff work with the same fictional service records and stock balances.
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step) => (

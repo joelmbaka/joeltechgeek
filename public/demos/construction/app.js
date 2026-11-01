@@ -61,8 +61,7 @@
       '<div class="stack">'+data.tasks.slice(0,5).map(t=>'<div class="task-preview"><div class="row"><b>'+escape(t.name)+'</b><span>'+t.progress+'%</span></div>'+progressValue(t.progress)+'<div class="muted tiny">'+escape(t.phase)+' · Planned '+t.planned+'%</div></div>').join("")+'</div></section>'+
       '<section class="card"><div class="section-head"><div><h2>Latest activity</h2><p>Actions in this browser, not real site events.</p></div></div>'+
       '<div class="activity">'+(data.activity.length?data.activity.slice(0,6).map(a=>'<div class="activity-item"><span class="activity-dot"></span><div><b>'+escape(a.title)+'</b><p>'+escape(a.detail)+'</p><small>'+date(a.at)+'</small></div></div>').join(""):empty("No activity recorded"))+'</div></section></div>'+
-      '<section class="card journey"><div class="section-head"><div><h2>Try the cross-role workflow</h2><p>Use the role selector at the top to act as each fictional team member.</p></div></div><div class="journey-grid">'+
-      [["01","Peter · Supervisor","Submit a material request and later update task progress."],["02","Nia · Manager","Approve the request and inspect the project budget."],["03","Asha · Storekeeper","Issue the approved quantity; watch physical stock decrease."],["04","Samuel · Accountant","Record a site expense, then inspect the updated cost report."]].map(x=>'<div><span>'+x[0]+'</span><h3>'+x[1]+'</h3><p>'+x[2]+'</p></div>').join("")+'</div></section>';
+      '';
   }
   function tasks(){
     return header("SITE DELIVERY / WORK PROGRAMME","Site tasks","Monitor construction activities and record progress with a reason.")+

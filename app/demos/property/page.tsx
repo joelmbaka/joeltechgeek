@@ -65,12 +65,12 @@ export default function DemoOverviewPage() {
         </aside>
       </div>
       <section aria-labelledby="walkthrough" className="mt-16">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white" id="walkthrough">A guided workflow in four steps</h2>
-        <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Switch staff perspectives inside the demo to complete the operations in order.</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white" id="walkthrough">Capabilities by team</h2>
+        <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Switch staff perspectives to manage the same fictional business records through their regular workspaces.</p>
         <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <article key={step.role + index} className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
-              <span className="text-sm font-extrabold text-palm-green">{String(index + 1).padStart(2, '0')}</span>
+              
               <h3 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">{step.role}</h3>
               <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">{step.description}</p>
             </article>

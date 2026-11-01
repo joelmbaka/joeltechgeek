@@ -42,22 +42,22 @@ export default function FireSafetyDemoPage() {
         </aside>
       </div>
       <section aria-labelledby="walkthrough-title" className="mt-16">
-        <h2 id="walkthrough-title" className="text-2xl font-bold">A suggested three-role walkthrough</h2>
+        <h2 id="walkthrough-title" className="text-2xl font-bold">Roles and service capabilities</h2>
         <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Use the role switcher at the top of the demo to switch between views.</p>
         <div className="mt-6 grid gap-5 md:grid-cols-3">
           <article className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
             <BriefcaseBusiness className="h-7 w-7 text-palm-green" aria-hidden />
-            <h3 className="mt-4 text-lg font-bold">01 · Grace — Operations</h3>
+            <h3 className="mt-4 text-lg font-bold">Grace — Operations</h3>
             <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Review customers and equipment, assign a service job, and preview maintenance reminders.</p>
           </article>
           <article className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
             <Smartphone className="h-7 w-7 text-palm-green" aria-hidden />
-            <h3 className="mt-4 text-lg font-bold">02 · Kevin — Technician</h3>
+            <h3 className="mt-4 text-lg font-bold">Kevin — Technician</h3>
             <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Open an assigned job, complete five sample checks, and submit an inspection for review.</p>
           </article>
           <article className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
             <ClipboardCheck className="h-7 w-7 text-palm-green" aria-hidden />
-            <h3 className="mt-4 text-lg font-bold">03 · Amina — Manager</h3>
+            <h3 className="mt-4 text-lg font-bold">Amina — Manager</h3>
             <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Review a submitted passing inspection, approve it, and open a watermarked sample certificate.</p>
           </article>
         </div>

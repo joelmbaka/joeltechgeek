@@ -56,8 +56,7 @@
    '<tr><td>'+viewButton(j,"job",esc(j.id))+'<span class="sub">'+esc(j.title)+'</span></td><td><b>'+esc(customer(j.customerId)?.name||"Customer")+'</b><span class="sub">'+esc(asset(j.assetId)?.name||"Asset")+'</span></td><td>'+pill(j.status)+'</td><td>'+pill(j.priority)+'</td></tr>'))+'</section>'+
    '<section class="card"><div class="card-title"><div><h2>Latest service activity</h2><p>Sample actions within this browser only.</p></div></div>'+
    '<div class="activity">'+data.activity.slice(0,6).map(a=>'<div class="activity-row"><span class="dot"></span><div><b>'+esc(a.title)+'</b><p>'+esc(a.detail)+'</p><small>'+fmtDate(a.at)+'</small></div></div>').join("")+'</div></section></div>'+
-   '<section class="card walkthrough"><div class="card-title"><div><h2>Try the full service cycle</h2><p>Use the role selector above to move through the workflow.</p></div></div>'+
-   '<div class="steps">'+[["01","Grace · Dispatcher","Create and assign a maintenance ticket."],["02","Daniel · Technician","Start work, issue parts and submit a four-check service report."],["03","Nia · Manager","Approve passing work or return it for corrections."],["04","Amina · Billing","Generate a sample invoice and record a simulated payment."]].map(x=>'<div><span>'+x[0]+'</span><h3>'+x[1]+'</h3><p>'+x[2]+'</p></div>').join("")+'</div></section>';
+   '';
  }
  function tickets(){
   return header("DISPATCH / CUSTOMER REQUESTS","Service requests","Create, assign and track maintenance or repair requests.",

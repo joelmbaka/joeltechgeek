@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 };
 
 const stages = [
-  { icon: Warehouse, label: '01 · Purchasing', text: 'Draft an order from a fictional supplier. Receiving it increases available stock; drafting alone does not.' },
-  { icon: PackageCheck, label: '02 · Inventory', text: 'Review the new quantity, low-stock alerts, weighted-average cost, and movement history.' },
-  { icon: ShoppingCart, label: '03 · Checkout', text: 'Switch to the cashier, add products to a cart, and complete a simulated cash or M-Pesa sale.' },
-  { icon: BarChart3, label: '04 · Reporting', text: 'Open a printable sample receipt, then see how revenue, estimated gross profit and stock levels have changed.' },
+  { icon: Warehouse, label: 'Purchasing', text: 'Draft an order from a fictional supplier. Receiving it increases available stock; drafting alone does not.' },
+  { icon: PackageCheck, label: 'Inventory', text: 'Review the new quantity, low-stock alerts, weighted-average cost, and movement history.' },
+  { icon: ShoppingCart, label: 'Checkout', text: 'Switch to the cashier, add products to a cart, and complete a simulated cash or M-Pesa sale.' },
+  { icon: BarChart3, label: 'Reporting', text: 'Open a printable sample receipt, then see how revenue, estimated gross profit and stock levels have changed.' },
 ];
 
 export default function RetailDemoPage() {
@@ -63,8 +63,8 @@ export default function RetailDemoPage() {
       </div>
 
       <section aria-labelledby="retail-workflow" className="mt-16">
-        <h2 id="retail-workflow" className="text-2xl font-bold text-gray-900 dark:text-white">Try the complete sales workflow</h2>
-        <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">This walkthrough connects four areas of the same fictional store. You can also add products, adjust stock, and explore sales history.</p>
+        <h2 id="retail-workflow" className="text-2xl font-bold text-gray-900 dark:text-white">Retail operations you can explore</h2>
+        <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Run purchasing, inventory, checkout and reporting operations in the same fictional store. Each role works with shared records.</p>
         <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {stages.map((stage) => (
             <article key={stage.label} className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
