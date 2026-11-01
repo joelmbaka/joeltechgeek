@@ -200,3 +200,17 @@ h1,h2,h3,p{margin:0}
 @media(max-width:360px){.metric strong{font-size:15px}.card-head b{font-size:11px}
  .hero-values strong{font-size:14px}.list-end{max-width:85px}.btn{padding:9px 8px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Distinct demo roles with the same JoelTechGeek palette. */
+.role-select{flex:none;width:154px;min-width:0;max-width:45%;height:37px;padding:7px 5px;
+ border:1px solid #bee5d0;border-radius:10px;background:#eff9f3;color:var(--palm-green-dark);
+ font-size:10px;font-weight:800;cursor:pointer}
+.app-title{min-width:0;flex:1}
+.role-home{width:35px;height:37px;flex:none;border-radius:9px;display:grid;place-items:center;
+ background:#e8f7ee;color:var(--palm-green-dark);font-size:19px}
+.tenant-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.tenant-stats>div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;
+ flex-direction:column;gap:6px}
+.tenant-stats small{color:var(--muted);font-size:10px;font-weight:800}
+.tenant-stats b{color:var(--palm-green-dark);font-size:20px}
+@media(max-width:360px){.role-select{width:138px;font-size:9px}.app-title b{font-size:12px}.app-title small{font-size:9px}}

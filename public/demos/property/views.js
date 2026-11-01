@@ -25,6 +25,7 @@ return function(d,ui,c){
   if(ui.status==="due")invoices=invoices.filter(i=>c.status(i)!=="Overdue");
   if(ui.month!=="all")invoices=invoices.filter(i=>i.month===ui.month);
   if(ui.property!=="all")invoices=invoices.filter(i=>i.propertyId===(ui.property==="standalone"?null:ui.property));
+  if(ui.tenant!=="all")invoices=invoices.filter(i=>i.tenantId===ui.tenant);
   if(query)invoices=invoices.filter(i=>[i.reference,tenant(i.tenantId)?.name,unit(i.unitId)?.code,name(i.propertyId),i.month,String(i.total)].join(" ").toLowerCase().includes(query));
   invoices=invoices.slice().sort((a,b)=>(c.status(a)==="Overdue"?0:1)-(c.status(b)==="Overdue"?0:1)||a.dueDate.localeCompare(b.dueDate));
   const stat=(k,v)=>'<div class="metric"><span>'+k+'</span><strong>'+v+'</strong></div>';
@@ -34,7 +35,8 @@ return function(d,ui,c){
    '<div class="subhead"><h2>Open invoices</h2><p>Balances that still need to be settled.</p></div>'+
    '<div class="filters">'+select("Status","status-filter",[["all","All open"],["due","Due"],["overdue","Overdue"]],ui.status)+
    select("Period","month-filter",[["all","All periods"],["2026-11","November 2026"],["2026-10","October 2026"]],ui.month)+'</div>'+
-   select("Property","property-filter",[["all","All properties"],...d.properties.map(p=>[p.id,p.name]),["standalone","Standalone"]],ui.property)+
+   '<div class="filters">'+select("Property","property-filter",[["all","All properties"],...d.properties.map(p=>[p.id,p.name]),["standalone","Standalone"]],ui.property)+
+   select("Tenant","tenant-filter",[["all","All tenants"],...d.tenants.map(t=>[t.id,t.name])],ui.tenant)+"</div>"+
    '<p class="count">'+invoices.length+' open invoices</p>'+
    (invoices.map(invoiceCard).join("")||empty("No matching invoices","Try changing the filters."));
  }
@@ -55,13 +57,14 @@ return function(d,ui,c){
    panel("Standalone units",d.units.filter(u=>!u.propertyId).map(u=>list(u.code,kes(u.rent)+" / month",badge(c.activeLease(d,u.id)?"Occupied":"Vacant"),"unit",u.id)).join(""));
  }
  function invoiceDetails(){
-  const i=invoice(ui.id);if(!i)return empty("Invoice unavailable","Not found.");
+  const i=invoice(ui.id);if(!i||(ui.role==="tenant"&&i.tenantId!==ui.tenantId))return empty("Invoice unavailable","Not found.");
   const bal=c.balance(i),related=d.payments.filter(p=>p.invoiceId===i.id),u=unit(i.unitId),t=tenant(i.tenantId);
   return heading("Invoice",i.reference)+'<div class="invoice-hero"><div class="card-head"><b>'+esc(i.reference)+'</b>'+badge(c.status(i))+'</div><p>'+esc(t?.name)+" · "+esc(u?.code)+'</p><div class="hero-values"><div><small>Amount paid</small><strong>'+kes(i.paid)+'</strong></div><div><small>Outstanding</small><strong>'+kes(bal)+'</strong></div></div></div>'+
    panel("Invoice details",pair("Property",name(i.propertyId))+pair("Unit",u?.code)+pair("Tenant",t?.name)+pair("Phone",t?.phone)+pair("Billing period",period(i.month))+pair("Due date",i.dueDate)+pair("Rent",kes(i.baseRent))+pair("Service charge",kes(i.serviceCharge))+pair("Deposit",kes(i.deposit))+pair("Gross payable",kes(i.total))+pair("Paid",kes(i.paid))+pair("Outstanding",kes(bal)))+
    panel("Payment activity",related.map(p=>list(kes(p.received),p.date+" · "+p.reference,"Receipt","receipt",p.id)).join("")||'<p class="hint">No payment activity recorded yet.</p>')+
-   (bal>0?btn("Record manual payment","new-payment",i.id,"primary full"):'<div class="settled">✓ Invoice fully paid</div>')+
-   '<p class="hint">Payments are recorded as already received outside this demo; no STK is initiated.</p>';
+   (ui.role==="tenant"?(bal===0?'<div class="settled">✓ Invoice fully paid</div>':'<p class="hint">Payments made to the property manager will appear here once recorded.</p>'):
+    bal>0?btn("Record manual payment","new-payment",i.id,"primary full"):'<div class="settled">✓ Invoice fully paid</div>')+
+   (ui.role==="manager"?'<p class="hint">Payments are recorded as already received outside this demo; no STK is initiated.</p>':"");
  }
  function propertyDetails(){
   const p=prop(ui.id);if(!p)return empty("Property unavailable","Not found.");
@@ -78,7 +81,7 @@ return function(d,ui,c){
    (recent?panel("Latest invoice",invoiceCard(recent)):"");
  }
  function leaseDetails(){
-  const l=lease(ui.id);if(!l)return empty("Lease unavailable","Not found.");
+  const l=lease(ui.id);if(!l||(ui.role==="tenant"&&l.tenantId!==ui.tenantId))return empty("Lease unavailable","Not found.");
   const u=unit(l.unitId);
   return heading("Lease details",u?.code)+panel("Lease",pair("Reference",l.id)+pair("Status",l.status)+pair("Property",name(u?.propertyId))+pair("Unit",u?.code)+pair("Tenant",tenant(l.tenantId)?.name)+pair("Monthly rent",kes(l.rent))+pair("Service charge",kes(l.serviceCharge))+pair("Start date",l.start)+pair("Billing cycle","Monthly"))+
    panel("Related invoices",d.invoices.filter(i=>i.leaseId===l.id).map(invoiceCard).join("")||'<p class="hint">No invoices.</p>');
@@ -96,7 +99,7 @@ return function(d,ui,c){
    (items.map(paymentCard).join("")||empty("No payments","Try another source."));
  }
  function receipt(){
-  const p=payment(ui.id);if(!p)return empty("Receipt unavailable","Not found.");
+  const p=payment(ui.id);if(!p||(ui.role==="tenant"&&p.tenantId!==ui.tenantId))return empty("Receipt unavailable","Not found.");
   return heading("Receipt",p.receipt)+'<div class="receipt-hero"><span>✓</span><b>Payment received</b><strong>'+kes(p.received)+'</strong><small>'+esc(p.date)+" · "+esc(p.method)+'</small></div>'+
    panel("Allocation",pair("Received",kes(p.received))+pair("Applied to invoice",kes(p.applied))+pair("Credit created",kes(p.credit))+pair("Status",p.status))+
    panel("Transaction",pair("Tenant",tenant(p.tenantId)?.name)+pair("Property",name(p.propertyId))+pair("Unit",unit(p.unitId)?.code)+pair("Invoice",invoice(p.invoiceId)?.reference)+pair("Payment reference",p.reference)+pair("Receipt number",p.receipt)+pair("Receiving account",p.destination))+
@@ -121,9 +124,42 @@ return function(d,ui,c){
    panel("Expenses",s.expenseItems.map(x=>pair(x.title,kes(x.amount))).join("")||'<p class="hint">No expenses.</p>')+
    '<p class="hint">A simplified illustrative position; not full accounting journals or owner settlements.</p>';
  }
- const map={rent,leases,tenants,portfolio,invoice:invoiceDetails,property:propertyDetails,unit:unitDetails,lease:leaseDetails,tenant:tenantDetails,payments,receipt,history,expenses,accounting};
+
+ function tenantRent(){
+  const own=tenant(ui.tenantId),related=d.invoices.filter(i=>i.tenantId===ui.tenantId);
+  const active=d.leases.find(l=>l.tenantId===ui.tenantId&&l.status==="Active");
+  const open=related.filter(i=>c.balance(i)>0).slice().sort((a,b)=>b.month.localeCompare(a.month));
+  const paid=related.filter(i=>c.balance(i)===0).slice().sort((a,b)=>b.month.localeCompare(a.month));
+  const outstanding=open.reduce((n,i)=>n+c.balance(i),0);
+  return heading("My rent",own?.name+" · "+(active?unit(active.unitId)?.code:"No active unit"))+
+   '<div class="overview-banner"><small>Outstanding rent</small><strong>'+kes(outstanding)+'</strong><span>'+esc(active?name(unit(active.unitId)?.propertyId)+" · "+unit(active.unitId)?.code:"Rent overview")+'</span></div>'+
+   '<div class="tenant-stats">'+
+   '<div><small>Open invoices</small><b>'+open.length+'</b></div>'+
+   '<div><small>Paid invoices</small><b>'+paid.length+'</b></div></div>'+
+   panel("Open invoices",open.map(invoiceCard).join("")||empty("All caught up","No open rent invoices."))+
+   panel("Previous & settled invoices",paid.map(invoiceCard).join("")||empty("No previous payments","Paid invoices will appear here."));
+ }
+ function tenantPayments(){
+  const own=tenant(ui.tenantId),items=d.payments.filter(p=>p.tenantId===ui.tenantId);
+  return heading("My payments",own?.name+" · "+items.length+" recorded payments")+
+   '<div class="mini-summary"><span>Payments recorded</span><b>'+kes(items.reduce((n,p)=>n+p.received,0))+'</b></div>'+
+   (items.map(paymentCard).join("")||empty("No payments yet","Your rent receipts appear when the property manager records payment."));
+ }
+ function tenantLease(){
+  const own=tenant(ui.tenantId),l=d.leases.find(l=>l.tenantId===ui.tenantId&&l.status==="Active");
+  if(!l)return heading("My lease")+empty("No active lease","You have no active tenancy on this demo account.");
+  const u=unit(l.unitId);
+  return heading("My lease",own?.name)+
+   panel("Tenancy details",pair("Property",name(u?.propertyId))+pair("Unit",u?.code)+pair("Tenant",own?.name)+
+    pair("Lease reference",l.id)+pair("Status",l.status)+pair("Start date",l.start)+
+    pair("Monthly rent",kes(l.rent))+pair("Service charge",kes(l.serviceCharge))+
+    pair("Total each month",kes(l.rent+l.serviceCharge)))+
+   panel("Rent invoices",d.invoices.filter(i=>i.tenantId===ui.tenantId).map(invoiceCard).join("")||empty("No invoices","No invoices are available."));
+ }
+
+ const map={rent,leases,tenants,portfolio,invoice:invoiceDetails,property:propertyDetails,unit:unitDetails,lease:leaseDetails,tenant:tenantDetails,payments,receipt,history,expenses,accounting,tenantRent,tenantPayments,tenantLease};
  function form(){
-  if(!ui.modal)return"";
+  if(!ui.modal||ui.role!=="manager")return"";
   const {type,id}=ui.modal;let title="",fields="",submit="";
   if(type==="payment"){
    const i=invoice(id);if(!i)return"";
