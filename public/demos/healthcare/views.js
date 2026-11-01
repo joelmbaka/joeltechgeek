@@ -16,7 +16,7 @@ return function(d,s,c){
  const e=escape;
  const k=money;
  const title=(name,description="")=>'<div class="page-title"><h1>'+e(name)+'</h1><p>'+e(description)+'</p></div>';
- const btn=(label,action,id="",variant="")=>'<button type="button" class="btn '+variant+'" data-action="'+action+'" '+(id?'data-id="'+e(id)+'"':"")+'>'+label+'</button>';
+ const btn=(label,action,id="",variant="",extra="")=>'<button type="button" class="btn '+variant+'" data-action="'+action+'" '+(id?'data-id="'+e(id)+'"':"")+" "+extra+'>'+label+'</button>';
  const badge=value=>'<span class="badge '+String(value).toLowerCase().replace(/[^a-z0-9]+/g,"-")+'">'+e(value)+'</span>';
  const pair=(name,value)=>'<div class="detail-pair"><span>'+e(name)+'</span><strong>'+e(value??"—")+'</strong></div>';
  const panel=(name,body)=>'<section class="panel"><h2>'+e(name)+'</h2>'+body+'</section>';
@@ -72,8 +72,104 @@ return function(d,s,c){
    pharmacy,billing:billingPage,inpatients};
   return (screens[s.page]||overview)();
  }
- function patientDetail(){return empty("Patient","Select a record.");}
- function encounterDetail(){return empty("Encounter","Select a record.");}
+
+ function patientDetail(){
+  const p=patient(s.id);if(!p)return empty("Patient missing","Choose an existing patient.");
+  const encounters=d.encounters.filter(v=>v.patientId===p.id);
+  const openVisit=encounters.find(v=>!v.dischargedAt);
+  const inpatient=d.inpatients.find(v=>v.patientId===p.id&&v.status==="Admitted");
+  const insurance=p.paymentType==="Cash"?'<p class="muted">Cash patient. No insurance coverage is required.</p>':
+   pair("Provider",p.insurance.provider)+pair("Demo member",p.insurance.member)+
+   pair("Eligibility",p.insurance.status)+
+   (["reception","billing"].includes(s.role)?btn("Check sample insurance","verify",p.id,"outline full"):"")+
+   '<p class="muted">No real insurer is queried.</p>';
+  return title(p.name,p.id+" · "+p.age+" years · "+p.sex)+
+   '<div class="columns">'+panel("Patient profile",pair("ID",p.id)+pair("Phone",p.phone)+
+     pair("Payment type",p.paymentType)+pair("Current OPD",openVisit?.id||"None"))+
+    panel("Insurance & eligibility",insurance)+'</div>'+
+   (inpatient?panel("Admission",pair("Ward",inpatient.ward)+pair("Bed",inpatient.bed)+
+    pair("Admitted",inpatient.admittedAt)+'<p class="muted">Read-only inpatient census.</p>'):"")+
+   panel("OPD history",encounters.map(encounterRow).join("")||empty("No encounters","An OPD visit may be started for this patient."))+
+   (is("reception")&&!openVisit&&!inpatient?btn("＋ Start OPD visit","start-visit",p.id,"primary"):"");
+ }
+
+
+ function encounterDetail(){
+  const v=visit(s.id);if(!v)return empty("Encounter missing","Choose another visit.");
+  const p=person(v),b=bill(v),tab=s.encTab||"overview";
+  let content="";
+  if(tab==="overview"){
+   const info=panel("Encounter",pair("Reference",v.id)+pair("Patient",p.name)+pair("Date",v.date)+
+     pair("Stage",state(v))+pair("Priority",v.triage?.priority||"Pending"));
+   const cash=panel("Financial summary",pair("Gross charges",k(b.total))+pair("Insurance",k(b.insurance))+
+     pair("Patient share",k(b.patientShare))+pair("Payments",k(b.paid))+pair("Outstanding",k(b.balance)));
+   let actions='<p class="muted">All departments use the same encounter record.</p>';
+   if(is("nurse")&&!v.triage)actions+=btn("Record triage","triage",v.id,"primary");
+   if(is("doctor")&&v.triage&&!v.dischargedAt)actions+=btn("Save consultation","consult",v.id,"outline");
+   if(is("billing")&&b.balance>0&&!v.dischargedAt)actions+=btn("Record payment","pay",v.id,"primary");
+   if(is("doctor")&&c.canDischarge(d,v))actions+=btn("Complete discharge","discharge",v.id,"primary");
+   if(is("doctor")&&v.consultation&&!v.dischargedAt&&!c.canDischarge(d,v))
+     actions+='<p class="muted">Discharge requires reported tests, fulfilled prescriptions and a cleared balance.</p>';
+   content='<div class="columns">'+info+cash+'</div>'+panel("Encounter actions",actions);
+  }else if(tab==="clinical"){
+   let vitals='<p class="muted">Triage has not been recorded.</p>';
+   if(v.triage)vitals='<div class="details-grid">'+pair("Temperature",v.triage.temperature+" °C")+
+     pair("Pulse",v.triage.pulse+" bpm")+pair("Blood pressure",v.triage.systolic+"/"+v.triage.diastolic)+
+     pair("SpO₂",v.triage.spo2+"%")+pair("Priority",v.triage.priority)+'</div>';
+   if(is("nurse")&&!v.triage)vitals+=btn("Record triage","triage",v.id,"primary");
+   let clinical=v.consultation?'<p class="note">'+e(v.consultation.note)+'</p>':
+     '<p class="muted">No doctor consultation yet.</p>';
+   if(is("doctor")&&v.triage&&!v.dischargedAt)clinical+=btn("Save consultation","consult",v.id,"primary");
+   content=panel("Nursing triage",vitals)+panel("Doctor consultation",clinical);
+  }else if(tab==="orders"){
+   let tests="";
+   for(const o of v.orders){
+    tests+='<div class="task-row"><div><b>'+e(o.label)+'</b><small>'+e(o.department)+" · "+k(o.amount)+'</small>'+
+     (o.result?'<p class="note">'+e(o.result)+'</p>':"")+'</div>'+badge(o.status);
+    if(is("diagnostics")&&o.status==="Pending")
+      tests+=btn("Report result","report",v.id,"outline compact",'data-order-id="'+e(o.id)+'"');
+    tests+='</div>';
+   }
+   let medicines="";
+   for(const rx of v.prescriptions){
+    medicines+='<div class="task-row"><div><b>'+e(rx.label)+'</b><small>'+k(rx.amount)+'</small></div>'+badge(rx.status);
+    if(is("pharmacy")&&rx.status==="Pending")
+      medicines+=btn("Mark dispensed","dispense",v.id,"outline compact",'data-rx-id="'+e(rx.id)+'"');
+    medicines+='</div>';
+   }
+   content=panel("Lab & imaging requests",tests||empty("No orders","No diagnostic requests yet."))+
+    panel("Pharmacy prescriptions",medicines||empty("No prescriptions","Nothing prescribed yet."));
+   if(is("doctor")&&v.consultation&&!v.dischargedAt)
+    content+='<div class="button-row">'+btn("＋ Diagnostic order","order",v.id,"primary")+
+      btn("＋ Prescription","prescribe",v.id,"outline")+'</div>';
+  }else if(tab==="billing"){
+   let charges=b.lines.map(x=>pair(x.label,k(x.amount))).join("");
+   charges+='<div class="charge-summary">'+pair("Gross",k(b.total))+pair("Insurance",k(b.insurance))+
+     pair("Patient payable",k(b.patientShare))+pair("Received",k(b.paid))+pair("Remaining",k(b.balance))+'</div>';
+   content=panel("Encounter charges",charges);
+   if(p.paymentType==="Insured"){
+    content+=panel("Insurance",pair("Provider",p.insurance.provider)+pair("Eligibility",p.insurance.status)+
+     (["reception","billing"].includes(s.role)?btn("Verify coverage","verify",p.id,"outline full"):""));
+   }
+   let payments=v.payments.map(x=>'<div class="task-row"><div><b>'+k(x.amount)+'</b><small>'+
+     e(x.reference)+'</small></div>'+badge(x.method)+'</div>').join("");
+   content+=panel("Payment history",payments||empty("No payments","No simulated payments yet."));
+   if(is("billing")&&b.balance>0&&!v.dischargedAt)content+=btn("Record sample payment","pay",v.id,"primary");
+  }else if(tab==="timeline"){
+   let events=v.timeline.slice().reverse().map(x=>'<div class="timeline"><span class="dot"></span><div><b>'+
+     e(x.text)+'</b><small>'+e(x.role)+' · '+e(x.date)+'</small></div></div>').join("");
+   content=panel("Encounter timeline",events||empty("No events","The history will appear here."));
+  }
+  const tabs=[["overview","Overview"],["clinical","Clinical"],["orders","Orders"],
+    ["billing","Billing"],["timeline","Timeline"]];
+  const navigation='<div class="tabs">'+tabs.map(x=>'<button data-enc-tab="'+x[0]+'" class="'+
+   (tab===x[0]?"selected":"")+'">'+x[1]+'</button>').join("")+'</div>';
+  return '<div class="breadcrumb"><button class="text-link" data-action="navigate" data-id="opd">‹ OPD queue</button></div>'+
+   '<div class="enc-heading">'+title(p.name,v.id+" · "+v.date)+
+    '<div class="button-row">'+payer(p)+badge(state(v))+buttonOpen("patient",p.id,"Patient profile")+'</div></div>'+
+    navigation+content;
+ }
+
  function diagnostics(){return empty("Diagnostics","Nothing to show.");}
  function pharmacy(){return empty("Pharmacy","Nothing to show.");}
  function billingPage(){return empty("Billing","Nothing to show.");}
