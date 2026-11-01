@@ -72,20 +72,21 @@ test("invalid collection method and destination cannot alter rent balances",()=>
  a.throws(()=>c.settle(d,"INV-2026-1101",{...pay(),destination:"Unknown"}),/existing demo receiving account/);
  a.equal(JSON.stringify(d),previous);
 });
-test("vacant unit lease creates tenant and optional first rent invoice",()=>{
+test("vacant unit lease assigns Alex and optionally creates a rent invoice",()=>{
  const c=core(),d=c.seed();
- const l=c.createLease(d,{unitId:"U-103",name:"Linda Wanjiku",phone:"0722000066",start:"2026-11-01",rent:30000,serviceCharge:2000,createInvoice:"yes"});
+ const l=c.createLease(d,{unitId:"U-103",tenantId:"T-101",start:"2026-11-01",rent:30000,serviceCharge:2000,createInvoice:"yes"});
  a.equal(l.invoice.total,32000);a.equal(c.occupied(d),6);
+ a.equal(l.tenant.id,"T-101");a.equal(l.invoice.tenantId,"T-101");a.equal(d.tenants.length,5);
  a.throws(()=>c.createLease(d,{unitId:"U-103"}),/vacant unit/);
 });
 test("lease may skip invoice and may use zero service charge",()=>{
  const c=core(),d=c.seed();
- const l=c.createLease(d,{unitId:"U-103",name:"Linda",phone:"0722000066",start:"2026-11-01",rent:30000,serviceCharge:0,createInvoice:"no"});
+ const l=c.createLease(d,{unitId:"U-103",tenantId:"T-101",start:"2026-11-01",rent:30000,serviceCharge:0,createInvoice:"no"});
  a.equal(l.invoice,null);a.equal(d.invoices.length,10);
 });
-test("invalid lease phone cannot create partial records",()=>{
+test("invalid lease tenant cannot create partial records",()=>{
  const c=core(),d=c.seed(),snapshot=JSON.stringify(d);
- a.throws(()=>c.createLease(d,{unitId:"U-103",name:"Linda",phone:"123",start:"2026-11-01",rent:30000,serviceCharge:0}),/10-digit/);
+ a.throws(()=>c.createLease(d,{unitId:"U-103",tenantId:"T-102",start:"2026-11-01",rent:30000,serviceCharge:0}),/Only Alex/);
  a.equal(JSON.stringify(d),snapshot);
 });
 test("new expense changes owner net but not rent issued or collected",()=>{
@@ -147,11 +148,13 @@ test("payment reference is safely escaped",()=>{
  h.submit("payment","INV-2026-1101",pay(1000,"<svg onload=alert(1)>"));
  a.doesNotMatch(h.root.innerHTML,/<svg onload=/);a.match(h.root.innerHTML,/&lt;svg onload=/);
 });
-test("vacant unit create lease form links new tenant and generates first invoice",()=>{
+test("vacant unit lease form fixes tenant to Alex and generates first invoice",()=>{
  const h=browser();h.tab("portfolio");h.open("property","P-101");h.open("unit","U-103");
  h.action("new-lease","U-103");a.match(h.root.innerHTML,/Create lease/);
- h.submit("lease","U-103",{unitId:"U-103",name:"Linda Wanjiku",phone:"0722000066",start:"2026-11-01",rent:30000,serviceCharge:2000,createInvoice:"yes"});
- a.match(h.root.innerHTML,/Lease details/);a.equal(h.data().tenants.length,6);a.equal(h.data().invoices.length,11);
+ a.match(h.root.innerHTML,/Alex Wanjiru/);a.match(h.root.innerHTML,/Read only/);
+ a.doesNotMatch(h.root.innerHTML,/name="name"|name="phone"/);
+ h.submit("lease","U-103",{unitId:"U-103",tenantId:"T-101",start:"2026-11-01",rent:30000,serviceCharge:2000,createInvoice:"yes"});
+ a.match(h.root.innerHTML,/Lease details/);a.equal(h.data().tenants.length,5);a.equal(h.data().invoices.length,11);
 });
 test("expense records appear in owner accounting after modification",()=>{
  const h=browser();h.action("drawer");h.drawer("expenses");h.action("new-expense");
@@ -247,4 +250,72 @@ test("Manual Property Manager receipt immediately changes Tenant balance and his
  h.open("receipt",h.data().payments[0].id);a.match(h.root.innerHTML,/KES 10,000/);
  h.action("go-invoice","INV-2026-1101");a.match(h.root.innerHTML,/KES 16,000/);
  a.doesNotMatch(h.root.innerHTML,/Record manual payment/);
+});
+
+test("Alex sees Pay now on outstanding invoices, with amount and Safaricom prefilled",()=>{
+ const h=browser();h.role("tenant");
+ a.match(h.root.innerHTML,/data-action="pay-now"/);
+ h.open("invoice","INV-2026-1101");a.match(h.root.innerHTML,/Pay now/);
+ h.action("pay-now","INV-2026-1101");
+ a.match(h.root.innerHTML,/Pay rent with M-Pesa/);
+ a.match(h.root.innerHTML,/value="0722000011"/);
+ a.match(h.root.innerHTML,/name="amount"[^>]*value="26000"/);
+ a.match(h.root.innerHTML,/no real STK request or money transfer/);
+});
+test("Partial tenant checkout creates receipt and synchronizes manager's collection ledger",()=>{
+ const h=browser(),before=core().metrics(h.data());h.role("tenant");
+ h.action("pay-now","INV-2026-1101");
+ h.submit("checkout","INV-2026-1101",{amount:"10000",phone:"0722000011"});
+ a.match(h.root.innerHTML,/Payment received/);
+ a.equal(core().balance(item(h.data().invoices,"INV-2026-1101")),16000);
+ a.equal(core().metrics(h.data()).outstanding,before.outstanding-10000);
+ h.role("manager");h.action("drawer");h.drawer("payments");
+ a.match(h.root.innerHTML,/SIM-MPESA-3001/);
+});
+test("Full tenant payment settles invoice and removes Pay now",()=>{
+ const h=browser();h.role("tenant");h.action("pay-now","INV-2026-1101");
+ h.submit("checkout","INV-2026-1101",{amount:"26000",phone:"0722000011"});
+ a.equal(core().balance(item(h.data().invoices,"INV-2026-1101")),0);
+ h.action("go-invoice","INV-2026-1101");
+ a.match(h.root.innerHTML,/Invoice fully paid/);
+ a.doesNotMatch(h.root.innerHTML,/data-action="pay-now"/);
+});
+test("Invalid checkout amounts and phones do not change data",()=>{
+ const h=browser(),before=h.saved();h.role("tenant");h.action("pay-now","INV-2026-1101");
+ for(const [amount,phone] of [["0","0722000011"],["1.5","0722000011"],["30000","0722000011"],["2000","072200001"]]){
+  h.submit("checkout","INV-2026-1101",{amount,phone});
+  a.equal(h.saved(),before);
+ }
+});
+test("Tenant checkout refuses another tenant's invoice and is idempotent",()=>{
+ const c=core(),d=c.seed(),before=JSON.stringify(d);
+ a.throws(()=>c.payNow(d,"T-101","INV-2026-1102",{amount:"1000",phone:"0722000011",requestId:"demo-checkout-foreign-123"}),/does not belong/);
+ a.equal(JSON.stringify(d),before);
+ const requestId="demo-checkout-alex-123";
+ const values={amount:"5000",phone:"0722000011",requestId};
+ const p=c.payNow(d,"T-101","INV-2026-1101",values),snap=JSON.stringify(d);
+ a.equal(c.payNow(d,"T-101","INV-2026-1101",values).id,p.id);
+ a.equal(JSON.stringify(d),snap);
+});
+test("New lease reuses Alex, displays both leases and new invoice is payable in Tenant",()=>{
+ const h=browser();h.action("new-lease");
+ a.match(h.root.innerHTML,/Alex Wanjiru/);
+ a.doesNotMatch(h.root.innerHTML,/name="name"|name="phone"/);
+ h.submit("lease","",{unitId:"U-103",tenantId:"T-101",start:"2026-11-01",rent:30000,serviceCharge:2000,createInvoice:"yes"});
+ const l=h.data().leases[0],i=h.data().invoices[0];
+ a.equal(h.data().tenants.length,5);a.equal(l.tenantId,"T-101");a.equal(i.tenantId,"T-101");
+ h.role("tenant");a.match(h.root.innerHTML,new RegExp(i.reference));
+ h.tab("tenantLease");a.match(h.root.innerHTML,/2 active leases/);
+ a.match(h.root.innerHTML,/A-101/);a.match(h.root.innerHTML,/A-103/);
+ h.action("open-tenant-lease",l.id);a.match(h.root.innerHTML,/Lease details/);
+ h.open("invoice",i.id);h.action("pay-now",i.id);
+ h.submit("checkout",i.id,{amount:"32000",phone:"0722000011"});
+ a.equal(core().balance(item(h.data().invoices,i.id)),0);
+});
+test("Lease created without first invoice still appears in Alex's list",()=>{
+ const h=browser();h.action("new-lease");
+ h.submit("lease","",{unitId:"U-103",tenantId:"T-101",start:"2026-11-01",rent:30000,serviceCharge:0,createInvoice:"no"});
+ a.equal(h.data().invoices.length,10);const l=h.data().leases[0];
+ h.role("tenant");h.tab("tenantLease");
+ a.match(h.root.innerHTML,new RegExp(l.id));a.match(h.root.innerHTML,/A-103/);
 });

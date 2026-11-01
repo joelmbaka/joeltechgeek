@@ -26,7 +26,7 @@ const areas = [
   {
     name: 'Leases',
     icon: FileText,
-    detail: 'Existing tenant leases, unit rent and service charges, and related invoices. A vacant unit is available for a new lease and optional first invoice.',
+    detail: 'Existing tenant leases, unit rent and service charges, and related invoices. A vacant unit is available for a new lease assigned to Alex and an optional first invoice visible in his account.',
   },
   {
     name: 'Tenants',
@@ -101,7 +101,7 @@ export default function RentalManagementDemoPage() {
           Explore the mobile workspace
         </h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Switch inside the phone between Property Manager and Tenant. Managers use Rent, Leases, Tenants and Portfolio; tenants use My rent, Payments and My lease. There is no separate Finance role or forced walkthrough.
+          Switch inside the phone between Property Manager and Tenant. Managers use Rent, Leases, Tenants and Portfolio; tenants use My rent, Payments and My lease, including Pay now for open invoices. There is no separate Finance role or forced walkthrough.
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           {areas.map(({ name, icon: Icon, detail }) => (
@@ -119,8 +119,7 @@ export default function RentalManagementDemoPage() {
           <WalletCards className="h-7 w-7 text-palm-green" aria-hidden />
           <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-white">Payments &amp; receipts</h2>
           <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">
-            Record rent already received by bank, cash or external M-Pesa, with partial payments,
-            updated invoice balances, a fictional receipt and carried-forward tenant credit for overpayments.
+            Property Managers record externally received rent; tenants can use Pay now to simulate an M-Pesa payment. Both support partial or full settlement and update fictional receipts and balances immediately.
           </p>
         </article>
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
