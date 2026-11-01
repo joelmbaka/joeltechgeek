@@ -76,3 +76,39 @@ The repeatable tests use Node's built-in runner and no additional dependencies. 
 ### Follow-up: stockkeeper and partial receiving
 
 The Stockkeeper overview no longer displays a Point of Sale shortcut or an inaccessible Sales shortcut. The Cashier overview does not offer an inaccessible Purchasing shortcut. A purchase order can receive multiple partial deliveries; enter the quantity received now for each product (0 or blank for missing items). The number is limited to the outstanding ordered balance. A draft does not affect stock; receipts update quantities and a receipt history. Old browser-local orders are normalized without duplicating existing stock.
+
+
+## Construction & site operations concept (Nov 1, 2026)
+
+- /demos/construction — public indexable SiteFlow overview and suggested walkthrough
+- /demos/construction/demo.html — full-screen concept app, noindex and nofollow
+- /demos/construction/core.js — fictional project data, validated transitions and cost calculations
+- /demos/construction/app.js — simulated role-based interfaces and browser-local state
+- /demos/construction/styles.css — responsive theme and mobile role navigation
+- /demos/construction/favicon.svg — scoped concept icon
+
+SiteFlow Construction is not connected to the separate commercial Milliol Construction Manager project and includes no proprietary or production data from any existing construction customer. Amani Heights, Horizon Buildworks, budgets, staff, suppliers, and stock are fictional.
+
+### Simulated role workflows
+- Supervisor: record material requests against tasks and enter increasing progress percentages with notes.
+- Project Manager: approve or reject pending requests, draft material purchase orders, review reports.
+- Storekeeper: issue no more than approved quantities and stock on hand; receive partial supplier deliveries and review stock movements.
+- Accountant: record fictional direct site expenses and review sample costs and reports.
+
+All transitions mutate only this browser's localStorage. Role switching is **not** authenticated permission control. Neither payment processing, statutory compliance, messaging, real cost accounting, supplier ordering nor real construction inspections occur.
+
+Budget reporting intentionally counts **issued material consumption at the unit cost when issued**, plus explicitly entered direct site expenses. It does not double count inventory purchases. Figures are illustrative and are not official finance statements.
+
+### Construction demo acceptance
+1. Visit /demos and verify Fire Safety, Retail and SiteFlow each have separate cards. Open /demos/construction and launch the full-screen demo.
+2. Supervisor: create a material request for 12 Cement 50 kg bags against Ground floor slab, with a note. Confirm Pending and no stock deduction.
+3. Manager: approve the request, then confirm the request is Approved without stock deduction.
+4. Storekeeper: issue 5 bags. Confirm Partially issued; stock decreases by 5; try issuing more than the approved remainder, which must be blocked. Then issue the remaining 7.
+5. Supervisor: record updated progress on Ground floor slab. Confirm reports and activity update.
+6. Manager: create a supplier order for 30 cement bags. Confirm a Draft does not affect stock.
+7. Storekeeper: receive 12 bags. Confirm Partially received; enter 19 for the second delivery (must fail), then 18 to finish.
+8. Accountant: record KES 4,200 in Site logistics. Confirm expenses and project direct-cost report increase.
+9. Verify no cross-role navigation links to inaccessible pages, and test return navigation, refresh persistence and Reset demo.
+10. Check at mobile/tablet/desktop widths (375, 768, 1024, 1440 px), keyboard controls, sitemap and noindex header on raw HTML.
+
+No changes to the Fire Safety or Retail application assets are intended in this construction addition.
