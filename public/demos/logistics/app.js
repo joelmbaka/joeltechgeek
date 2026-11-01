@@ -6,7 +6,7 @@
  const place=id=>core.loc(id)?.name||"Unknown location";
  let data;try{data=JSON.parse(localStorage.getItem(KEY)||"null");}catch(ex){}
  if(!core.validate(data))data=core.seed();
- let role="dispatcher",tab="board",screen=null,selected=null,mode="new",drawer=false,search="",filter="Board",toast="";
+ let role="dispatcher",tab="board",screen=null,selected=null,mode="new",formOpen=false,drawer=false,search="",filter="Board",toast="";
  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(ex){toast="Browser storage unavailable."}};
  const own=l=>l.driver?.id===data.driver.id,active=()=>core.active(data);
  const btn=(label,command,id,cls="")=>'<button type="button" class="button '+cls+'" data-action="'+command+'" '+(id?'data-id="'+esc(id)+'"':"")+'>'+label+'</button>';
@@ -92,7 +92,7 @@
  const opts=(selectedValue)=>core.PORTS.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===selectedValue?"selected":"")+'>'+esc(p.name+" ("+p.region+")")+'</option>').join("");
  function create(){
   const editing=mode==="edit",l=editing?core.find(data,selected):null;
-  return '<div class="form-view"><h1>'+(editing?"Edit Load":"Create Load")+'</h1><form id="cargo-form" data-kind="'+mode+'">'+
+  return '<div class="form-view"><form id="cargo-form" data-kind="'+mode+'">'+
    '<div class="form-fields">'+
    '<label>📏 Container feet<select name="containerFeet"><option value="20" '+((l?.containerFeet||40)===20?"selected":"")+'>20 ft</option><option value="40" '+((l?.containerFeet||40)===40?"selected":"")+'>40 ft</option></select></label>'+
    '<label>🔢 Container number<input required minlength="4" maxlength="50" name="containerNo" value="'+esc(l?.containerNo||"DEMO-CONT-"+data.nextId)+'"/></label>'+
@@ -106,6 +106,15 @@
    '<label>Cargo description<input name="cargo" required minlength="4" maxlength="130" value="'+esc(l?.cargo||"40-ft shipping container · general cargo")+'"/></label></div>'+
    '<button type="submit" class="button primary wide">'+(editing?"Save Changes":"Create Load")+'</button></form>'+
    '<p class="hint">Sample data only. Locations and consignees are fictional selections.</p></div>';
+ }
+ function cargoFormModal(){
+  if(!formOpen)return "";
+  return '<div class="cargo-modal-overlay">'+
+   '<button type="button" class="cargo-modal-backdrop" data-action="modal-close" aria-label="Close form"></button>'+
+   '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="cargo-modal-title">'+
+   '<header class="cargo-modal-header"><h2 id="cargo-modal-title">'+(mode==="edit"?"Edit Load":"Post a load")+'</h2>'+
+   '<button type="button" class="cargo-modal-close" data-action="modal-close" aria-label="Close form">×</button></header>'+
+   '<div class="cargo-modal-body">'+create()+'</div></section></div>';
  }
  const drivers=()=>[data.driver,...data.loads.filter(l=>l.driver).map(l=>({id:l.driver.id,name:l.driver.name,truckPlate:l.driver.truckPlate}))].filter((a,i,all)=>all.findIndex(b=>b.id===a.id)===i);
  function directory(){
@@ -129,7 +138,7 @@
  }
  function toolbar(){
   const nested=!!screen;
-  const label=screen==="create"?(mode==="edit"?"Edit Load":"Create Load"):screen==="detail"?"Load":
+  const label=screen==="detail"?"Load":
    screen?({fleet:"Fleet",drivers:"Drivers",finance:"Finance",locations:"Locations",consignees:"Consignees",settings:"Settings",profile:"My Profile"}[screen]):
     tab==="board"?(role==="dispatcher"?"Grace.Dispatcher":"Kevin Mwangi"):tab==="active"?"Active":"History";
   return '<header class="app-header"><button type="button" aria-label="'+(nested?"Go back":"Open menu")+'" class="header-btn" data-action="'+(nested?"back":"menu")+'">'+(nested?"‹":"☰")+'</button>'+
@@ -153,17 +162,17 @@
  function render(){
   mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app built around dispatching, reservations and driver trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
    '<div class="device"><div class="status-bar"><span>9:41</span><span>▰ ▱ ▰</span></div>'+toolbar()+
-   '<main class="app-content">'+(screen==="detail"?detail():screen==="create"?create():screen?directory():board())+'</main>'+tabs()+
+   '<main class="app-content">'+(screen==="detail"?detail():screen?directory():board())+'</main>'+tabs()+
    '<div class="gesture"><span></span></div></div>'+
    '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · No live GPS, uploads or payments</small></aside></div>'+
-   (role==="dispatcher"?sideMenu():"")+
+   (role==="dispatcher"?sideMenu():"")+cargoFormModal()+
    (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
  }
  const done=(callback,msg)=>{try{callback();save();toast=msg;}catch(ex){toast=ex?.message||"Unable to complete action.";}render();};
- const back=()=>{screen=screen==="create"&&mode==="edit"?"detail":null;toast="";render();};
+ const back=()=>{if(formOpen){formOpen=false;}else{screen=null;}toast="";render();};
  document.addEventListener("change",event=>{
   if(!mount.contains(event.target))return;
-  if(event.target.id==="demo-role"){role=event.target.value==="driver"?"driver":"dispatcher";screen=null;tab="board";drawer=false;search="";toast="";render();}
+  if(event.target.id==="demo-role"){role=event.target.value==="driver"?"driver":"dispatcher";screen=null;formOpen=false;tab="board";drawer=false;search="";toast="";render();}
   if(event.target.id==="board-filter"){filter=event.target.value;render();}
  });
  document.addEventListener("input",event=>{
@@ -182,10 +191,11 @@
   if(a==="menu"){if(role==="dispatcher"){drawer=!drawer;}else{screen="profile";}render();return;}
   if(a==="menu-close"){drawer=false;render();return;}
   if(a==="back"){back();return;}
+  if(a==="modal-close"){formOpen=false;toast="";render();return;}
   if(a==="dismiss"){toast="";render();return;}
-  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data?"))return;data=core.seed();save();screen=null;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
-  if(a==="new"&&role==="dispatcher"){screen="create";mode="new";selected=null;render();return;}
-  if(a==="edit"&&role==="dispatcher"){screen="create";mode="edit";selected=id;render();return;}
+  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data?"))return;data=core.seed();save();screen=null;formOpen=false;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
+  if(a==="new"&&role==="dispatcher"){formOpen=true;mode="new";selected=null;render();return;}
+  if(a==="edit"&&role==="dispatcher"){formOpen=true;mode="edit";selected=id;render();return;}
   if(a==="delete"&&role==="dispatcher"){
    if(!window.confirm("Delete open load "+id+"?"))return;
    done(()=>{core.remove(data,id);screen=null;},"Load removed.");return;
@@ -206,9 +216,9 @@
   const form=event.target;if(form.id!=="cargo-form"||!mount.contains(form))return;
   event.preventDefault();if(role!=="dispatcher")return;
   const vals=Object.fromEntries(new FormData(form).entries());
-  if(form.dataset.kind==="new")done(()=>{const l=core.post(data,vals);selected=l.id;screen="detail";},"Load posted.");
-  if(form.dataset.kind==="edit")done(()=>{core.edit(data,selected,vals);screen="detail";},"Load updated.");
+  if(form.dataset.kind==="new")done(()=>{const l=core.post(data,vals);selected=l.id;screen="detail";formOpen=false;},"Load posted.");
+  if(form.dataset.kind==="edit")done(()=>{core.edit(data,selected,vals);screen="detail";formOpen=false;},"Load updated.");
  });
- document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(drawer){drawer=false;render();}else if(screen)back();}});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(formOpen){formOpen=false;render();}else if(drawer){drawer=false;render();}else if(screen)back();}});
  render();
 })(cargoCore);
