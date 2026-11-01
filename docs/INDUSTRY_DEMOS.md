@@ -25,3 +25,38 @@ JoelTechGeek's portfolio, case-study data, other products, and RentPayor's separ
 8. Reset restores seed data. Test 375 / 768 / 1024 / 1440px layouts, keyboard interactions, canonical URLs, and noindex on the raw demo.
 
 No backend, database, real authentication, messages, real compliance records, or server sessions. Do not put genuine personal or operational information in a public browser-local demo.
+
+
+## Retail & wholesale concept (added Nov 1, 2026)
+
+- /demos/retail — indexable product walkthrough
+- /demos/retail/demo.html — full-screen static browser application, noindex
+- /demos/retail/styles.css — responsive JoelTechGeek-aligned palette, POS and receipt print styles
+- /demos/retail/retail-core.js — pure sales, purchasing and inventory domain model, initial fictional data
+- /demos/retail/retail-app.js — client-side render, navigation and event handlers
+- /demos/retail/favicon.svg — scoped icon
+
+GreenBasket General Store, its products, suppliers and transactions are fictional. The simulated Owner, Cashier, and Stockkeeper selectors change visible navigation only; they are NOT authentication or permission controls. Payment methods are mock Cash / M-Pesa and never initiate payment requests. Data lives only in browser localStorage under a different key from the fire-safety demo. Neither a backend nor a real payment provider is involved.
+
+### Core logic checked during implementation
+- Creating and receiving a draft supplier order increases stock exactly once.
+- A received order cannot be received again.
+- A cash checkout calculates change and decrements stock.
+- Overselling and negative manual stock adjustments are rejected before mutation.
+- Duplicate lines in a supplier order are rejected.
+- Basic product identifiers and positive quantity/cost values are validated.
+
+### Manual acceptance sequence
+1. Open /demos. Confirm both Fire Safety Ops and GreenBasket Retail have separate cards and links.
+2. Open /demos/retail, launch raw demo, and return via Back to JoelTechGeek.
+3. As Alex (Owner), go to Purchasing and order 20 Cooking oil 1L from Citywide Distributors. Save a draft. Confirm stock has NOT increased yet.
+4. Receive the order. Confirm stock rises from 4 to 24 and the purchase is marked Received; retry must be blocked.
+5. Switch to Miriam (Cashier), add 5 Cooking oil 1L units in POS, then pay KES 1,500 via simulated Cash. Confirm KES 75 change, quantity becomes 19, and sample receipt can be printed.
+6. Return as owner to Reports. Confirm revenue and estimated gross profit reflect this sale.
+7. Try to sell more units than remain; checkout/cart should prevent overselling.
+8. As Daniel (Stockkeeper), review inventory and movements; create a fictional product and perform a reasoned stock adjustment.
+9. Test simulated M-Pesa mode; confirm no real M-Pesa prompt or network payment.
+10. Refresh to confirm browser-only persistence; reset to restore initial data.
+11. Test 375, 768, 1024, 1440px viewports, keyboard focus, sample receipt printing, return navigation and noindex on raw demo.
+
+Do not represent this fictional demo as a commercial deployment, real accounting report, or proof of payment. Preserve fire safety unchanged while reviewing retail.
