@@ -8,7 +8,7 @@ const ui={role:"reception",page:"overview",detail:null,id:null,search:"",queue:"
  encTab:"overview",modal:null,menu:false,message:""};
 const staff=core.ROLES;
 const allowed={
- "start-visit":["reception"],verify:["reception","billing"],triage:["nurse"],
+ "start-visit":["reception"],visit:["reception"],verify:["reception","billing"],triage:["nurse"],
  consult:["doctor"],order:["doctor"],prescribe:["doctor"],report:["diagnostics"],
  dispense:["pharmacy"],pay:["billing"],discharge:["doctor"]
 };
@@ -89,6 +89,7 @@ document.addEventListener("click",ev=>{
   data=core.seed();saves();ui.page="overview";ui.detail=null;ui.id=null;ui.menu=false;
   ui.modal=null;ui.queue="open";ui.search="";ui.encTab="overview";ui.message="Sample records restored.";render();return;
  }
+ if(action==="start-visit"){if(can(action))openModal("visit",id);return;}
  if(action==="dispense"){
   if(!can(action))return;
   mutate(()=>core.dispense(data,ui.role,id,rxId));return;
