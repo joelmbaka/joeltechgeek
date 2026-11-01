@@ -216,7 +216,7 @@ export default function DemosPage() {
             <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
               <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
                 <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
-                  <div className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">School Fee Management workflow</span></div>
+                  <div className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Parent & Finance · School Fee Management</span></div>
                   <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Concept preview</span>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3">

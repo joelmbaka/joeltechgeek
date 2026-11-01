@@ -151,7 +151,7 @@ The remaining industry demos are intentionally small and self-contained. Existin
 | Industry | Public demo title | URL | Scope |
 |---|---|---|---|
 | Logistics | Cargo Dispatch | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
-| School finance | School Fee Management | /demos/education | School term fee invoice → simulated parent payment → finance reconciliation, partials and student credit |
+| School finance | School Fee Management | /demos/education | Three linked children, pre-issued grade-term invoices with add-ons → sample parent checkout → immediately updated finance ledger and balances |
 | Rent | Rental Management | /demos/property | Lease-based rent invoice → externally received payment record → allocation → owner statement |
 | Healthcare | Clinic Operations | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
 
@@ -207,3 +207,37 @@ The Cargo demo uses a **neutral brand** and a distinct muted teal theme, but its
 All content remains fictional and browser-local; photo/document displays are illustrative records, not uploaded files, and truck locations, mileage and payments are not connected to live services. No notifications are implemented.
 
 QA: `npm run test:cargo-demo` covers the rebuilt full mobile navigation and lifecycle; `npm run build` and manual viewport/browser review remain appropriate before shipping.
+
+
+## School finance demo — SchoolPey workflow alignment (November 1, 2026)
+
+The School Fee Management demo is a fictional, standalone browser-local concept. It is not a connected SchoolPey account, does not access SchoolPey backend or production data, and never creates a real STK request or handles live money. SchoolPey's current parent mobile tabs, invoice detail, payment checkpoint and staff finance pages were used as references. No SchoolPey branding appears on public demo pages.
+
+### Scope (existing school and student fee configuration)
+
+- One fictional existing school: Cedar Grove Academy. Academic year 2026, Term 3, with immutable grade-specific example base fee plans for Grade 2, Grade 5 and Grade 8, plus read-only lunch, transport and examination support add-on options.
+- Six enrolled fictional students across those three grades. One sample parent Mary Otieno is linked to exactly three: Amani (Grade 2), Brian (Grade 5), Zuri (Grade 8). Other students are visible only to the Finance view.
+- Nine pre-issued Term 2 and Term 3 invoices; sample paid, partially paid, overdue and unpaid states, plus five existing reconciled sample payment receipts. Issued invoice line snapshots contain base fee and add-on categories, and amounts do not change after payment.
+
+### Only two role workspaces
+
+- Mary (Parent), mobile tabs Fees / Payments / Children. Fees supports Open / Paid / All filters. Child view exposes financial history. Invoice detail shows remaining amount, issue/due dates, original base/add-on line items, paid amount, and payment history.
+- David (Finance), mobile tabs Overview / Invoices / Payments / Students. Overview computes issued, collected, outstanding and settled totals from the same shared ledger; grade structures and add-ons display read-only. Invoices include search, status filters, per-student balances, and invoice details; Payments contains receipts; Students lists six learners and school balances.
+- Admin, school/org creation, fee-plan creation, grade management, and billing-generation screens are deliberately absent.
+
+### Sample checkout behavior
+
+Parent selects an issued, outstanding invoice and taps Pay with M-Pesa; checkout defaults to the entire current outstanding balance and phone 0722000011, accepting a smaller whole-KES amount. Clicking Confirm sample payment simulates completed provider confirmation + canonical allocation/receipt atomically in browser state. This educational shortcut is **not** the real SchoolPey mobile asynchronous provider callback/reconciliation process.
+
+- Parent can pay only invoices belonging to their three linked children. Finance cannot initiate a parent checkout.
+- Amount is strictly greater than zero, a whole KES number, and no more than current invoice balance. Zero-balance invoices cannot be paid again. A fictional request ID prevents duplicate allocation.
+- Every completed checkout creates one fictional payment, reconciled ledger record and receipt with reference SIM-MPESA-..., immediately increments amount paid and reduces outstanding balance; partial remains open, full becomes Paid.
+- All finance totals, records, and parent fees/payment history are derived from the same local state, persisted in a separate demo localStorage key and resettable.
+- No uploaded files, real M-Pesa STK prompt, bank calls, genuine receipts, credit creation, or live student data.
+
+### Source and checks
+
+- public/demos/education/{core.js,app.js,styles.css,demo.html}; the obsolete public/demos/education/demo.js / shared minimal engine use was removed.
+- tests/school-demo.test.cjs; run npm run test:school-demo.
+- tests/mini-demos.test.cjs now covers the unchanged Rental Management and Clinic Operations demos.
+- Build/visual browser review locally with npm run build / npm run dev before shipping. Other industry apps and demos are untouched.
