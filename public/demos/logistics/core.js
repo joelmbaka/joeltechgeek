@@ -13,6 +13,7 @@ const PORTS=[
  {id:"thika",name:"Thika",region:"Kiambu"}
 ];
 const STATUSES=["Open","Booked","Assigned","Picked up","In transit","Delivered","Complete"];
+const CONSIGNEES=["Harbor Freight Co.","Cedar Imports Ltd.","Nairobi Distribution Hub","Valley Logistics Ltd."];
 const NEXT={"Assigned":"Picked up","Picked up":"In transit","In transit":"Delivered","Delivered":"Complete"};
 const LABELS={pickup:"Pickup photo",delivery:"Delivery note",eir:"Equipment Interchange Receipt (EIR)"};
 const now=()=>new Date().toISOString();
@@ -31,10 +32,16 @@ function fields(d,v,original){
        containerNo=str(v.containerNo,"Container reference",4,50),
        weightTons=num(v.weightTons,"Cargo weight (tonnes)",.5,28),
        driverPay=int(v.driverPay,"Driver pay (KES)",1000,5000000),
-       routeMiles=int(v.routeMiles,"Route miles",1,1500);
+       routeMiles=int(v.routeMiles,"Route miles",1,1500),
+       containerFeet=int(v.containerFeet??40,"Container feet",20,40),
+       returnId=v.returnId||"mombasa-port",
+       consignee=v.consignee||"Harbor Freight Co.";
+ if(![20,40].includes(containerFeet))throw new Error("Container size must be 20 or 40 feet.");
+ if(!loc(returnId))throw new Error("Choose a valid empty return depot.");
+ if(!CONSIGNEES.includes(consignee))throw new Error("Choose a valid consignee.");
  if(d.loads.some(l=>l.id!==original?.id&&l.containerNo.toLowerCase()===containerNo.toLowerCase()))
    throw new Error("This container reference is already assigned to another load.");
- return {originId:from.id,destinationId:to.id,cargo,containerNo,weightTons,driverPay,routeMiles};
+ return {originId:from.id,destinationId:to.id,cargo,containerNo,weightTons,driverPay,routeMiles,containerFeet,returnId,consignee};
 }
 function post(d,v){
  const details=fields(d,v);
@@ -69,6 +76,18 @@ function approve(d,id){
  load.status="Assigned";load.updatedAt=now();
  add(d,"Driver approved",load.id+" assigned to "+load.driver.name,load.id);return load;
 }
+function cancel(d,id){
+ const load=find(d,id);
+ if(!load||load.status!=="Booked"||load.driver?.id!==d.driver.id)throw new Error("Only your pending booking can be cancelled.");
+ load.status="Open";load.driver=null;load.truck=null;load.updatedAt=now();
+ add(d,"Booking cancelled",id+" returned to open loads.",id);return load;
+}
+function decline(d,id){
+ const load=find(d,id);
+ if(!load||load.status!=="Booked")throw new Error("Only a pending booking can be declined.");
+ load.status="Open";load.driver=null;load.truck=null;load.updatedAt=now();
+ add(d,"Reservation declined",id+" returned to the open board.",id);return load;
+}
 function attach(d,id,kind){
  const load=find(d,id);
  if(!load||load.driver?.id!==d.driver.id)throw new Error("Only the assigned driver can attach sample evidence.");
@@ -89,7 +108,7 @@ function progress(d,id,next){
   case "Picked up":truck.miles=8;truck.location=loc(load.originId).name+" · pickup (sample)";break;
   case "In transit":truck.miles=Math.max(truck.miles,Math.round(miles*.42));truck.location="En route to "+loc(load.destinationId).name+" · simulated";break;
   case "Delivered":truck.miles=miles;truck.location=loc(load.destinationId).name+" · delivered (sample)";break;
-  case "Complete":truck.miles=miles*2;truck.location="Mombasa Port · empty container returned (sample)";break;
+  case "Complete":truck.miles=miles*2;truck.location=loc(load.returnId||"mombasa-port").name+" · empty container returned (sample)";break;
  }
  truck.updatedAt=now();load.truck=truck;load.status=next;load.updatedAt=now();
  add(d,"Load "+next.toLowerCase(),id+" · "+truck.location,id);return load;
@@ -102,7 +121,7 @@ function pay(d,id){
  add(d,"Driver paid (simulated)",id+" · KES "+load.driverPay.toLocaleString()+" marked paid.",id);return load;
 }
 const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,name,payment="Unpaid")=>{
- const load={id,originId:from,destinationId:to,cargo:"40-ft shipping container · general cargo",weightTons:weight,
+ const load={id,originId:from,destinationId:to,cargo:"40-ft shipping container · general cargo",containerFeet:40,returnId:"mombasa-port",consignee:"Harbor Freight Co.",weightTons:weight,
   driverPay:payAmount,routeMiles:miles,containerNo:"DEMO-"+id,status,createdAt:"2026-10-30T08:00:00Z",updatedAt:"2026-10-31T12:00:00Z",
   driver:name?{id:"SAMPLE-"+id,name,truckPlate:plate}:null,
   truck:name?{miles:milesDone,location:where+" · sample",updatedAt:"2026-10-31T12:00:00Z"}:null,
@@ -143,5 +162,5 @@ function validate(d){
    typeof d.driver.id==="string"&&Number.isSafeInteger(d.nextId)&&
    d.loads.every(l=>!!l&&typeof l.id==="string"&&STATUSES.includes(l.status)&&!!l.evidence&&!!l.payment);
 }
-return {PORTS,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,book,approve,attach,progress,pay};
+return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,book,approve,cancel,decline,attach,progress,pay};
 })();
