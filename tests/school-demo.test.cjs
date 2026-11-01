@@ -180,3 +180,16 @@ test('standalone demo loads scoped scripts and contains no branded SchoolPey ass
  a.doesNotMatch(asrc,/SchoolPey|School Admin|Create organization/);
  a.match(css,/@media\(max-width:540px\)/);
 });
+
+test('School demo UI uses JoelTechGeek Beach Sunset color tokens instead of reference app indigo',()=>{
+ for(const line of [
+  '--ocean-blue:#0ea5e9','--ocean-blue-dark:#0284c7',
+  '--palm-green:#059669','--palm-green-dark:#047857',
+  '--sunset-yellow:#f59e0b','--sandy-beach:#fef3c7'
+ ])a.ok(css.includes(line),'Missing brand token '+line);
+ a.doesNotMatch(css,/#3730a3|#3832a3|#29257d|#4849aa|#5253b2/i);
+ a.match(css,/\.btn\.primary\{background:var\(--palm-green\)/);
+ a.match(css,/\.bottom-tabs button\.selected\{background:#e8f7ee;border-color:var\(--palm-green\)/);
+ a.match(css,/\.summary-banner[\s\S]*?background:linear-gradient\(110deg,var\(--palm-green-dark\),var\(--palm-green\)\)/);
+ a.match(css,/\.status\.partially-paid\{background:var\(--sandy-beach\)/);
+});
