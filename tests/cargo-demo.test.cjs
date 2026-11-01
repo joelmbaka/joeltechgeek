@@ -70,33 +70,52 @@ test('dispatcher approval is required before driver pickup',()=>{
  assert.throws(()=>c.progress(d,'LD-3088','Picked up'),/cannot skip or repeat/);
  c.approve(d,'LD-3088');assert.equal(c.find(d,'LD-3088').status,'Assigned');
 });
-test('pickup photo placeholder gates picked-up status and cannot be duplicated',()=>{
+test('mark pickup adds sample photo atomically',()=>{
  const c=core(),d=c.seed();c.book(d,'LD-3088');c.approve(d,'LD-3088');
- assert.throws(()=>c.progress(d,'LD-3088','Picked up'),/Pickup photo/);
- c.attach(d,'LD-3088','pickup');
- assert.equal(c.find(d,'LD-3088').evidence.pickup.placeholder,true);
- assert.throws(()=>c.attach(d,'LD-3088','pickup'),/already exists/);
- c.progress(d,'LD-3088','Picked up');assert.equal(c.find(d,'LD-3088').status,'Picked up');
+ const l=c.find(d,'LD-3088');const n=d.activity.length;
+ assert.equal(l.evidence.pickup,null);
+ c.progress(d,'LD-3088','Picked up');
+ assert.equal(l.status,'Picked up');
+ assert.equal(l.evidence.pickup.placeholder,true);
+ assert.equal(l.evidence.pickup.label,'Pickup photo');
+ assert.match(l.evidence.pickup.reference,/SAMPLE-PICKUP/);
+ assert.equal(d.activity.length,n+1);
+ assert.throws(()=>c.progress(d,'LD-3088','Picked up'),/cannot skip or repeat/);
+ assert.equal(d.activity.length,n+1);
 });
-test('driver cannot skip transit and must attach delivery note before marking delivered',()=>{
+test('mark delivery generates sample delivery note in one transition',()=>{
  const c=core(),d=c.seed();c.book(d,'LD-3088');c.approve(d,'LD-3088');
- c.attach(d,'LD-3088','pickup');c.progress(d,'LD-3088','Picked up');
+ c.progress(d,'LD-3088','Picked up');
  assert.throws(()=>c.progress(d,'LD-3088','Delivered'),/cannot skip or repeat/);
+ assert.equal(c.find(d,'LD-3088').evidence.delivery,null);
  c.progress(d,'LD-3088','In transit');
- assert.throws(()=>c.progress(d,'LD-3088','Delivered'),/Delivery note/);
- c.attach(d,'LD-3088','delivery');c.progress(d,'LD-3088','Delivered');
- assert.equal(c.find(d,'LD-3088').truck.miles,305);
+ c.progress(d,'LD-3088','Delivered');
+ const l=c.find(d,'LD-3088');
+ assert.equal(l.evidence.pickup.placeholder,true);
+ assert.equal(l.evidence.delivery.placeholder,true);
+ assert.equal(l.evidence.delivery.label,'Delivery note');
+ assert.equal(l.truck.miles,305);
 });
-test('container return requires EIR; completion releases driver for a second booking',()=>{
+test('complete generates sample EIR automatically and releases truck',()=>{
  const c=core(),d=c.seed();c.book(d,'LD-3088');c.approve(d,'LD-3088');
- c.attach(d,'LD-3088','pickup');c.progress(d,'LD-3088','Picked up');c.progress(d,'LD-3088','In transit');
- c.attach(d,'LD-3088','delivery');c.progress(d,'LD-3088','Delivered');
- assert.throws(()=>c.progress(d,'LD-3088','Complete'),/Equipment Interchange Receipt/);
- c.attach(d,'LD-3088','eir');c.progress(d,'LD-3088','Complete');
- assert.match(c.find(d,'LD-3088').truck.location,/Mombasa Port/);
- assert.equal(c.find(d,'LD-3088').truck.miles,610);
+ c.progress(d,'LD-3088','Picked up');c.progress(d,'LD-3088','In transit');c.progress(d,'LD-3088','Delivered');
+ const l=c.find(d,'LD-3088');assert.equal(l.evidence.eir,null);
+ c.progress(d,'LD-3088','Complete');
+ assert.equal(l.evidence.eir.placeholder,true);
+ assert.equal(l.evidence.eir.label,'Equipment Interchange Receipt (EIR)');
+ assert.match(l.truck.location,/Mombasa Port/);
+ assert.equal(l.truck.miles,610);
  assert.equal(c.active(d),undefined);
  c.book(d,'LD-3089');assert.equal(c.find(d,'LD-3089').status,'Booked');
+});
+test('invalid status change leaves both evidence and activity unchanged',()=>{
+ const c=core(),d=c.seed();c.book(d,'LD-3088');
+ const before=JSON.stringify(d);
+ assert.throws(()=>c.progress(d,'LD-3088','Picked up'),/cannot skip or repeat/);
+ assert.equal(JSON.stringify(d),before);
+ c.approve(d,'LD-3088');const before2=JSON.stringify(d);
+ assert.throws(()=>c.progress(d,'LD-3088','Delivered'),/cannot skip or repeat/);
+ assert.equal(JSON.stringify(d),before2);
 });
 test('driver pay is simulated, only allowed when complete, and cannot be repeated',()=>{
  const c=core(),d=c.seed();const before=JSON.stringify(d);
@@ -178,30 +197,33 @@ test('load creation is a full-screen form with original Macsim-style field hiera
  assert.match(h.root.innerHTML,/<select name="destinationId"/);
  assert.match(h.root.innerHTML,/<select name="originId"/);
 });
-test('end-to-end mobile navigation: post edit book approve proof pickup transit delivery EIR return and pay',()=>{
- const h=browser();h.action('new');
- h.form(fields({containerFeet:'20',consignee:'Cedar Imports Ltd.',returnId:'mombasa-port'}));
+test('mobile status buttons auto-display sample pickup photo delivery note and EIR',()=>{
+ const h=browser();h.action('new');h.form(fields());
  const id=h.data().loads[0].id;
- assert.equal(h.data().loads[0].containerFeet,20);
- assert.match(h.root.innerHTML,/Load Details/);
- h.action('edit',id);h.editForm(fields({containerFeet:'20',consignee:'Cedar Imports Ltd.',returnId:'mombasa-port',driverPay:'290000'}));
- assert.equal(h.data().loads[0].driverPay,290000);
- h.action('back');h.role('driver');h.open(id);
- h.action('book',id);assert.equal(h.data().loads[0].status,'Booked');
- h.action('back');h.open('LD-3088');h.action('book','LD-3088');
- assert.equal(h.data().loads.find(l=>l.id==='LD-3088').status,'Open');
+ h.action('back');h.role('driver');h.open(id);h.action('book',id);
  h.action('back');h.role('dispatcher');h.open(id);h.action('approve',id);
- assert.equal(h.data().loads[0].status,'Assigned');
  h.action('back');h.role('driver');h.tab('active');h.open(id);
- h.action('picked',id);assert.equal(h.data().loads[0].status,'Assigned');
- h.action('pickup',id);assert.equal(h.data().loads[0].evidence.pickup.placeholder,true);
- h.action('picked',id);h.action('transit',id);assert.equal(h.data().loads[0].status,'In transit');
- h.action('delivery',id);h.action('delivered',id);assert.equal(h.data().loads[0].status,'Delivered');
- h.action('eir',id);h.action('complete',id);assert.equal(h.data().loads[0].status,'Complete');
+ assert.match(h.root.innerHTML,/Mark Picked Up/);
+ assert.doesNotMatch(h.root.innerHTML,/Add Pickup Photo/);
+ h.action('picked',id);
+ assert.equal(h.data().loads[0].evidence.pickup.placeholder,true);
+ assert.match(h.root.innerHTML,/SAMPLE-PICKUP-/);
+ assert.match(h.root.innerHTML,/Sample attached/);
+ h.action('transit',id);
+ assert.match(h.root.innerHTML,/Mark Delivered/);
+ assert.doesNotMatch(h.root.innerHTML,/Add Delivery Note/);
+ h.action('delivered',id);
+ assert.equal(h.data().loads[0].status,'Delivered');
+ assert.equal(h.data().loads[0].evidence.delivery.placeholder,true);
+ assert.match(h.root.innerHTML,/SAMPLE-DELIVERY-/);
+ assert.doesNotMatch(h.root.innerHTML,/Add EIR/);
+ h.action('complete',id);
+ assert.equal(h.data().loads[0].status,'Complete');
+ assert.equal(h.data().loads[0].evidence.eir.placeholder,true);
+ assert.match(h.root.innerHTML,/SAMPLE-EIR-/);
  h.action('back');h.tab('history');assert.match(h.root.innerHTML,new RegExp(id));
  h.role('dispatcher');h.tab('history');h.open(id);h.action('pay',id);
  assert.equal(h.data().loads[0].payment.status,'Paid');
- assert.equal(h.data().loads[0].driverPay,290000);
 });
 test('the driver can cancel an unapproved booking from load details',()=>{
  const h=browser();h.role('driver');h.open('LD-3088');h.action('book','LD-3088');

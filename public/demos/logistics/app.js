@@ -69,10 +69,10 @@
   }else if(own(l)&&l.status==="Booked"){
    buttons.push(btn("Cancel Reservation","cancel",l.id,"danger"));
   }else if(own(l)){
-   if(l.status==="Assigned"){if(!l.evidence.pickup)buttons.push(btn("Add Pickup Photo (Sample)","pickup",l.id,"soft"));buttons.push(btn("Mark Picked Up","picked",l.id,"primary"))}
+   if(l.status==="Assigned")buttons.push(btn("Mark Picked Up","picked",l.id,"primary"));
    if(l.status==="Picked up")buttons.push(btn("Mark In Transit","transit",l.id,"primary"));
-   if(l.status==="In transit"){if(!l.evidence.delivery)buttons.push(btn("Add Delivery Note (Sample)","delivery",l.id,"soft"));buttons.push(btn("Mark Delivered","delivered",l.id,"primary"))}
-   if(l.status==="Delivered"){if(!l.evidence.eir)buttons.push(btn("Add EIR (Sample)","eir",l.id,"soft"));buttons.push(btn("Container Returned · Complete","complete",l.id,"primary"))}
+   if(l.status==="In transit")buttons.push(btn("Mark Delivered","delivered",l.id,"primary"));
+   if(l.status==="Delivered")buttons.push(btn("Container Returned · Complete","complete",l.id,"primary"));
   }
   return buttons.length?group("Actions",'<div class="action-stack">'+buttons.join("")+'</div>'):"";
  }
@@ -208,8 +208,6 @@
   if(role==="driver"){
    if(a==="book"){done(()=>core.book(data,id),"Load booked. Waiting for dispatcher approval.");return;}
    if(a==="cancel"){done(()=>core.cancel(data,id),"Booking cancelled.");return;}
-   const proof={pickup:"pickup",delivery:"delivery",eir:"eir"}[a];
-   if(proof){done(()=>core.attach(data,id,proof),"Sample "+core.LABELS[proof]+" added. No file uploaded.");return;}
    const next={picked:"Picked up",transit:"In transit",delivered:"Delivered",complete:"Complete"}[a];
    if(next){done(()=>core.progress(data,id,next),"Load marked "+next.toLowerCase()+".");return;}
   }

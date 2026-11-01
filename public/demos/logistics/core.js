@@ -88,27 +88,22 @@ function decline(d,id){
  load.status="Open";load.driver=null;load.truck=null;load.updatedAt=now();
  add(d,"Reservation declined",id+" returned to the open board.",id);return load;
 }
-function attach(d,id,kind){
- const load=find(d,id);
- if(!load||load.driver?.id!==d.driver.id)throw new Error("Only the assigned driver can attach sample evidence.");
- const expected={pickup:"Assigned",delivery:"In transit",eir:"Delivered"};
- if(!expected[kind]||load.status!==expected[kind])throw new Error("Evidence is not available at this trip stage.");
- if(load.evidence[kind])throw new Error("This sample evidence already exists.");
- load.evidence[kind]={type:kind,label:LABELS[kind],reference:"SAMPLE-"+kind.toUpperCase()+"-"+load.id,placeholder:true,at:now()};
- add(d,"Evidence noted",LABELS[kind]+" placeholder added to "+id+" (no file uploaded).",id);return load;
-}
 function progress(d,id,next){
  const load=find(d,id);
  if(!load||load.driver?.id!==d.driver.id)throw new Error("Only the assigned driver can update this trip.");
  if(NEXT[load.status]!==next)throw new Error("Trip status cannot skip or repeat stages.");
- const required={"Picked up":"pickup","Delivered":"delivery","Complete":"eir"}[next];
- if(required&&!load.evidence[required])throw new Error("Attach the sample "+LABELS[required]+" first.");
+ const evidenceType={"Picked up":"pickup","Delivered":"delivery","Complete":"eir"}[next];
  const miles=load.routeMiles,truck=load.truck||{miles:0,location:"Awaiting pickup"};
  switch(next){
   case "Picked up":truck.miles=8;truck.location=loc(load.originId).name+" · pickup (sample)";break;
   case "In transit":truck.miles=Math.max(truck.miles,Math.round(miles*.42));truck.location="En route to "+loc(load.destinationId).name+" · simulated";break;
   case "Delivered":truck.miles=miles;truck.location=loc(load.destinationId).name+" · delivered (sample)";break;
   case "Complete":truck.miles=miles*2;truck.location=loc(load.returnId||"mombasa-port").name+" · empty container returned (sample)";break;
+ }
+ if(evidenceType&&!load.evidence[evidenceType]){
+  load.evidence[evidenceType]={type:evidenceType,label:LABELS[evidenceType],
+   reference:"SAMPLE-"+evidenceType.toUpperCase()+"-"+load.id,
+   placeholder:true,at:now()};
  }
  truck.updatedAt=now();load.truck=truck;load.status=next;load.updatedAt=now();
  add(d,"Load "+next.toLowerCase(),id+" · "+truck.location,id);return load;
@@ -162,5 +157,5 @@ function validate(d){
    typeof d.driver.id==="string"&&Number.isSafeInteger(d.nextId)&&
    d.loads.every(l=>!!l&&typeof l.id==="string"&&STATUSES.includes(l.status)&&!!l.evidence&&!!l.payment);
 }
-return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,book,approve,cancel,decline,attach,progress,pay};
+return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,book,approve,cancel,decline,progress,pay};
 })();
