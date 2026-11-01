@@ -26,8 +26,6 @@ const badge=label=>'<span class="status '+e(label.toLowerCase().replace(/\s+/g,"
 const field=(title,value)=>'<div class="detail-row"><span>'+e(title)+'</span><strong>'+e(value)+'</strong></div>';
 const section=(title,body,right="")=>'<section class="section-card"><div class="section-head"><h2>'+e(title)+'</h2>'+right+'</div>'+body+'</section>';
 const empty=(title,message)=>'<div class="empty"><div>▤</div><b>'+e(title)+'</b><p>'+e(message)+'</p></div>';
-const titleRow=(name,desc,act="",id="")=>'<button type="button" class="nav-card" '+(act?'data-open="'+act+'" data-id="'+e(id)+'"':"")+'>'+
- '<div class="nav-copy"><b>'+e(name)+'</b><small>'+e(desc)+'</small></div><span class="chevron">›</span></button>';
 const familyDue=()=>core.outstanding(core.familyInvoices(data));
 const paymentCard=p=>{
  const s=student(p.studentId);

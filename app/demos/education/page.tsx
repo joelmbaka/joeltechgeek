@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, GraduationCap, Receipt, Smartphone, Users, Wallet, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GraduationCap, Receipt, Smartphone, Users, Wallet } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'School Fee Management Interactive Demo | JoelTechGeek Systems',
