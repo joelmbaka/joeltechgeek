@@ -153,7 +153,7 @@ The remaining industry demos are intentionally small and self-contained. Existin
 | Logistics | Cargo Dispatch | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
 | School finance | School Fee Management | /demos/education | Three linked children, pre-issued grade-term invoices with add-ons → sample parent checkout → immediately updated finance ledger and balances |
 | Rent | Rental Management | /demos/property | Mobile Rent / Leases / Tenants / Portfolio → manual received rent and receipts → payments, expenses, owner position |
-| Healthcare | Clinic Operations | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
+| Healthcare | Hospital Operations | /demos/healthcare | HMIS web app: existing patients → OPD triage / consultation / lab & imaging / pharmacy / billing → cleared discharge, with read-only inpatient census |
 
 Source workspaces were reviewed for process understanding, not public branding. These mini demos are standalone concepts, **not** copies of production applications or live integrations. School fees exclude academics and attendance; rentals use manager and finance roles without mandatory tenant login; clinic operations exclude real clinical decisions or patient records; logistics records sample delivery references without uploads or live GPS.
 
@@ -186,7 +186,7 @@ Public branding remains neutral. Cargo Dispatch now has its own two-account mobi
 - Evidence: visible sample pickup-photo placeholder before pickup, delivery-note placeholder before delivery, and Equipment Interchange Receipt (EIR) placeholder before completion. No camera, file, or network upload exists.
 - Cargo seed includes loads across Open, Booked, Assigned, Picked up, In transit, Delivered and Complete. All locations and mileage are simulated; no GPS, notifications, telematics or payment gateway.
 - Cargo source: public/demos/logistics/core.js, app.js, styles.css and demo.html. Old logistics/demo.js has been retired.
-- Clinic Operations retains its original fictional mini-demo workflow. School Fee Management and Rental Management now have standalone mobile interfaces with domain-specific navigation. Their internal configuration is now called actions instead of steps.
+- Healthcare now uses a standalone desktop-first, responsive HMIS web application; School Fee Management and Rental Management use standalone mobile interfaces. None use the old clinic guided wizard.
 - Public industry landing pages present role capabilities, not numbered walkthroughs. Guided blocks were also removed from the Construction and Field Services app overviews.
 
 Validation: npm run test:cargo-demo, npm run test:mini-demos, npm run test:construction-demo, npm run test:field-services-demo, and npm run build. Browser visual QA remains necessary.
@@ -239,7 +239,7 @@ Parent selects an issued, outstanding invoice and taps Pay with M-Pesa; checkout
 
 - public/demos/education/{core.js,app.js,styles.css,demo.html}; the obsolete public/demos/education/demo.js / shared minimal engine use was removed.
 - tests/school-demo.test.cjs; run npm run test:school-demo.
-- tests/mini-demos.test.cjs now covers only the unchanged Clinic Operations demo; the Property and School demos have dedicated regression suites.
+- tests/clinic-demo.test.cjs now covers the redesigned Hospital Operations HMIS. The legacy test:mini-demos command aliases the Clinic suite for compatibility. Property and School have their own dedicated regression suites.
 - Build/visual browser review locally with npm run build / npm run dev before shipping. Other industry apps and demos are untouched.
 
 
@@ -272,3 +272,37 @@ The Rental Management concept is completely fictional, browser-local, and not co
 - Tenant tabs: **My rent / Payments / My lease**. Alex sees only his own invoices (current and historical), payments, receipts, and lease details. Tenant screens are scoped to Alex: My rent now includes a **Pay now** button on open invoices, leading to a simulated M-Pesa checkout (sample `0722000011`, prefilled balance, partial/full payments, fictional receipt, no real STK or money). Manager-only actions remain blocked.
 
 No real tenant authentication, real payments, notifications, actual document sharing, real maintenance/issue workflows, real bank accounts, or API calls. The mobile UI is independently navigable, not a guided demo, with browser-local persistence and reset. Run the full Next build and browser visual QA locally before merging/deploying.
+
+
+## Healthcare / HMIS web demo — OPD-focused (November 1, 2026)
+
+Public indexable route: /demos/healthcare. Interactive noindex route: /demos/healthcare/demo.html.
+Files: public/demos/healthcare/{core.js,views.js,app.js,styles.css,demo.html}.
+Test: npm run test:clinic-demo (test:mini-demos is a backwards-compatible alias).
+The original guided four-role clinic mini-demo and its demo.js file were replaced.
+
+### Scope and dataset
+
+This is a **responsive desktop-first HMIS web application**, not a mobile-shaped screen, based on general hospital-management workflows. It has a persistent left sidebar on desktop, a slide-out navigation menu on tablet/phone, fluid dashboard metrics, wrapping worklists and full responsive modals. Media-query breakpoints cover <=1100px, <=760px, <=520px and <=375px. Theme: JoelTechGeek Beach Sunset.
+
+It starts with **nine fictional registered patients** (five cash, four insured), seven fictional OPD encounters at distinct states (awaiting triage, awaiting doctor, lab pending, imaging pending, pharmacy pending, billing clearance, complete), and two admitted patients (Ward A bed 04; Ward B bed 02). No new-patient registration or hospital configuration. Inpatients page is view-only and shows ward/bed/admitted date. No inpatient bed booking, rounds, medication administration or transfers.
+
+### Six user dropdown options
+
+1. Grace (Reception) — patient directory, start an OPD encounter for an existing patient, simulate insurance verification.
+2. Beatrice (Nurse) — triage worklist, sample vitals (temperature, pulse, BP, SpO₂, priority).
+3. Dr. Kamau (Doctor) — consultation note, sample lab or imaging order, fictional prescription, review clinical results, finalize cleared OPD visit.
+4. James (Diagnostics) — laboratory and imaging worklists, fictional result reports.
+5. Mercy (Pharmacist) — prescription queue and dispensing.
+6. David (Billing Officer) — service-charge summary, simulated cash or M-Pesa receipts, illustrative insured coverage and clearance.
+
+No Admin role. No guided step sequence: all eight navigation modules are freely browseable. Role checks gate state-changing actions. Each encounter has Overview, Clinical, Orders, Billing and Timeline tabs, with cross-role event updates. Cash and insured coverage share the same local billing model: eligible insured demo patients receive **illustrative 80% insurer portion**; remaining patient balance is payable in whole KES. Payment may be partial or full, never exceeding balance; no transactions occur. Discharge requires triage, consultation, all ordered results reported, all prescriptions dispensed and zero patient balance.
+
+Local data uses independent key jtech-hmis-demo-v2, persists through refresh, and can be reset. Demo dates are fixed to November 1, 2026.
+
+No actual records, diagnoses, medical advice, clinical decision support, laboratory data, insurer eligibility lookup, medicine prescription, insurance claim, money movement, backend endpoints, notifications, or medical compliance implementation. The interface is for pitching a fictional system concept, not clinical use.
+
+### Verification
+
+- 23 independent tests in tests/clinic-demo.test.cjs: seed, role restrictions, visit opening, triage, consultation, lab, imaging, pharmacy, simulated coverage, billing, discharge gating, UI navigation, shared records and browser-local persistence.
+- Run npm run test:clinic-demo, npm run build and browser visual QA before production deployment. Browser and full Next.js build remain unverified on this connector-only pass.

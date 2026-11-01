@@ -273,7 +273,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Hospital & clinic operations · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Clinic Operations</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a fictional outpatient encounter through registration, triage handoff, service ordering, sample billing, and payment.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore a responsive HMIS with preloaded cash and insured patients, six staff roles, OPD encounters, triage, diagnostics, pharmacy, billing, and read-only inpatient beds.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Interactive workflow</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Browser-local data</span>
@@ -290,7 +290,7 @@ export default function DemosPage() {
                   <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Concept preview</span>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-white/10 p-4"><HeartPulse className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">OPD registration & handoffs</p></div>
+                  <div className="rounded-xl bg-white/10 p-4"><HeartPulse className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">OPD, lab, pharmacy & billing</p></div>
                   <div className="rounded-xl bg-white/10 p-4"><ClipboardPlus className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Service billing & completion</p></div>
                 </div>
                 <p className="mt-5 text-xs leading-6 text-white/80">Interactive workflow with fictional records and no backend connection.</p>
