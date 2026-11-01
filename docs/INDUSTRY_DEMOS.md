@@ -140,3 +140,34 @@ All Northstar people, customers, addresses, assets, visits, parts, prices, work,
 - npx tsc --noEmit
 - npx eslint .
 - npm run build
+
+
+## Four minimal demos based on existing products (November 1, 2026)
+
+The remaining industry demos are intentionally small and self-contained. Their UI uses one shared static engine, four industry-specific configuration/workflow scripts, and a shared responsive theme.
+
+| Industry | Existing product inspected | URL | Scope |
+|---|---|---|---|
+| Logistics | Macsim Cargo (joelmbaka/macsim-cargo-app) | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
+| School finance | SchoolPey (joelmbaka/schoolpey) | /demos/education | School term fee invoice → simulated parent payment → finance reconciliation, partials and student credit |
+| Rent | RentPayor (joelmbaka/rentpayor) | /demos/property | Lease-based rent invoice → externally received payment record → allocation → owner statement |
+| Healthcare | CliviQue HMIS (joelmbaka/clivique-hmis) | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
+
+Source workspaces inspected using GitHub repository roots, readmes, and workflow documentation; these mini demos are newly implemented concepts, **not** a copy of production applications, and cannot be represented as live integrations. SchoolPey excludes academics, examinations, attendance and general ERP workflows, matching the explicit product scope. RentPayor uses property-management/finance perspectives rather than assuming a mandatory tenant app. CliviQue does not handle actual clinical decisions or sensitive real patient information. Macsim does not upload files or track actual GPS coordinates.
+
+Architecture:
+- public/demos/shared/minimal-engine.js — consistent role-switching, simple forms, step sequencing, safe HTML escaping, record tables, data persistence and reset.
+- public/demos/shared/minimal.css — responsive workspace theme.
+- public/demos/{logistics,education,property,healthcare}/demo.js — product-specific state, steps, validation, calculations and sample records.
+- public/demos/{logistics,education,property,healthcare}/demo.html — isolated noindex concept routes.
+- app/demos/{logistics,education,property,healthcare}/page.tsx — indexable explanations, launch links and workflow guides.
+- app/demos/page.tsx — all 8 industry entries.
+
+All sample names, invoices, payment references, cargo loads, truck capacities, properties and OPD records are fictional. No real M-Pesa, bank APIs, transport tracking, medical information or patient workflow is accessed.
+
+### QA
+- npm run test:mini-demos
+- npx tsc --noEmit
+- npm run build
+- Open the 4 /demos/<industry>/demo.html routes, complete every guided step and switch role, refresh/persist and Reset.
+- SchoolPey must reconcile partial payments and preserve credit; RentPayor must allocate partial payments without double-counting and prevent duplicate refs; Logistics must enforce truck capacity, delivery status and notes; CliviQue must gate invoices behind OPD service and prevent duplicate payments.
