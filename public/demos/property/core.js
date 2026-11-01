@@ -108,20 +108,54 @@ const settle=(d,invoiceId,raw)=>{
  d.activity.unshift({id:next(d,"EV"),type:"Payment",text:receipt+" · "+reference,date});
  return p;
 };
+
+function payNow(d,tenantId,invoiceId,raw){
+ // The only interactive tenant account in this fictional mobile demo is Alex.
+ if(tenantId!=="T-101")throw new Error("Only Alex's demo tenant account can check out.");
+ const i=get(d.invoices,invoiceId,"Invoice");
+ if(i.tenantId!==tenantId)throw new Error("This invoice does not belong to the current tenant.");
+ const phone=required(raw.phone,"Safaricom number",25).replace(/[\s-]/g,"");
+ if(!/^(?:07|01)\d{8}$/.test(phone))throw new Error("Enter a valid Kenyan mobile number.");
+ const rawAmount=amount(raw.amount,"Payment amount",1,3000000);
+ if(!Number.isSafeInteger(rawAmount))throw new Error("Use whole Kenyan shillings for checkout.");
+ const requestId=required(raw.requestId,"Checkout reference",100);
+ if(!/^demo-checkout-[A-Za-z0-9-]{5,80}$/.test(requestId))throw new Error("Invalid checkout reference.");
+ const existing=d.payments.find(p=>p.requestId===requestId);
+ if(existing){
+  if(existing.invoiceId!==i.id||existing.received!==rawAmount||existing.phone!==phone)
+   throw new Error("This checkout reference was used for a different payment.");
+  return existing;
+ }
+ if(balance(i)<=0)throw new Error("This invoice is already settled.");
+ if(rawAmount>balance(i))throw new Error("Payment exceeds the outstanding invoice balance.");
+ const id=next(d,"PAY"),receipt="RCT-"+id.slice(4);
+ const ref="SIM-MPESA-"+id.slice(4);
+ const date=now().slice(0,10);
+ const p={id,invoiceId:i.id,tenantId:i.tenantId,unitId:i.unitId,propertyId:i.propertyId,
+  received:rawAmount,applied:rawAmount,credit:0,method:"M-Pesa (simulated)",phone,
+  reference:ref,date,receipt,destination:"Demo rent collection account",
+  status:"Allocated",source:"Tenant sample checkout",requestId};
+ i.paid=currency(i.paid+rawAmount);
+ d.payments.unshift(p);
+ d.activity.unshift({id:next(d,"EV"),type:"Payment",text:receipt+" · "+ref,date});
+ return p;
+}
+
 function createLease(d,fields){
  const unit=get(d.units,fields.unitId,"Unit");
  if(!unit.active||activeLease(d,unit.id))throw new Error("Choose an available vacant unit.");
- const name=required(fields.name,"Tenant name",90),phone=required(fields.phone,"Tenant phone",25);
- if(!/^(?:07|01)\d{8}$/.test(phone))throw new Error("Use a 10-digit Kenyan phone number.");
+ // This demo deliberately assigns every new lease to its single sample tenant.
+ // Reuse the existing Alex record so his Tenant dashboard can see the new lease and invoice.
+ if(fields.tenantId&&fields.tenantId!=="T-101")throw new Error("Only Alex Wanjiru can be assigned in this demo.");
+ const tenant=get(d.tenants,"T-101","Sample tenant");
  const start=required(fields.start,"Lease start",10);
  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!Number.isFinite(Date.parse(start+"T00:00:00Z")))throw new Error("Enter a valid start date.");
  const rent=amount(fields.rent,"Monthly rent"),service=amount(fields.serviceCharge??0,"Service charge",0);
- const tenant={id:next(d,"T"),name,phone};
  const lease={id:next(d,"L"),unitId:unit.id,tenantId:tenant.id,status:"Active",start,rent,serviceCharge:service,cycle:1};
  const makeInvoice=fields.createInvoice==="yes";
  const exists=d.invoices.some(i=>i.leaseId===lease.id&&i.month===period);
  if(exists)throw new Error("This lease already has a current invoice.");
- d.tenants.unshift(tenant);d.leases.unshift(lease);unit.rent=rent;unit.serviceCharge=service;
+ d.leases.unshift(lease);unit.rent=rent;unit.serviceCharge=service;
  let invoice=null;
  if(makeInvoice){
   invoice={id:next(d,"INV"),reference:"INV-2026-"+d.seq,leaseId:lease.id,tenantId:tenant.id,unitId:unit.id,propertyId:unit.propertyId,
@@ -163,5 +197,5 @@ const statement=(d,propertyId,month=period)=>{
  return {property,month,billed,received,outstanding:currency(billed-received),expenses:spent,net:currency(received-spent),
   invoices,payments,expenseItems:expenses};
 };
-return {seed,valid,balance,status,amount,period,activeLease,occupied,currentInvoices,pendingInvoices,settle,createLease,addExpense,metrics,statement};
+return {seed,valid,balance,status,amount,period,activeLease,occupied,currentInvoices,pendingInvoices,settle,payNow,createLease,addExpense,metrics,statement};
 })();
