@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:retail-demo": "node --test tests/retail-demo.test.cjs",
-    "test:construction-demo": "node --test tests/construction-demo.test.cjs"
+    "test:construction-demo": "node --test tests/construction-demo.test.cjs",
+    "test:field-services-demo": "node --test tests/field-services-demo.test.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
