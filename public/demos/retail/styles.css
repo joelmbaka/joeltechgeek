@@ -133,3 +133,10 @@ td b{font-weight:750}td.number{text-align:right}.clickable{cursor:pointer}.click
   .print-only{display:block!important}
   .print-only .receipt-content{border:0;margin:0 auto;max-width:450px;padding:8px 10px}
 }
+
+/* Quantity-aware, multi-delivery purchase receiving */
+.receive-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 0;border-bottom:1px solid #e9eeef}
+.receive-row:last-child{border-bottom:0}.receive-row>div{min-width:0;flex:1}.receive-row b{display:block;font-size:13px}
+.receive-field{display:flex;flex-direction:column;gap:5px;flex:0 0 130px;font-size:11px;font-weight:800;color:#566d7a}
+.receive-field input{min-width:0}.receipt-history{margin-top:20px}.receipt-history h3{margin-bottom:7px}
+@media(max-width:500px){.receive-row{flex-wrap:wrap;gap:8px}.receive-field{flex:1 0 100%;max-width:190px}}

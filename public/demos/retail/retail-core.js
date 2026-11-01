@@ -39,7 +39,7 @@ const retailCore = (function retailCore() {
     return {
       version:1,
       products, suppliers,
-      purchaseOrders:[{id:"PO-001",supplierId:"S-1",lines:[{productId:"P-106",qty:10,cost:242}],status:"Received",createdAt:hourAgo(38),receivedAt:hourAgo(28)}],
+      purchaseOrders:[{id:"PO-001",supplierId:"S-1",lines:[{productId:"P-106",qty:10,cost:242,receivedQty:10}],status:"Received",createdAt:hourAgo(38),receivedAt:hourAgo(28),receipts:[{id:"GRN-001",createdAt:hourAgo(28),lines:[{productId:"P-106",qty:10}]}]}],
       sales:[
         seedSale("SALE-002",1.25,"M-Pesa",[["P-102",1],["P-105",2]],"Miriam · Cashier"),
         seedSale("SALE-001",2.5,"Cash",[["P-101",2],["P-103",1]],"Miriam · Cashier")
@@ -48,6 +48,19 @@ const retailCore = (function retailCore() {
     };
   };
   const lookup = (d,id) => d.products.find(p=>p.id===id);
+  // Older browser-local demos tracked only an all-or-nothing order status.
+  // Preserve those previously received orders without increasing stock again.
+  function normalizePurchases(d){
+    for(const po of d.purchaseOrders||[]){
+      for(const line of po.lines||[]){
+        if(!Number.isInteger(line.receivedQty)){
+          line.receivedQty=po.status==="Received"?line.qty:0;
+        }
+      }
+      if(!Array.isArray(po.receipts))po.receipts=[];
+    }
+    return d;
+  }
   function checkout(d,cart,method,tendered,cashier) {
     if(!Array.isArray(cart)||!cart.length)throw new Error("Add at least one item before checkout.");
     if(!["Cash","M-Pesa"].includes(method))throw new Error("Choose a supported simulated payment method.");
@@ -85,27 +98,60 @@ const retailCore = (function retailCore() {
       if(!p)throw new Error("The selected product does not exist.");
       if(unique.has(p.id))throw new Error("Each product can only appear once. Adjust its quantity instead.");
       unique.add(p.id);
-      return {productId:p.id,qty,cost};
+      return {productId:p.id,qty,cost,receivedQty:0};
     });
-    const po={id:uuid("PO"),createdAt:iso(),supplierId,lines,status:"Draft",receivedAt:null};
+    const po={id:uuid("PO"),createdAt:iso(),supplierId,lines,status:"Draft",receivedAt:null,lastReceivedAt:null,receipts:[]};
     d.purchaseOrders.unshift(po);
     return po;
   }
-  function receivePurchase(d,id){
+  function receivePurchase(d,id,deliveryLines){
     const po=d.purchaseOrders.find(p=>p.id===id);
-    if(!po||po.status!=="Draft")throw new Error("Only draft purchase orders can be received.");
-    for(const line of po.lines){
-      const p=lookup(d,line.productId);
-      if(!p)throw new Error("This purchase contains an unknown product.");
+    if(!po)throw new Error("Purchase order not found.");
+    if(po.status==="Received")throw new Error("This order has already been fully received.");
+    if(!["Draft","Partially received"].includes(po.status))throw new Error("This purchase order cannot receive stock.");
+    if(!Array.isArray(deliveryLines))throw new Error("Enter the quantities actually received.");
+
+    // Validate the entire delivery before making any stock or order changes.
+    const ordered=new Map(po.lines.map(line=>[line.productId,line]));
+    const seen=new Set(),validated=[];
+    for(const delivered of deliveryLines){
+      const line=ordered.get(delivered.productId);
+      if(!line)throw new Error("A received product is not on this purchase order.");
+      if(seen.has(delivered.productId))throw new Error("Duplicate received product.");
+      seen.add(delivered.productId);
+      const qty=integer(delivered.qty,"Received quantity",0);
+      const remaining=line.qty-line.receivedQty;
+      if(qty>remaining){
+        const product=lookup(d,line.productId);
+        throw new Error("Cannot receive "+qty+" "+(product?.name||"units")+"; only "+remaining+" remain on this order.");
+      }
+      if(qty>0){
+        const product=lookup(d,line.productId);
+        if(!product)throw new Error("A purchased product no longer exists.");
+        validated.push({product,line,qty});
+      }
     }
-    const receivedAt=iso();
-    for(const line of po.lines){
-      const p=lookup(d,line.productId),previous=p.stock;
-      p.cost=Math.round(((previous*p.cost)+(line.qty*line.cost))/(previous+line.qty)*100)/100;
-      p.stock+=line.qty;
-      d.movements.unshift({id:uuid("MOVE"),productId:p.id,delta:line.qty,reason:"Received purchase "+po.id,reference:po.id,createdAt:receivedAt});
+    if(!validated.length)throw new Error("Enter at least one received quantity greater than zero.");
+
+    const receivedAt=iso(),receiptId=uuid("GRN");
+    for(const {product,line,qty} of validated){
+      const previous=product.stock;
+      product.cost=Math.round(((previous*product.cost)+(qty*line.cost))/(previous+qty)*100)/100;
+      product.stock+=qty;
+      line.receivedQty+=qty;
+      d.movements.unshift({
+        id:uuid("MOVE"),productId:product.id,delta:qty,
+        reason:"Received purchase "+po.id,reference:po.id,receiptId,createdAt:receivedAt
+      });
     }
-    po.status="Received";po.receivedAt=receivedAt;
+    po.receipts.push({
+      id:receiptId,createdAt:receivedAt,
+      lines:validated.map(({product,qty})=>({productId:product.id,qty}))
+    });
+    po.lastReceivedAt=receivedAt;
+    const complete=po.lines.every(line=>line.receivedQty===line.qty);
+    po.status=complete?"Received":"Partially received";
+    po.receivedAt=complete?receivedAt:null;
     return po;
   }
   function addProduct(d,fields){
@@ -133,7 +179,7 @@ const retailCore = (function retailCore() {
   function metrics(d){
     const sold=d.sales.reduce((s,x)=>s+x.total,0);
     const gross=d.sales.reduce((s,sale)=>s+sale.lines.reduce((n,x)=>n+(x.price-x.cost)*x.qty,0),0);
-    return {revenue:sold,margin:gross,units:d.products.reduce((s,p)=>s+p.stock,0),stockValue:d.products.reduce((s,p)=>s+p.stock*p.cost,0),low:d.products.filter(p=>p.stock<=p.reorder).length,orders:d.purchaseOrders.filter(p=>p.status==="Draft").length,transactions:d.sales.length};
+    return {revenue:sold,margin:gross,units:d.products.reduce((s,p)=>s+p.stock,0),stockValue:d.products.reduce((s,p)=>s+p.stock*p.cost,0),low:d.products.filter(p=>p.stock<=p.reorder).length,orders:d.purchaseOrders.filter(p=>p.status!=="Received").length,transactions:d.sales.length};
   }
   function reportProducts(d){
     const m=new Map();
@@ -143,5 +189,5 @@ const retailCore = (function retailCore() {
     }
     return [...m.values()].sort((a,b)=>b.revenue-a.revenue);
   }
-  return {seed,checkout,createPurchase,receivePurchase,addProduct,adjust,metrics,reportProducts};
+  return {seed,normalizePurchases,checkout,createPurchase,receivePurchase,addProduct,adjust,metrics,reportProducts};
 })();

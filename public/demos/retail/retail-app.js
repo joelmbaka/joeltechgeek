@@ -22,12 +22,12 @@
   function load(){
     try{
       const d=JSON.parse(localStorage.getItem(KEY)||"null");
-      if(d&&d.version===1&&["products","suppliers","sales","purchaseOrders","movements"].every(k=>Array.isArray(d[k])))return d;
+      if(d&&d.version===1&&["products","suppliers","sales","purchaseOrders","movements"].every(k=>Array.isArray(d[k])))return core.normalizePurchases(d);
     }catch(error){/* private browsing or old data */ }
     return core.seed();
   }
   let data=load();
-  const ui={view:"dashboard",role:"owner",cart:[],posCategory:"All",posQuery:"",invQuery:"",invFilter:"All",modal:null,poLines:[],poSupplier:data.suppliers[0]?.id||"",paymentMethod:"Cash",tender:"",toast:""};
+  const ui={view:"dashboard",role:"owner",cart:[],posCategory:"All",posQuery:"",invQuery:"",invFilter:"All",modal:null,poLines:[],receiveQuantities:{},poSupplier:data.suppliers[0]?.id||"",paymentMethod:"Cash",tender:"",toast:""};
   const byId=(id)=>data.products.find(p=>p.id===id);
   const supplier=(id)=>data.suppliers.find(s=>s.id===id)?.name||"Unknown supplier";
   const low=(p)=>p.stock<=p.reorder;
@@ -35,7 +35,9 @@
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(error){ui.toast="Browser storage unavailable. Changes are temporary.";}}
   function toast(s){ui.toast=String(s);render();}
   function cartTotal(){return ui.cart.reduce((sum,l)=>sum+(byId(l.id)?.price||0)*l.qty,0)}
-  function pill(status){return '<span class="pill '+(status==="Received"?"good":status==="Draft"?"warn":"")+'">'+escapeHtml(status)+'</span>'}
+  function pill(status){return '<span class="pill '+(status==="Received"?"good":status==="Partially received"||status==="Draft"?"warn":"")+'">'+escapeHtml(status)+'</span>'}
+  function receivedUnits(po){return po.lines.reduce((sum,line)=>sum+line.receivedQty,0)}
+  function orderedUnits(po){return po.lines.reduce((sum,line)=>sum+line.qty,0)}
   function status(p){return p.stock===0?'<span class="pill bad">Out of stock</span>':low(p)?'<span class="pill warn">Low stock</span>':'<span class="pill good">In stock</span>'}
   function stat(label,value,detail,symbol){return '<div class="stat"><div class="stat-top"><span>'+escapeHtml(label)+'</span><span class="stat-icon">'+symbol+'</span></div><div class="stat-value">'+value+'</div><div class="stat-detail">'+detail+'</div></div>'}
   function button(label,act,additional=""){return '<button type="button" class="btn" data-act="'+act+'" '+additional+'>'+label+'</button>'}
@@ -44,15 +46,15 @@
   function dashboard(){
     const m=core.metrics(data), restock=data.products.filter(low).sort((a,b)=>a.stock-b.stock);
     return '<div class="page-header"><div><div class="eyebrow">STORE OPERATIONS / INTERACTIVE CONCEPT</div><h1>Store overview</h1><p>Understand sales, inventory, and pending purchasing at a glance.</p></div>'+
-      '<button class="btn primary" data-nav="pos">Open point of sale →</button></div>'+
+      (roles[ui.role].items.includes("pos")?'<button class="btn primary" data-nav="pos">Open point of sale →</button>':'')+'</div>'+
       '<div class="stats">'+stat("Demo sales",currency(m.revenue),"Across "+m.transactions+" sample transactions","↗")+
       stat("Units available",m.units.toLocaleString(),"Across "+data.products.length+" products","▣")+
       stat("Low-stock products",m.low,"At or below reorder levels","!")+
       stat("Stock at cost",currency(m.stockValue),"Illustrative carrying value","◫")+'</div>'+
-      '<div class="two-col"><section class="card"><div class="card-title"><div><h2>Recent transactions</h2><p>Sales update automatically after checkout.</p></div><button class="text-link" data-nav="sales">All sales →</button></div>'+
+      '<div class="two-col"><section class="card"><div class="card-title"><div><h2>Recent transactions</h2><p>Sales update automatically after checkout.</p></div>'+(roles[ui.role].items.includes("sales")?'<button class="text-link" data-nav="sales">All sales →</button>':'')+'</div>'+
       (data.sales.length?'<div class="table-scroll"><table>'+tableHead(["Receipt","Payment","Amount","Time"])+
       '<tbody>'+data.sales.slice(0,5).map(s=>'<tr class="clickable" data-act="receipt" data-id="'+escapeHtml(s.id)+'"><td><b>'+escapeHtml(s.id)+'</b></td><td>'+escapeHtml(s.method)+(s.method==="M-Pesa"?' · simulated':'')+'</td><td><b>'+currency(s.total)+'</b></td><td>'+dateFmt(s.createdAt)+'</td></tr>').join("")+'</tbody></table></div>':empty("No sales yet. Open the POS to record a sample transaction."))+'</section>'+
-      '<section class="card"><div class="card-title"><div><h2>Reorder watchlist</h2><p>Receive a purchase order to replenish stock.</p></div><button class="text-link" data-nav="purchasing">Purchase stock →</button></div>'+
+      '<section class="card"><div class="card-title"><div><h2>Reorder watchlist</h2><p>Receive a purchase order to replenish stock.</p></div>'+(roles[ui.role].items.includes("purchasing")?'<button class="text-link" data-nav="purchasing">Purchase stock →</button>':'')+'</div>'+
       (restock.length?'<div class="watchlist">'+restock.slice(0,6).map(p=>'<div class="watch-row"><div><b>'+escapeHtml(p.name)+'</b><span class="muted small">'+escapeHtml(p.sku)+'</span></div><div class="right"><b>'+p.stock+' left</b><span class="muted small">Reorder at '+p.reorder+'</span></div></div>').join("")+'</div>':empty("All products are above their reorder levels."))+'</section></div>'+
       '<section class="card highlights"><div class="card-title"><div><h2>What to try next</h2><p>One connected workflow that changes the numbers above.</p></div></div>'+
       '<div class="steps"><div><span class="step-num">01</span><b>Create purchase order</b><p>Order 20 units of cooking oil from a supplier.</p></div><div><span class="step-num">02</span><b>Receive delivery</b><p>Watch inventory increase immediately.</p></div><div><span class="step-num">03</span><b>Process a sale</b><p>Sell items, simulate payment, and print a receipt.</p></div><div><span class="step-num">04</span><b>View reports</b><p>Inspect updated revenue, margin, and stock.</p></div></div></section>';
@@ -88,13 +90,13 @@
   function purchasing(){
     const purchases=[...data.purchaseOrders];
     return '<div class="page-header"><div><div class="eyebrow">PROCUREMENT / STOCK RECEIVING</div><h1>Purchasing</h1><p>Create a draft order, then confirm receipt to update product quantities and carrying costs.</p></div><button class="btn primary" data-act="new-po">+ Create purchase order</button></div>'+
-      '<div class="stats mini">'+stat("Open purchase orders",data.purchaseOrders.filter(x=>x.status==="Draft").length,"Awaiting stock receipt","⇩")+
+      '<div class="stats mini">'+stat("Open purchase orders",data.purchaseOrders.filter(x=>x.status!=="Received").length,"Draft and partially received","⇩")+
       stat("Received orders",data.purchaseOrders.filter(x=>x.status==="Received").length,"Recorded in this browser","✓")+
       stat("Suppliers",data.suppliers.length,"Fictional trade partners","◫")+'</div>'+
       '<section class="card"><div class="card-title"><div><h2>Purchase orders</h2><p>Order totals use entered purchase costs, not retail prices.</p></div></div>'+
-      (purchases.length?'<div class="table-scroll"><table>'+tableHead(["Order","Supplier","Lines","Cost total","Status","Created","Action"])+
-      '<tbody>'+purchases.map(po=>'<tr><td><button class="text-link" data-act="view-po" data-id="'+escapeHtml(po.id)+'">'+escapeHtml(po.id)+'</button></td><td>'+escapeHtml(supplier(po.supplierId))+'</td><td>'+po.lines.length+'</td><td><b>'+currency(po.lines.reduce((n,l)=>n+l.qty*l.cost,0))+'</b></td><td>'+pill(po.status)+'</td><td>'+dateFmt(po.createdAt)+'</td><td>'+(po.status==="Draft"?'<button class="btn small-btn primary" data-act="receive" data-id="'+escapeHtml(po.id)+'">Receive stock</button>':'<button class="text-link" data-act="view-po" data-id="'+escapeHtml(po.id)+'">Details</button>')+'</td></tr>').join("")+'</tbody></table></div>':empty("No purchase orders yet."))+'</section>'+
-      '<div class="notice section"><b>How stock receiving works:</b> A draft order does not change stock. Selecting <b>Receive stock</b> increases quantities, records movements, and marks the order received. A received order cannot be received twice.</div>';
+      (purchases.length?'<div class="table-scroll"><table>'+tableHead(["Order","Supplier","Received / ordered","Cost total","Status","Created","Action"])+
+      '<tbody>'+purchases.map(po=>'<tr><td><button class="text-link" data-act="view-po" data-id="'+escapeHtml(po.id)+'">'+escapeHtml(po.id)+'</button></td><td>'+escapeHtml(supplier(po.supplierId))+'</td><td>'+receivedUnits(po)+' / '+orderedUnits(po)+' units</td><td><b>'+currency(po.lines.reduce((n,l)=>n+l.qty*l.cost,0))+'</b></td><td>'+pill(po.status)+'</td><td>'+dateFmt(po.createdAt)+'</td><td>'+(po.status!=="Received"?'<button class="btn small-btn primary" data-act="receive" data-id="'+escapeHtml(po.id)+'">Receive stock</button>':'<button class="text-link" data-act="view-po" data-id="'+escapeHtml(po.id)+'">Details</button>')+'</td></tr>').join("")+'</tbody></table></div>':empty("No purchase orders yet."))+'</section>'+
+      '<div class="notice section"><b>How stock receiving works:</b> A draft order does not change stock. Enter the <b>actual quantity received</b> for each product. Partial deliveries stay open, and you can never receive more than was ordered. Only confirmed units increase inventory.</div>';
   }
   function sales(){
     return '<div class="page-header"><div><div class="eyebrow">TRANSACTION HISTORY / DEMO DATA</div><h1>Sales & receipts</h1><p>Every sample checkout becomes a transaction with a printable receipt.</p></div><button class="btn primary" data-nav="pos">+ New sale</button></div>'+
@@ -178,10 +180,33 @@
     }else if(x.type==="po"){
       const po=data.purchaseOrders.find(p=>p.id===x.id);
       content=po?'<h2>Purchase order '+escapeHtml(po.id)+'</h2><p class="muted small">'+escapeHtml(supplier(po.supplierId))+' · '+dateFmt(po.createdAt)+'</p>'+
-        '<div class="po-status">'+pill(po.status)+(po.receivedAt?'<span class="muted small">Received '+dateFmt(po.receivedAt)+'</span>':'<span class="muted small">Awaiting delivery</span>')+'</div>'+
-        '<div class="purchase-lines">'+po.lines.map(l=>'<div class="line-summary"><span>'+escapeHtml(byId(l.productId)?.name||"Product")+' · '+l.qty+' units</span><b>'+currency(l.qty*l.cost)+'</b></div>').join("")+
+        '<div class="po-status">'+pill(po.status)+'<span class="muted small">'+receivedUnits(po)+' / '+orderedUnits(po)+' units received</span></div>'+
+        '<div class="purchase-lines">'+po.lines.map(l=>'<div class="line-summary"><span>'+escapeHtml(byId(l.productId)?.name||"Product")+
+        '<span class="subtext">Ordered '+l.qty+' · Received '+l.receivedQty+' · Remaining '+(l.qty-l.receivedQty)+'</span></span><b>'+currency(l.qty*l.cost)+'</b></div>').join("")+
         '<div class="total-line"><span>Order cost</span><b>'+currency(po.lines.reduce((n,l)=>n+l.qty*l.cost,0))+'</b></div></div>'+
-        '<div class="modal-actions"><button class="btn" data-act="close">Close</button>'+(po.status==="Draft"?'<button class="btn primary" data-act="receive" data-id="'+escapeHtml(po.id)+'">Receive stock</button>':'')+'</div>':empty("Purchase not found.");
+        (po.receipts.length?'<div class="receipt-history"><h3>Receiving history</h3>'+po.receipts.map(receipt=>
+          '<div class="line-summary"><span>'+escapeHtml(receipt.id)+' · '+dateFmt(receipt.createdAt)+'</span><b>'+
+          receipt.lines.reduce((sum,line)=>sum+line.qty,0)+' units</b></div>').join("")+'</div>':'')+
+        '<div class="modal-actions"><button class="btn" data-act="close">Close</button>'+
+        (po.status!=="Received"?'<button class="btn primary" data-act="receive" data-id="'+escapeHtml(po.id)+'">Receive stock</button>':'')+'</div>':empty("Purchase not found.");
+    }else if(x.type==="receive"){
+      const po=data.purchaseOrders.find(p=>p.id===x.id);
+      content=po&&po.status!=="Received"?'<h2>Receive stock · '+escapeHtml(po.id)+'</h2>'+
+        '<p class="muted small">Enter how many units arrived in this delivery. Leave a product at 0 if it has not arrived. You cannot receive more than the remaining ordered quantity.</p>'+
+        '<form data-form="receive" data-id="'+escapeHtml(po.id)+'"><div class="purchase-lines">'+
+        po.lines.map(l=>{
+          const p=byId(l.productId),remaining=l.qty-l.receivedQty;
+          return '<div class="receive-row"><div><b>'+escapeHtml(p?.name||"Product")+'</b>'+
+            '<span class="subtext">Ordered '+l.qty+' · Previously received '+l.receivedQty+' · Remaining '+remaining+'</span></div>'+
+            (remaining>0?'<label class="receive-field" for="receive-'+escapeHtml(l.productId)+'">Received now'+
+             '<input class="field" id="receive-'+escapeHtml(l.productId)+'" name="receive-'+escapeHtml(l.productId)+
+             '" type="number" min="0" max="'+remaining+'" step="1" placeholder="0" value="'+escapeHtml(ui.receiveQuantities[l.productId]??"")+'"/></label>':
+             '<span class="pill good">Fully received</span>')+'</div>';
+        }).join("")+'</div>'+
+        '<div class="notice section">Only quantities confirmed here will be added to inventory. Any remaining units stay outstanding for the next delivery.</div>'+
+        '<div class="modal-actions"><button type="button" class="btn" data-act="close">Cancel</button>'+
+        '<button type="submit" class="btn primary">Confirm received quantities</button></div></form>':empty("This order is already fully received.");
+
     }
     return '<div class="modal-backdrop" data-overlay="true"><div class="modal" role="dialog" aria-modal="true" aria-label="'+(x.type==="receipt"?"Sample receipt":"Demo action")+'"><div class="modal-closebar"><span class="modal-eyebrow">GREENBASKET / INTERACTIVE DEMO</span><button type="button" class="icon-btn" data-act="close" aria-label="Close dialog">×</button></div>'+content+'</div></div>';
   }
@@ -267,10 +292,11 @@
       const po=core.createPurchase(data,ui.poSupplier,ui.poLines);
       persist();ui.poLines=[];ui.modal={type:"po",id:po.id};ui.toast="Draft purchase order created. Receive it to add stock.";render();
     });return;}
-    if(act==="receive"){safe(()=>{
-      if(!window.confirm("Confirm this fictional delivery was received? This adds units to stock."))return;
-      core.receivePurchase(data,id);persist();ui.modal={type:"po",id};ui.toast="Stock received and inventory updated.";render();
-    });return;}
+    if(act==="receive"){
+      const po=data.purchaseOrders.find(x=>x.id===id);
+      if(!po||po.status==="Received"){toast("This order has already been fully received.");return;}
+      ui.receiveQuantities={};ui.modal={type:"receive",id};ui.toast="";render();return;
+    }
   });
   document.addEventListener("change",event=>{
     const t=event.target;
@@ -283,6 +309,10 @@
   document.addEventListener("input",event=>{
     const t=event.target;
     if(!root.contains(t))return;
+    if(t.name?.startsWith("receive-")){
+      ui.receiveQuantities[t.name.slice("receive-".length)]=t.value;
+      return;
+    }
     if(t.id==="tender"){
       ui.tender=t.value;
       const node=document.querySelector(".change-line b");
@@ -306,6 +336,18 @@
         const p=core.addProduct(data,fields);persist();ui.modal=null;ui.view="inventory";ui.toast="Created "+p.name+" with stock tracking.";render();
       }else if(kind==="adjust"){
         const p=core.adjust(data,form.dataset.id,fields.delta,fields.reason);persist();ui.modal=null;ui.toast="Stock adjusted. "+p.name+" now has "+p.stock+" units.";render();
+      }else if(kind==="receive"){
+        const po=data.purchaseOrders.find(po=>po.id===form.dataset.id);
+        if(!po)throw new Error("Purchase order not found.");
+        const delivered=po.lines.filter(line=>line.receivedQty<line.qty).map(line=>({
+          productId:line.productId,
+          qty:fields["receive-"+line.productId]??"0"
+        }));
+        const count=delivered.reduce((sum,line)=>sum+(Number(line.qty)||0),0);
+        core.receivePurchase(data,po.id,delivered);
+        persist();ui.receiveQuantities={};ui.modal={type:"po",id:po.id};
+        ui.toast=count+" units received. "+(po.status==="Received"?"Order complete.":"Remaining quantities can be received later.");
+        render();
       }
     });
   });
