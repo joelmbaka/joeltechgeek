@@ -98,7 +98,7 @@ function detail(){
   result+=panel("Progress",`<div class="progress-bar"><span style="width:${w.progress}%"></span></div>`+
    (progress.map(p=>card(num(p.percent)+"% completion",p.note,p.status,"progress",p.id)).join("")||`<p class="hint">No progress updates yet.</p>`));
   if(role==="manager"&&w.status==="Awaiting approval")buttons=[btn("Approve & start","approve-work",id,"primary"),btn("Return for correction","return-work",id,"soft")];
-  if(role==="supervisor"&&w.status==="In progress"&&w.progress<100)buttons=[btn("Submit progress","new-progress",id,"primary")];
+  if(role==="supervisor"&&w.status==="In progress"&&w.progress<100&&!data.progress.some(p=>p.taskId===id&&p.status==="Submitted"))buttons=[btn("Submit progress","new-progress",id,"primary")];
   if(role==="supervisor"&&w.status==="Needs correction")buttons=[btn("Resubmit work","resubmit-work",id,"primary")];
  }else if(kind==="progress"){
   const p=find(data.progress,id),w=p&&task(p.taskId);if(!p)return empty("Not found","Progress unavailable.");
@@ -182,7 +182,10 @@ function header(){
  const nested=!!ui.screen;
  const title=nested?(ui.screen==="detail"?"Details":ui.screen==="purchases"?"Purchase Orders":ui.screen[0].toUpperCase()+ui.screen.slice(1)):
   tabs[ui.role].find(x=>x[0]===ui.tab)?.[1]||"SiteFlow";
- return `<header class="app-header"><button class="header-back" data-action="${nested?"back":"drawer"}" aria-label="${nested?"Back":"Open menu"}">${nested?"‹":"☰"}</button>`+
+ const left=nested?`<button class="header-back" data-action="back" aria-label="Back">‹</button>`:
+  roleDest().length?`<button class="header-back" data-action="drawer" aria-label="Open menu">☰</button>`:
+  `<span class="header-back static" aria-hidden="true">▣</span>`;
+ return `<header class="app-header">${left}`+
   `<div class="header-title"><b>${esc(title)}</b><small>${esc(data.project.name)}</small></div>`+
   `<select id="role-select" aria-label="Choose demo user">${Object.entries(users).map(([k,name])=>`<option value="${k}" ${ui.role===k?"selected":""}>${esc(name)}</option>`).join("")}</select></header>`;
 }

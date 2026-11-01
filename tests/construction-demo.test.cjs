@@ -224,7 +224,8 @@ test("Supervisor cannot access Manager, Stockkeeper or Accountant authoring acti
  const h=harness();h.role("supervisor");
  assert.match(h.root.innerHTML,/New Work/);
  assert.doesNotMatch(h.root.innerHTML,/data-action="new-request"|data-action="new-payment"|data-action="approve-work"/);
- h.open("work","WORK-101");assert.match(h.root.innerHTML,/Submit progress/);
+ h.open("work","WORK-101");assert.doesNotMatch(h.root.innerHTML,/data-action="new-progress"/);
+ h.open("work","WORK-103");assert.match(h.root.innerHTML,/Submit progress/);
  h.open("work","WORK-102");assert.doesNotMatch(h.root.innerHTML,/Approve &amp; start/);
 });
 test("Supervisor creates Work, Manager approves, Supervisor submits, Manager approves progress",()=>{
@@ -309,4 +310,19 @@ test("HTML and CSS use isolated, centered mobile construction demo assets",()=>{
  assert.match(source.css,/\.drawer-wrap\{position:absolute/);
  assert.match(source.css,/\.modal-overlay\{position:fixed/);
  assert.match(source.css,/@media\(max-width:540px\)/);
+});
+
+test("Supervisor does not see Submit progress while an earlier submission awaits review",()=>{
+ const h=harness();h.role("supervisor");h.open("work","WORK-101");
+ assert.match(h.root.innerHTML,/55% completion/);
+ assert.match(h.root.innerHTML,/Submitted/);
+ assert.doesNotMatch(h.root.innerHTML,/data-action="new-progress"/);
+ h.open("work","WORK-103");
+ assert.match(h.root.innerHTML,/data-action="new-progress"/);
+});
+test("Supervisor and Stockkeeper have no inactive drawer control",()=>{
+ const h=harness();h.role("supervisor");
+ assert.doesNotMatch(h.root.innerHTML,/data-action="drawer"/);
+ h.role("stockkeeper");assert.doesNotMatch(h.root.innerHTML,/data-action="drawer"/);
+ h.role("accountant");assert.match(h.root.innerHTML,/data-action="drawer"/);
 });

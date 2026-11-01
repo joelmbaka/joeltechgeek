@@ -203,3 +203,5 @@ h1,h2,h3,p{margin:0}
  .segment button{font-size:9px}.bottom-nav small{font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:0s!important}}
+
+.header-back.static{display:grid;place-items:center;cursor:default;color:var(--primary);font-size:20px}
