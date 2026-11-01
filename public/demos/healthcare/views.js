@@ -244,7 +244,71 @@ return function(d,s,c){
    '<p class="muted">Inpatient bed transfers, medication administration, ward rounds and inpatient discharge are out of scope.</p>';
  }
 
- function dialog(){return"";}
+
+ function dialog(){
+  if(!s.modal)return"";
+  const {kind,id,orderId}=s.modal;
+  const enc=visit(id),p=patient(id)||(enc?person(enc):null);
+  const field=(label,name,value,type="text",other="")=>'<label class="form-field">'+e(label)+
+   '<input name="'+name+'" type="'+type+'" value="'+e(value)+'" '+other+' required></label>';
+  const select=(label,name,items,selected)=>'<label class="form-field">'+e(label)+'<select name="'+name+'">'+
+   items.map(x=>'<option value="'+e(x[0])+'" '+(String(x[0])===String(selected)?"selected":"")+'>'+e(x[1])+'</option>').join("")+'</select></label>';
+  const notes=(label,name,value)=>'<label class="form-field">'+e(label)+'<textarea name="'+name+'" rows="3" maxlength="350" required>'+e(value)+'</textarea></label>';
+  let title="",submit="Save",fields="";
+  if(kind==="visit"){
+   title="Start OPD visit";submit="Open encounter";
+   fields='<p class="form-hint">Patient: <b>'+e(p.name)+'</b>. This starts an encounter for the existing patient. No new patient registration.</p>';
+  }else if(kind==="verify"){
+   title="Sample insurance verification";submit="Save coverage status";
+   fields='<p class="form-hint">'+e(p.insurance.provider)+" · "+e(p.insurance.member)+'</p>'+
+    select("Fictional eligibility","status",[["Eligible","Eligible"],["Pending","Pending"],["Not covered","Not covered"]],p.insurance.status)+
+    '<p class="form-hint">No real insurer is contacted.</p>';
+  }else if(kind==="triage"){
+   title="Triage";submit="Save vitals";
+   fields='<p class="form-hint">Fictional sample observations only, not medical guidance.</p>'+
+    '<div class="form-grid">'+field("Temperature (°C)","temperature","36.8","number",'min="34" max="42" step="0.1"')+
+    field("Pulse (bpm)","pulse",78,"number",'min="35" max="200"')+
+    field("Systolic pressure","systolic",118,"number",'min="70" max="220"')+
+    field("Diastolic pressure","diastolic",76,"number",'min="40" max="140"')+
+    field("SpO₂ (%)","spo2",98,"number",'min="80" max="100"')+
+    select("Priority","priority",[["Routine","Routine"],["Urgent","Urgent"]],"Routine")+'</div>';
+  }else if(kind==="consult"){
+   title="Doctor consultation";submit="Save consultation note";
+   fields=notes("Fictional note","note",enc.consultation?.note||"Illustrative outpatient consultation note for demonstration.");
+  }else if(kind==="order"){
+   const available=c.TESTS.filter(x=>!enc.orders.some(o=>o.code===x.id));
+   if(!available.length)return"";
+   title="Request diagnostics";submit="Create sample order";
+   fields=select("Lab or imaging service","code",available.map(x=>[x.id,x.department+" · "+x.name+" · "+k(x.amount)]),available[0].id)+
+    '<p class="form-hint">The service charge is added to the encounter.</p>';
+  }else if(kind==="report"){
+   title="Report diagnostic result";submit="Mark as reported";
+   fields=notes("Illustrative result","result","Sample result reported (fictional).")+
+    '<p class="form-hint">Do not enter real patient or clinical information.</p>';
+  }else if(kind==="prescribe"){
+   const available=c.MEDS.filter(x=>!enc.prescriptions.some(p=>p.code===x.id));
+   if(!available.length)return"";
+   title="Sample prescription";submit="Add sample item";
+   fields=select("Fictional item","code",available.map(x=>[x.id,x.name+" · "+k(x.amount)]),available[0].id);
+  }else if(kind==="pay"){
+   const b=bill(enc);if(!b.balance)return"";
+   title="Record sample payment";submit="Record fictional payment";
+   fields='<div class="form-hint">'+e(person(enc).name)+" · "+k(b.balance)+' outstanding</div>'+
+    field("Amount (KES)","amount",b.balance,"number",'min="1" max="'+b.balance+'" step="1"')+
+    select("Simulated payment method","method",[["Cash (simulated)","Cash (simulated)"],["M-Pesa (simulated)","M-Pesa (simulated)"]],"Cash (simulated)")+
+    '<p class="form-hint">No M-Pesa STK or real cash movement.</p>';
+  }else if(kind==="discharge"){
+   title="Complete OPD visit";submit="Confirm fictional discharge";
+   fields='<p class="form-hint">The clinical, diagnostics, pharmacy and financial records are cleared. This is an illustrative workflow action, not medical discharge advice.</p>';
+  }else return"";
+  return '<div class="modal-shell"><button type="button" class="modal-shade" data-action="close-modal" aria-label="Close dialog"></button>'+
+   '<section class="modal" role="dialog" aria-modal="true" aria-label="'+e(title)+'"><header><h2>'+e(title)+'</h2>'+
+   btn("×","close-modal","","icon")+'</header>'+
+   '<form id="hmis-form" data-kind="'+e(kind)+'" data-id="'+e(id||"")+'" data-order-id="'+e(orderId||"")+
+   '" data-rx-id="'+e(s.modal.rxId||"")+'"><div class="modal-form">'+fields+
+   '<button type="submit" class="btn primary full">'+e(submit)+'</button></div></form></section></div>';
+ }
+
  return {main,dialog,NAV,ROLE_NAMES,btn,e};
 };
 })();

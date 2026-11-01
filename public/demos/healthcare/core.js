@@ -130,7 +130,12 @@ function triage(d,role,id,values){
  const priority=fmt(values.priority);
  if(!["Routine","Urgent"].includes(priority))throw Error("Choose a valid priority.");
  const entry={
-  temperature:amount(values.temperature,"Temperature (×10 °C)",340,420)/10,
+  temperature:(()=>{
+    const x=Number(values.temperature);
+    if(!Number.isFinite(x)||x<34||x>42||Math.round(x*10)!==x*10)
+      throw Error("Temperature must be between 34 and 42 °C with one decimal.");
+    return x;
+   })(),
   pulse:amount(values.pulse,"Pulse",35,200),
   systolic:amount(values.systolic,"Systolic pressure",70,220),
   diastolic:amount(values.diastolic,"Diastolic pressure",40,140),
