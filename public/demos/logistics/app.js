@@ -144,7 +144,7 @@
   '<div class="phone"><div class="phone-status">9:41 <span>▰  ▱  ▰</span></div>'+
   '<header class="app-header"><div class="brand"><b>↗</b><span><strong>Cargo Dispatch</strong><small>Fleet operations · Demo</small></span></div>'+
   '<select id="role" aria-label="Simulated account"><option value="dispatcher"'+(ui.role==="dispatcher"?" selected":"")+'>Grace · Dispatcher</option>'+
-  '<option value="driver"'+(ui.role==="driver"?" selected":"")+'>Kevin · Driver</option></select></header>'+
+  '<option value="driver"'+(ui.role==="driver"?" selected":"")+'>Kevin · Driver</option></select><button type="button" class="reset-icon" data-cmd="reset" aria-label="Reset sample cargo data" title="Reset demo">↻</button></header>'+
   '<main class="screen">'+views[ui.tab]()+'</main>'+
   '<nav class="bottom" aria-label="Cargo application tabs">'+pages.map(([id,label,icon])=>
     '<button class="'+(ui.tab===id?"active":"")+'" data-tab="'+id+'"><span>'+icon+'</span><small>'+esc(label)+'</small></button>').join("")+'</nav>'+

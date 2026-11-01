@@ -88,3 +88,6 @@ h1,h2,h3,p{margin:0}p{line-height:1.6}button,input,select{font:inherit}button{cu
 @media(max-width:560px){body{background:#fff}.outer{padding:0;display:block;background:#fff}.phone{width:100%;height:100dvh;min-height:520px;border:0;border-radius:0;box-shadow:none}.phone-status{height:22px}.screen{padding:17px 13px 25px}.veil{padding:0}.drawer{border-radius:22px 22px 0 0;max-height:92dvh}.toast{bottom:80px}}
 @media(max-width:360px){.brand strong{font-size:13px}.app-header select{max-width:141px;font-size:10px}.drawer .form-grid{grid-template-columns:1fr}.drawer .form-grid .wide{grid-column:auto}.metric strong{font-size:16px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.reset-icon{width:30px;height:34px;flex:none;display:grid;place-items:center;background:#eef8f4;border:1px solid #d2e9df;border-radius:9px;color:#057e61;font-size:19px;font-weight:700;padding:0}
+.reset-icon:hover{background:#dff4e9}
+@media(max-width:390px){.app-header{padding:12px 10px;gap:5px}.app-header select{max-width:133px;font-size:10px}.brand strong{font-size:13px}.brand small{font-size:8px}}
