@@ -188,3 +188,20 @@ Public branding remains neutral. Cargo Dispatch now has its own two-account mobi
 - Public industry landing pages present role capabilities, not numbered walkthroughs. Guided blocks were also removed from the Construction and Field Services app overviews.
 
 Validation: npm run test:cargo-demo, npm run test:mini-demos, npm run test:construction-demo, npm run test:field-services-demo, and npm run build. Browser visual QA remains necessary.
+
+
+### Cargo Dispatch navigation redesign (Macsim workflow reference)
+
+The Cargo demo uses a **neutral brand** and a distinct muted teal theme, but its mobile navigation and information hierarchy were adapted from the existing mobile implementation after reviewing the dispatcher/staff, driver and admin areas in the reference repository. In particular, the shared tab structure is now **Board / Active / History**, rather than Overview / Loads / Fleet / Payments.
+
+- **Board:** load cards prioritize pickup → destination, container feet, tonnage, driver pay (KSH), full-trip sample distance and reservation status. Search works by route, container, driver and truck. Grace gets a New Load action and an additional status filter; Kevin sees open and his own reserved loads.
+- **Active:** assigned, picked-up, in-transit and delivered loads. Driver actions live in the per-load detail screen, not directly on a guided task board.
+- **History:** completed deliveries, evidence placeholders, and payment status.
+- **Load detail:** full-screen nested route with back navigation, operational fields, driver/truck and sample location data, document placeholders, allowed actions, and activity timeline.
+- **Create/edit:** a full-screen form with container feet/number, weight, pickup and destination dropdowns, consignee, empty-return depot, driver pay and trip mileage.
+- **Dispatcher drawer:** Fleet, Drivers, Finance, Locations, Consignees and Settings are accessible as regular navigable screens. Admin-style management capabilities are represented through Grace; there is no third login role.
+- **Driver bookings:** single active/pending reservation at a time; pending booking may be cancelled; dispatcher may approve or decline. Pickup-photo placeholder is required before pickup, delivery note before delivery, and EIR placeholder before completion. Completion releases the truck for another booking.
+
+All content remains fictional and browser-local; photo/document displays are illustrative records, not uploaded files, and truck locations, mileage and payments are not connected to live services. No notifications are implemented.
+
+QA: `npm run test:cargo-demo` covers the rebuilt full mobile navigation and lifecycle; `npm run build` and manual viewport/browser review remain appropriate before shipping.
