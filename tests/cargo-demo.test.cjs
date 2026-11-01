@@ -130,12 +130,12 @@ test('driver can cancel only own pending booking and dispatcher can decline book
 });
 test('dispatcher and driver share Board, Active, History tabs without a numbered guide',()=>{
  const h=browser();
- assert.match(h.root.innerHTML,/Grace\.Dispatcher/);
+ assert.match(h.root.innerHTML,/Grace \(Dispatcher\)/);
  for(const text of ['Board','Active','History','Open &amp; booked'])assert.match(h.root.innerHTML,new RegExp(text));
  assert.doesNotMatch(h.root.innerHTML,/step by step|Try the workflow|guided steps/i);
  h.tab('active');assert.match(h.root.innerHTML,/LD-3084/);
  h.tab('history');assert.match(h.root.innerHTML,/LD-3082/);
- h.role('driver');assert.match(h.root.innerHTML,/Kevin Mwangi/);
+ h.role('driver');assert.match(h.root.innerHTML,/Kevin \(Driver\)/);
  h.tab('active');assert.match(h.root.innerHTML,/No loads found/);
  h.tab('board');assert.match(h.root.innerHTML,/LD-3088/);
 });

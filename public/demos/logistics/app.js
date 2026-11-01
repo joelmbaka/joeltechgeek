@@ -130,7 +130,7 @@
   if(screen==="locations")return '<div class="directory"><h1>Locations</h1>'+core.PORTS.map(p=>'<div class="directory-item"><span>📍</span><div><b>'+esc(p.name)+'</b><small>'+esc(p.region)+'</small></div></div>').join("")+'</div>';
   if(screen==="consignees")return '<div class="directory"><h1>Consignees</h1>'+core.CONSIGNEES.map(x=>'<div class="directory-item"><span>▣</span><div><b>'+esc(x)+'</b><small>Fictional consignee</small></div></div>').join("")+'</div>';
   return '<div class="directory"><h1>'+(screen==="profile"?"My Profile":"Settings")+'</h1>'+
-   group("Demo Account",row("User",role==="dispatcher"?"Grace · Dispatcher":"Kevin · Driver")+
+   group("Demo Account",row("User",role==="dispatcher"?"Grace (Dispatcher)":"Kevin (Driver)")+
     row("Mode","Fictional / local"))+
    (screen==="profile"?group("Truck",row("Plate",data.driver.truckPlate)+row("Capacity",data.driver.capacityTons+" tons")):"")+
    group("Sample Workspace",'<p class="hint">Reset loads, bookings, mileage and sample document records.</p>'+
@@ -140,10 +140,10 @@
   const nested=!!screen;
   const label=screen==="detail"?"Load":
    screen?({fleet:"Fleet",drivers:"Drivers",finance:"Finance",locations:"Locations",consignees:"Consignees",settings:"Settings",profile:"My Profile"}[screen]):
-    tab==="board"?(role==="dispatcher"?"Grace.Dispatcher":"Kevin Mwangi"):tab==="active"?"Active":"History";
+    tab==="board"?(role==="dispatcher"?"Grace (Dispatcher)":"Kevin (Driver)"):tab==="active"?"Active":"History";
   return '<header class="app-header"><button type="button" aria-label="'+(nested?"Go back":"Open menu")+'" class="header-btn" data-action="'+(nested?"back":"menu")+'">'+(nested?"‹":"☰")+'</button>'+
    '<div class="header-heading"><b>'+esc(label)+'</b></div>'+
-   (nested?'<span></span>':'<select id="demo-role" aria-label="Demo user"><option value="dispatcher" '+(role==="dispatcher"?"selected":"")+'>Grace</option><option value="driver" '+(role==="driver"?"selected":"")+'>Kevin</option></select>')+'</header>';
+   (nested?'<span></span>':'<select id="demo-role" aria-label="Demo user"><option value="dispatcher" '+(role==="dispatcher"?"selected":"")+'>Grace (Dispatcher)</option><option value="driver" '+(role==="driver"?"selected":"")+'>Kevin (Driver)</option></select>')+'</header>';
  }
  function tabs(){
   if(screen)return "";

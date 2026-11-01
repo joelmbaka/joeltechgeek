@@ -31,7 +31,7 @@ h1,h2,h3,p{margin:0}p{line-height:1.65}
 .header-heading{flex:1;min-width:0;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .header-heading b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app-header>span:empty{width:70px}
-.app-header select{max-width:94px;min-height:36px;background:#f6faf9;border:1px solid #d7e5e1;border-radius:10px;color:#326154;padding:8px 6px;font-size:12px;font-weight:850}
+.app-header select{max-width:170px;min-height:36px;background:#f6faf9;border:1px solid #d7e5e1;border-radius:10px;color:#326154;padding:8px 6px;font-size:11px;font-weight:850}
 .app-header .badge{font-size:9px;padding:4px 7px}
 .app-content{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:0 0 26px;scrollbar-width:thin;scrollbar-color:#d9e4e2 transparent}
 .board,.detail,.form-view,.directory{padding:18px 16px 25px}
