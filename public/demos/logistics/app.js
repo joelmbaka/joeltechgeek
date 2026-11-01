@@ -15,21 +15,23 @@
  const route=l=>esc(place(l.originId))+' <span class="route-arrow">→</span> '+esc(place(l.destinationId));
  const group=(h,body)=>'<section class="group"><h2>'+esc(h)+'</h2>'+body+'</section>';
  const blank=(h,p)=>'<div class="blank"><div>▣</div><b>'+esc(h)+'</b><p>'+esc(p)+'</p></div>';
+ const boardRank={"Booked":0,"Assigned":1,"Picked up":2,"In transit":3,"Delivered":4,"Open":5,"Complete":6};
+ const prioritized=loads=>loads.slice().sort((a,b)=>(boardRank[a.status]??99)-(boardRank[b.status]??99));
  const list=()=>{
-  if(tab==="board")return role==="driver"?data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked")):
-    filter==="Board"?data.loads.filter(l=>["Open","Booked"].includes(l.status)):filter==="All"?data.loads:data.loads.filter(l=>l.status===filter);
+  if(tab==="board")return role==="driver"?prioritized(data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked"))):
+    prioritized(filter==="Board"?data.loads.filter(l=>l.status!=="Complete"):filter==="All"?data.loads:data.loads.filter(l=>l.status===filter));
   if(tab==="active")return data.loads.filter(l=>["Assigned","Picked up","In transit","Delivered"].includes(l.status)&&(role==="dispatcher"||own(l)));
   return data.loads.filter(l=>l.status==="Complete"&&(role==="dispatcher"||own(l)));
  };
  const counts=()=>({
-  board:role==="driver"?data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked")).length:data.loads.filter(l=>["Open","Booked"].includes(l.status)).length,
+  board:role==="driver"?data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked")).length:data.loads.filter(l=>l.status!=="Complete").length,
   active:data.loads.filter(l=>["Assigned","Picked up","In transit","Delivered"].includes(l.status)&&(role==="dispatcher"||own(l))).length,
   history:data.loads.filter(l=>l.status==="Complete"&&(role==="dispatcher"||own(l))).length
  });
  const card=l=>{
-  const reserved=l.status==="Booked",visible=tab!=="board"||reserved||filter==="All";
+  const reserved=l.status==="Booked";
   return '<button class="load-card '+(reserved?"reserved":"")+'" data-load="'+esc(l.id)+'">'+
-   '<div class="card-top"><div class="route-name">'+route(l)+'</div>'+(visible?badge(l.status):"")+'<span class="chev">›</span></div>'+
+   '<div class="card-top"><div class="route-name">'+route(l)+'</div>'+badge(l.status)+'<span class="chev">›</span></div>'+
    '<div class="card-stats"><span>🚛 '+(l.containerFeet||40)+'ft</span><span>⚖ '+l.weightTons+' T</span><strong>💰 '+money(l.driverPay)+'</strong></div>'+
    '<div class="card-bottom"><span>🛣 Full trip: '+l.routeMiles+' mi · sample</span><span>🕒 '+esc(l.id)+'</span>'+
    (l.driver?'<span class="driver-name">◉ '+esc(l.driver.name)+'</span>':"")+'</div></button>';
@@ -40,8 +42,8 @@
   return '<div class="board"><div class="board-head"><h1>'+({board:"Board",active:"Active",history:"History"}[tab])+'</h1>'+
    (tab==="board"&&role==="dispatcher"?btn("＋ New Load","new",null,"primary"):"")+'</div>'+
    '<div class="search-field"><span>⌕</span><input id="load-search" aria-label="Search loads" placeholder="Search pickup, destination, container, truck, or driver" value="'+esc(search)+'"/></div>'+
-   (role==="dispatcher"&&tab==="board"?'<div class="board-filter"><label>Status <select id="board-filter">'+["Board","All",...core.STATUSES].map(s=>'<option value="'+esc(s)+'" '+(filter===s?"selected":"")+'>'+esc(s==="Board"?"Open & booked":s==="All"?"All statuses":s)+'</option>').join("")+'</select></label><span>'+found.length+' loads</span></div>':
-   '<p class="load-total">'+found.length+' '+(tab==="board"?"available or pending":tab==="active"?"active":"completed")+' loads</p>')+
+   (role==="dispatcher"&&tab==="board"?'<div class="board-filter"><label>Status <select id="board-filter">'+["Board","All",...core.STATUSES].map(s=>'<option value="'+esc(s)+'" '+(filter===s?"selected":"")+'>'+esc(s==="Board"?"Booked, active & open":s==="All"?"All statuses":s)+'</option>').join("")+'</select></label><span>'+found.length+' loads</span></div>':
+   '<p class="load-total">'+found.length+' '+(tab==="board"?"available or booked":tab==="active"?"active":"completed")+' loads</p>')+
    (found.length?'<div class="load-stack">'+found.map(card).join("")+'</div>':blank("No loads found",search?"Try another search.":tab==="history"?"Completed trips appear here.":"Nothing to show in this section."))+'</div>';
  }
  function docs(l){

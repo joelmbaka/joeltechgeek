@@ -131,7 +131,7 @@ test('driver can cancel only own pending booking and dispatcher can decline book
 test('dispatcher and driver share Board, Active, History tabs without a numbered guide',()=>{
  const h=browser();
  assert.match(h.root.innerHTML,/Grace \(Dispatcher\)/);
- for(const text of ['Board','Active','History','Open &amp; booked'])assert.match(h.root.innerHTML,new RegExp(text));
+ for(const text of ['Board','Active','History','Booked, active &amp; open'])assert.match(h.root.innerHTML,new RegExp(text));
  assert.doesNotMatch(h.root.innerHTML,/step by step|Try the workflow|guided steps/i);
  h.tab('active');assert.match(h.root.innerHTML,/LD-3084/);
  h.tab('history');assert.match(h.root.innerHTML,/LD-3082/);
@@ -166,7 +166,7 @@ test('load details open from cards and back returns to the correct tab',()=>{
  assert.match(h.root.innerHTML,/Container number/);
  assert.match(h.root.innerHTML,/Consignee/);
  assert.match(h.root.innerHTML,/Tracking Timeline/);
- h.action('back');assert.match(h.root.innerHTML,/Open &amp; booked/);
+ h.action('back');assert.match(h.root.innerHTML,/Booked, active &amp; open/);
  h.tab('active');h.open('LD-3084');assert.match(h.root.innerHTML,/Driver &amp; Truck/);
  h.action('back');assert.match(h.root.innerHTML,/LD-3084/);
 });
@@ -240,4 +240,41 @@ test('Cargo HTML uses standalone mobile scripts and no framework workflow guide'
  assert.match(html,/\/demos\/logistics\/styles\.css/);
  assert.match(html,/noindex,nofollow/);
  assert.doesNotMatch(html,/minimal-engine|\/logistics\/demo\.js/);
+});
+
+
+test('driver sees their booked load first, ahead of all open loads',()=>{
+ const h=browser();
+ h.role('driver');
+ h.open('LD-3088');h.action('book','LD-3088');
+ h.action('back');h.tab('board');
+ const booked=h.root.innerHTML.indexOf('data-load="LD-3088"');
+ const open=h.root.innerHTML.indexOf('data-load="LD-3089"');
+ assert.ok(booked>=0&&open>booked,'driver booked load must appear first');
+ assert.match(h.root.innerHTML,/badge-booked/);
+ assert.match(h.root.innerHTML,/badge-open/);
+});
+test('dispatcher Board orders booked before active statuses and then open loads',()=>{
+ const h=browser();
+ const body=h.root.innerHTML;
+ const booked=body.indexOf('data-load="LD-3087"');
+ const assigned=body.indexOf('data-load="LD-3086"');
+ const picked=body.indexOf('data-load="LD-3085"');
+ const inTransit=body.indexOf('data-load="LD-3084"');
+ const delivered=body.indexOf('data-load="LD-3083"');
+ const open=body.indexOf('data-load="LD-3088"');
+ assert.ok(booked>=0&&booked<assigned&&assigned<picked&&picked<inTransit&&inTransit<delivered&&delivered<open,'Board load ordering');
+ assert.match(body,/badge-assigned/);
+ assert.match(body,/badge-picked-up/);
+ assert.match(body,/badge-in-transit/);
+ assert.match(body,/badge-delivered/);
+ assert.doesNotMatch(body,/data-load="LD-3082"/);
+ h.filter('All');
+ assert.match(h.root.innerHTML,/data-load="LD-3082"/);
+});
+test('status badge is visible on every dispatcher Board card including Open',()=>{
+ const h=browser();
+ const cards=h.root.innerHTML.match(/<button class="load-card[\s\S]*?<\/button>/g)||[];
+ assert.ok(cards.length>=8);
+ for(const c of cards)assert.match(c,/class="badge badge-/);
 });
