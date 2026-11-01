@@ -62,7 +62,9 @@ return function(d,ui,c){
   return heading("Invoice",i.reference)+'<div class="invoice-hero"><div class="card-head"><b>'+esc(i.reference)+'</b>'+badge(c.status(i))+'</div><p>'+esc(t?.name)+" · "+esc(u?.code)+'</p><div class="hero-values"><div><small>Amount paid</small><strong>'+kes(i.paid)+'</strong></div><div><small>Outstanding</small><strong>'+kes(bal)+'</strong></div></div></div>'+
    panel("Invoice details",pair("Property",name(i.propertyId))+pair("Unit",u?.code)+pair("Tenant",t?.name)+pair("Phone",t?.phone)+pair("Billing period",period(i.month))+pair("Due date",i.dueDate)+pair("Rent",kes(i.baseRent))+pair("Service charge",kes(i.serviceCharge))+pair("Deposit",kes(i.deposit))+pair("Gross payable",kes(i.total))+pair("Paid",kes(i.paid))+pair("Outstanding",kes(bal)))+
    panel("Payment activity",related.map(p=>list(kes(p.received),p.date+" · "+p.reference,"Receipt","receipt",p.id)).join("")||'<p class="hint">No payment activity recorded yet.</p>')+
-   (ui.role==="tenant"?(bal===0?'<div class="settled">✓ Invoice fully paid</div>':'<p class="hint">Payments made to the property manager will appear here once recorded.</p>'):
+   (ui.role==="tenant"?(bal===0?'<div class="settled">✓ Invoice fully paid</div>':
+    btn("Pay now","pay-now",i.id,"primary full")+
+    '<p class="hint">Use the sample M-Pesa checkout. No real STK or money transfer occurs.</p>'):
     bal>0?btn("Record manual payment","new-payment",i.id,"primary full"):'<div class="settled">✓ Invoice fully paid</div>')+
    (ui.role==="manager"?'<p class="hint">Payments are recorded as already received outside this demo; no STK is initiated.</p>':"");
  }
@@ -131,35 +133,46 @@ return function(d,ui,c){
   const open=related.filter(i=>c.balance(i)>0).slice().sort((a,b)=>b.month.localeCompare(a.month));
   const paid=related.filter(i=>c.balance(i)===0).slice().sort((a,b)=>b.month.localeCompare(a.month));
   const outstanding=open.reduce((n,i)=>n+c.balance(i),0);
-  return heading("My rent",own?.name+" · "+(active?unit(active.unitId)?.code:"No active unit"))+
-   '<div class="overview-banner"><small>Outstanding rent</small><strong>'+kes(outstanding)+'</strong><span>'+esc(active?name(unit(active.unitId)?.propertyId)+" · "+unit(active.unitId)?.code:"Rent overview")+'</span></div>'+
+  const activeCount=d.leases.filter(l=>l.tenantId===ui.tenantId&&l.status==="Active").length;
+  return heading("My rent",own?.name+" · "+(activeCount===1?unit(active.unitId)?.code:activeCount+" linked units"))+
+   '<div class="overview-banner"><small>Outstanding rent</small><strong>'+kes(outstanding)+'</strong><span>'+esc(activeCount>1?activeCount+" active leases":active?name(unit(active.unitId)?.propertyId)+" · "+unit(active.unitId)?.code:"Rent overview")+'</span></div>'+
    '<div class="tenant-stats">'+
    '<div><small>Open invoices</small><b>'+open.length+'</b></div>'+
    '<div><small>Paid invoices</small><b>'+paid.length+'</b></div></div>'+
-   panel("Open invoices",open.map(invoiceCard).join("")||empty("All caught up","No open rent invoices."))+
+   panel("Open invoices",open.map(i=>'<div class="tenant-invoice-entry">'+invoiceCard(i)+
+    btn("Pay now","pay-now",i.id,"primary tenant-pay-shortcut")+'</div>').join("")||
+    empty("All caught up","No open rent invoices."))+
    panel("Previous & settled invoices",paid.map(invoiceCard).join("")||empty("No previous payments","Paid invoices will appear here."));
  }
  function tenantPayments(){
   const own=tenant(ui.tenantId),items=d.payments.filter(p=>p.tenantId===ui.tenantId);
   return heading("My payments",own?.name+" · "+items.length+" recorded payments")+
    '<div class="mini-summary"><span>Payments recorded</span><b>'+kes(items.reduce((n,p)=>n+p.received,0))+'</b></div>'+
-   (items.map(paymentCard).join("")||empty("No payments yet","Your rent receipts appear when the property manager records payment."));
+   (items.map(paymentCard).join("")||empty("No payments yet","Receipts appear here after a sample checkout or a payment recorded by the manager."));
  }
  function tenantLease(){
-  const own=tenant(ui.tenantId),l=d.leases.find(l=>l.tenantId===ui.tenantId&&l.status==="Active");
-  if(!l)return heading("My lease")+empty("No active lease","You have no active tenancy on this demo account.");
-  const u=unit(l.unitId);
-  return heading("My lease",own?.name)+
-   panel("Tenancy details",pair("Property",name(u?.propertyId))+pair("Unit",u?.code)+pair("Tenant",own?.name)+
-    pair("Lease reference",l.id)+pair("Status",l.status)+pair("Start date",l.start)+
-    pair("Monthly rent",kes(l.rent))+pair("Service charge",kes(l.serviceCharge))+
-    pair("Total each month",kes(l.rent+l.serviceCharge)))+
-   panel("Rent invoices",d.invoices.filter(i=>i.tenantId===ui.tenantId).map(invoiceCard).join("")||empty("No invoices","No invoices are available."));
+  const own=tenant(ui.tenantId),leases=d.leases.filter(l=>l.tenantId===ui.tenantId);
+  if(!leases.length)return heading("My leases")+empty("No lease","You have no tenancy in this demo.");
+  const active=leases.filter(l=>l.status==="Active");
+  return heading("My leases",own?.name+" · "+active.length+" active "+(active.length===1?"lease":"leases"))+
+   active.map(l=>{
+    const u=unit(l.unitId);
+    return panel(u?.code||"Unit",pair("Tenant",own?.name)+pair("Property",name(u?.propertyId))+
+     pair("Unit",u?.code)+pair("Lease reference",l.id)+pair("Status",l.status)+
+     pair("Start date",l.start)+pair("Monthly rent",kes(l.rent))+
+     pair("Service charge",kes(l.serviceCharge))+
+     pair("Monthly total",kes(l.rent+l.serviceCharge))+
+     btn("View lease details","open-tenant-lease",l.id,"soft full"));
+   }).join("")+
+   panel("All linked invoices",d.invoices.filter(i=>i.tenantId===ui.tenantId).map(invoiceCard).join("")||
+    empty("No invoices","No invoices are available."));
  }
 
  const map={rent,leases,tenants,portfolio,invoice:invoiceDetails,property:propertyDetails,unit:unitDetails,lease:leaseDetails,tenant:tenantDetails,payments,receipt,history,expenses,accounting,tenantRent,tenantPayments,tenantLease};
  function form(){
-  if(!ui.modal||ui.role!=="manager")return"";
+  if(!ui.modal)return"";
+  if(ui.role==="manager"&&ui.modal.type==="checkout")return"";
+  if(ui.role==="tenant"&&ui.modal.type!=="checkout")return"";
   const {type,id}=ui.modal;let title="",fields="",submit="";
   if(type==="payment"){
    const i=invoice(id);if(!i)return"";
@@ -174,13 +187,24 @@ return function(d,ui,c){
   }else if(type==="lease"){
    const available=d.units.filter(u=>u.active&&!c.activeLease(d,u.id));
    title="Create lease";submit="Save lease";
-   fields=formSelect("Vacant unit","unitId",available.map(u=>[u.id,u.code+" · "+name(u.propertyId)]),id||available[0]?.id)+
-    input("Tenant name","name","","text",'maxlength="90" placeholder="Tenant full name"')+
-    input("Tenant phone","phone","0722000066","tel",'maxlength="10"')+
+   fields='<div class="fixed-tenant"><small>Tenant · fixed for this demo</small><strong>'+esc(tenant("T-101")?.name)+'</strong><span>'+esc(tenant("T-101")?.phone)+' · Read only</span></div>'+
+    '<input type="hidden" name="tenantId" value="T-101" />'+
+    formSelect("Vacant unit","unitId",available.map(u=>[u.id,u.code+" · "+name(u.propertyId)]),id||available[0]?.id)+
     input("Lease start","start","2026-11-01","date")+
     input("Monthly rent (KES)","rent",unit(id||available[0]?.id)?.rent||22000,"number",'step="0.01" min="0.01"')+
     input("Service charge (KES)","serviceCharge",unit(id||available[0]?.id)?.serviceCharge||0,"number",'step="0.01" min="0"')+
     formSelect("First invoice","createInvoice",[["yes","Generate November invoice"],["no","Skip first invoice"]],"yes");
+  }else if(type==="checkout"){
+   const i=invoice(id);
+   if(!i||i.tenantId!==ui.tenantId||c.balance(i)===0)return"";
+   title="Pay rent with M-Pesa";submit="Confirm sample payment";
+   fields='<p class="form-note">Invoice '+esc(i.reference)+" · "+esc(unit(i.unitId)?.code)+
+    " · Outstanding "+kes(c.balance(i))+'</p>'+
+    input("Safaricom number","phone",tenant(ui.tenantId)?.phone||"0722000011","tel",
+     'inputmode="tel" maxlength="16"')+
+    input("Amount (KES)","amount",c.balance(i),"number",
+     'min="1" step="1" max="'+c.balance(i)+'"')+
+    '<p class="form-note">The full balance is prefilled. Enter a smaller whole-shilling amount to make a partial payment. This is a simulated checkout: no real STK request or money transfer.</p>';
   }else if(type==="expense"){
    title="Record property expense";submit="Save expense";
    fields=formSelect("Property","propertyId",d.properties.map(p=>[p.id,p.name]),d.properties[0].id)+
