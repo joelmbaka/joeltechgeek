@@ -5,19 +5,24 @@ const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
 const html=fs.readFileSync(path.join(dir,'demo.html'),'utf8');
 const core=()=>new Function(coreSrc+'\nreturn cargoCore;')();
 const fields=(x={})=>({originId:'mombasa-port',destinationId:'nairobi-icd',cargo:'Fictional forty foot container',weightTons:'20',driverPay:'280000',routeMiles:'305',containerNo:'FICT-2026-001',...x});
-function browser(){
- const events={},root={innerHTML:'',contains:()=>true};let saved=null;
- const doc={getElementById:()=>root,addEventListener:(n,fn)=>{events[n]=fn}};
- const storage={getItem:()=>saved,setItem:(k,v)=>{saved=v}};
+function browser(preloaded=null){
+ const events={},root={innerHTML:'',contains:()=>true};let saved=preloaded;
+ const doc={getElementById:(id)=>id==='app'?root:null,addEventListener:(type,fn)=>{events[type]=fn}};
+ const storage={getItem:()=>saved,setItem:(key,value)=>{saved=value}};
  const win={confirm:()=>true};
- class FD{constructor(f){this.fields=f.fields}entries(){return Object.entries(this.fields)[Symbol.iterator]()}}
+ class FD{constructor(form){this.fields=form.fields}entries(){return Object.entries(this.fields)[Symbol.iterator]()}}
  new Function('document','window','localStorage','FormData',coreSrc+'\n'+appSrc)(doc,win,storage,FD);
- return {root,data:()=>JSON.parse(saved),snapshot:()=>saved,
-   cmd:(cmd,id)=>events.click({target:{closest:()=>({dataset:{cmd,id}})}}),
-   tab:id=>events.click({target:{closest:()=>({dataset:{tab:id}})}}),
-   role:value=>events.change({target:{id:'role',value}}),
-   filter:value=>events.change({target:{id:'filter',value}}),
-   form:(type,values,id)=>events.submit({preventDefault:()=>{},target:{dataset:{form:type,id},fields:values}})
+ return {
+  root,data:()=>JSON.parse(saved),snapshot:()=>saved,
+  action:(action,id)=>events.click({target:{closest:()=>({dataset:{action,id}})}}),
+  tab:tab=>events.click({target:{closest:()=>({dataset:{tab}})}}),
+  open:load=>events.click({target:{closest:()=>({dataset:{load}})}}),
+  page:page=>events.click({target:{closest:()=>({dataset:{page}})}}),
+  role:value=>events.change({target:{id:'demo-role',value}}),
+  filter:value=>events.change({target:{id:'board-filter',value}}),
+  query:value=>events.input({target:{id:'load-search',value,selectionStart:value.length,selectionEnd:value.length}}),
+  form:values=>events.submit({preventDefault:()=>{},target:{id:'cargo-form',dataset:{kind:'new'},fields:values}}),
+  editForm:values=>events.submit({preventDefault:()=>{},target:{id:'cargo-form',dataset:{kind:'edit'},fields:values}})
  };
 }
 test('seed: loads span all statuses and two roles start without an active driver booking',()=>{
@@ -101,51 +106,135 @@ test('driver pay is simulated, only allowed when complete, and cannot be repeate
  assert.equal(l.payment.status,'Paid');assert.equal(l.payment.reference,'SIM-PAY-LD-3082');
  assert.throws(()=>c.pay(d,'LD-3082'),/already been marked paid/);
 });
-test('mobile UI offers only dispatcher and driver, not numbered guide',()=>{
+
+test('create-load data includes container feet, consignee, and a return depot',()=>{
+ const c=core(),d=c.seed();
+ const l=c.post(d,fields({containerFeet:'20',consignee:'Valley Logistics Ltd.',returnId:'mombasa-cfs'}));
+ assert.equal(l.containerFeet,20);
+ assert.equal(l.consignee,'Valley Logistics Ltd.');
+ assert.equal(l.returnId,'mombasa-cfs');
+ assert.throws(()=>c.post(d,fields({containerNo:'OTHER-02',containerFeet:'30'})),/20 or 40/);
+ assert.throws(()=>c.post(d,fields({containerNo:'OTHER-03',returnId:'invalid'})),/valid empty return depot/);
+});
+test('driver can cancel only own pending booking and dispatcher can decline booked loads',()=>{
+ const c=core(),d=c.seed();
+ assert.throws(()=>c.cancel(d,'LD-3088'),/Only your pending/);
+ c.book(d,'LD-3088');
+ c.cancel(d,'LD-3088');
+ assert.equal(c.find(d,'LD-3088').status,'Open');
+ assert.equal(c.find(d,'LD-3088').driver,null);
+ c.book(d,'LD-3088');
+ c.decline(d,'LD-3088');
+ assert.equal(c.find(d,'LD-3088').status,'Open');
+ assert.equal(c.active(d),undefined);
+});
+test('dispatcher and driver share Board, Active, History tabs without a numbered guide',()=>{
  const h=browser();
- assert.match(h.root.innerHTML,/Grace · Dispatcher/);
- assert.match(h.root.innerHTML,/Kevin · Driver/);
- assert.match(h.root.innerHTML,/Welcome, Grace/);
- assert.doesNotMatch(h.root.innerHTML,/Try the workflow|step by step|first step/i);
- h.tab('loads');assert.match(h.root.innerHTML,/LD-3088/);
+ assert.match(h.root.innerHTML,/Grace\.Dispatcher/);
+ for(const text of ['Board','Active','History','Open &amp; booked'])assert.match(h.root.innerHTML,new RegExp(text));
+ assert.doesNotMatch(h.root.innerHTML,/step by step|Try the workflow|guided steps/i);
+ h.tab('active');assert.match(h.root.innerHTML,/LD-3084/);
+ h.tab('history');assert.match(h.root.innerHTML,/LD-3082/);
+ h.role('driver');assert.match(h.root.innerHTML,/Kevin Mwangi/);
+ h.tab('active');assert.match(h.root.innerHTML,/No loads found/);
+ h.tab('board');assert.match(h.root.innerHTML,/LD-3088/);
+});
+test('board search and status filter navigate across dispatcher load states',()=>{
+ const h=browser();
+ h.filter('All');assert.match(h.root.innerHTML,/LD-3084/);
  h.filter('In transit');assert.match(h.root.innerHTML,/LD-3084/);
+ assert.doesNotMatch(h.root.innerHTML,/LD-3088/);
+ h.filter('All');h.query('Eldoret');assert.match(h.root.innerHTML,/LD-3090/);
+ assert.doesNotMatch(h.root.innerHTML,/LD-3088/);
 });
-test('post/edit form uses location dropdowns and driver rate field',()=>{
- const h=browser();h.cmd('post');
- assert.match(h.root.innerHTML,/<select name="originId"/);
+test('dispatcher drawer opens Fleet, Drivers, Finance, Locations and Consignees',()=>{
+ const h=browser();h.action('menu');
+ for(const item of ['Fleet','Drivers','Finance','Locations','Consignees','Settings'])assert.match(h.root.innerHTML,new RegExp(item));
+ h.page('fleet');assert.match(h.root.innerHTML,/Truck|KDH 117A/i);
+ h.action('back');
+ h.action('menu');h.page('drivers');assert.match(h.root.innerHTML,/Drivers/);
+ h.action('back');
+ h.action('menu');h.page('finance');assert.match(h.root.innerHTML,/Outstanding driver payouts/);
+ h.action('back');
+ h.action('menu');h.page('locations');assert.match(h.root.innerHTML,/Mombasa Port/);
+ h.action('back');
+ h.action('menu');h.page('consignees');assert.match(h.root.innerHTML,/Harbor Freight Co/);
+});
+test('load details open from cards and back returns to the correct tab',()=>{
+ const h=browser();h.open('LD-3088');
+ assert.match(h.root.innerHTML,/Load Details/);
+ assert.match(h.root.innerHTML,/Container number/);
+ assert.match(h.root.innerHTML,/Consignee/);
+ assert.match(h.root.innerHTML,/Tracking Timeline/);
+ h.action('back');assert.match(h.root.innerHTML,/Open &amp; booked/);
+ h.tab('active');h.open('LD-3084');assert.match(h.root.innerHTML,/Driver &amp; Truck/);
+ h.action('back');assert.match(h.root.innerHTML,/LD-3084/);
+});
+test('load creation is a full-screen form with original Macsim-style field hierarchy',()=>{
+ const h=browser();h.action('new');
+ assert.match(h.root.innerHTML,/Create Load/);
+ for(const name of ['containerFeet','containerNo','weightTons','destinationId','originId','consignee','returnId','driverPay','routeMiles'])assert.match(h.root.innerHTML,new RegExp('name="'+name+'"'));
+ assert.match(h.root.innerHTML,/Pay \(KSH\)/);
  assert.match(h.root.innerHTML,/<select name="destinationId"/);
- assert.match(h.root.innerHTML,/Pay driver \(KES\)/);
+ assert.match(h.root.innerHTML,/<select name="originId"/);
 });
-test('UI completes post edit book approve pickup transit delivery EIR pay',()=>{
- const h=browser();h.tab('loads');h.cmd('post');h.form('post',fields());
+test('end-to-end mobile navigation: post edit book approve proof pickup transit delivery EIR return and pay',()=>{
+ const h=browser();h.action('new');
+ h.form(fields({containerFeet:'20',consignee:'Cedar Imports Ltd.',returnId:'mombasa-port'}));
  const id=h.data().loads[0].id;
- h.cmd('edit',id);h.form('edit',fields({driverPay:'290000'}),id);
+ assert.equal(h.data().loads[0].containerFeet,20);
+ assert.match(h.root.innerHTML,/Load Details/);
+ h.action('edit',id);h.editForm(fields({containerFeet:'20',consignee:'Cedar Imports Ltd.',returnId:'mombasa-port',driverPay:'290000'}));
  assert.equal(h.data().loads[0].driverPay,290000);
- h.role('driver');h.cmd('book',id);
- assert.equal(h.data().loads[0].status,'Booked');
- h.cmd('book','LD-3088');
+ h.action('back');h.role('driver');h.open(id);
+ h.action('book',id);assert.equal(h.data().loads[0].status,'Booked');
+ h.action('back');h.open('LD-3088');h.action('book','LD-3088');
  assert.equal(h.data().loads.find(l=>l.id==='LD-3088').status,'Open');
- h.role('dispatcher');h.cmd('approve',id);
- h.role('driver');h.tab('myload');
- h.cmd('picked',id);assert.equal(h.data().loads[0].status,'Assigned');
- h.cmd('pickup',id);h.cmd('picked',id);h.cmd('transit',id);
- assert.equal(h.data().loads[0].status,'In transit');
- h.cmd('delivery',id);h.cmd('delivered',id);
- h.cmd('eir',id);h.cmd('complete',id);
- assert.equal(h.data().loads[0].status,'Complete');
- h.role('dispatcher');h.tab('fleet');assert.match(h.root.innerHTML,/sample miles/);
- h.tab('pay');h.cmd('pay',id);
+ h.action('back');h.role('dispatcher');h.open(id);h.action('approve',id);
+ assert.equal(h.data().loads[0].status,'Assigned');
+ h.action('back');h.role('driver');h.tab('active');h.open(id);
+ h.action('picked',id);assert.equal(h.data().loads[0].status,'Assigned');
+ h.action('pickup',id);assert.equal(h.data().loads[0].evidence.pickup.placeholder,true);
+ h.action('picked',id);h.action('transit',id);assert.equal(h.data().loads[0].status,'In transit');
+ h.action('delivery',id);h.action('delivered',id);assert.equal(h.data().loads[0].status,'Delivered');
+ h.action('eir',id);h.action('complete',id);assert.equal(h.data().loads[0].status,'Complete');
+ h.action('back');h.tab('history');assert.match(h.root.innerHTML,new RegExp(id));
+ h.role('dispatcher');h.tab('history');h.open(id);h.action('pay',id);
  assert.equal(h.data().loads[0].payment.status,'Paid');
  assert.equal(h.data().loads[0].driverPay,290000);
 });
-test('mobile demo reset restores ten sample loads and original driver rate',()=>{
- const h=browser();h.cmd('post');h.form('post',fields());
+test('the driver can cancel an unapproved booking from load details',()=>{
+ const h=browser();h.role('driver');h.open('LD-3088');h.action('book','LD-3088');
+ assert.equal(h.data().loads.find(l=>l.id==='LD-3088').status,'Booked');
+ h.action('cancel','LD-3088');
+ assert.equal(h.data().loads.find(l=>l.id==='LD-3088').status,'Open');
+});
+test('the dispatcher can decline a reservation and return it to Board',()=>{
+ const h=browser();h.role('driver');h.open('LD-3088');h.action('book','LD-3088');
+ h.action('back');h.role('dispatcher');h.open('LD-3088');h.action('decline','LD-3088');
+ assert.equal(h.data().loads.find(l=>l.id==='LD-3088').status,'Open');
+});
+test('search and data rendering safely escape injected HTML',()=>{
+ const h=browser();h.action('new');h.form(fields({cargo:'<svg onload=alert(1)>',containerNo:'<img src=x onerror=alert(1)>'}));
+ assert.doesNotMatch(h.root.innerHTML,/<svg onload=|<img src=/);
+ h.action('back');h.filter('All');
+ assert.doesNotMatch(h.root.innerHTML,/<svg onload=|<img src=/);
+});
+test('reloading the browser restores records without creating duplicates',()=>{
+ const h=browser();h.action('new');h.form(fields());
+ const saved=h.snapshot(),second=browser(saved);
+ assert.equal(second.data().loads.length,11);
+ assert.equal(second.data().loads[0].id,h.data().loads[0].id);
+});
+test('reset restores fictional seed and clears dynamically created loads',()=>{
+ const h=browser();h.action('new');h.form(fields());
  assert.equal(h.data().loads.length,11);
- h.cmd('reset');
+ h.action('reset');
  assert.equal(h.data().loads.length,10);
  assert.equal(h.data().loads.find(l=>l.id==='LD-3088').driverPay,280000);
+ assert.match(h.root.innerHTML,/Board/);
 });
-test('static HTML uses dedicated mobile resources, not the shared workflow engine',()=>{
+test('Cargo HTML uses standalone mobile scripts and no framework workflow guide',()=>{
  assert.match(html,/\/demos\/logistics\/core\.js/);
  assert.match(html,/\/demos\/logistics\/app\.js/);
  assert.match(html,/\/demos\/logistics\/styles\.css/);
