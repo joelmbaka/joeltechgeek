@@ -1,193 +1,214 @@
-(function boot(core){
- const root=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v2";
- const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
- const money=n=>"KES "+Number(n).toLocaleString("en-KE");
- const place=id=>core.loc(id)?.name||"Unknown";
- const status=s=>'<span class="status '+esc(s.toLowerCase().replace(/ /g,"-"))+'">'+esc(s)+'</span>';
- let data;try{data=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+(function cargoMobile(core){
+ "use strict";
+ const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v2";
+ const esc=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+ const money=n=>"KSH "+Number(n||0).toLocaleString("en-KE");
+ const place=id=>core.loc(id)?.name||"Unknown location";
+ let data;try{data=JSON.parse(localStorage.getItem(KEY)||"null");}catch(ex){}
  if(!core.validate(data))data=core.seed();
- const ui={role:"dispatcher",tab:"home",filter:"All",drawer:null,message:""};
- const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){ui.message="Browser storage unavailable."}};
- const action=(label,cmd,id,style="")=>'<button type="button" class="btn '+style+'" data-cmd="'+cmd+'" data-id="'+esc(id||"")+'">'+label+'</button>';
- const active=()=>core.active(data);
- const roleNames={dispatcher:"Grace · Dispatcher",driver:"Kevin · Driver"};
- const tabs={dispatcher:[["home","Overview","▦"],["loads","Loads","▤"],["fleet","Fleet","◉"],["pay","Payments","◇"]],
- driver:[["available","Find loads","⌕"],["myload","My trip","▣"],["history","History","☑"],["truck","Truck","🚚"]]};
- const msg=(t,d)=>'<div class="empty"><strong>'+esc(t)+'</strong><p>'+esc(d)+'</p></div>';
- const location=l=>'<span class="route"><b>'+esc(place(l.originId))+'</b><span>→</span><b>'+esc(place(l.destinationId))+'</b></span>';
- function card(l){
-  const mine=l.driver?.id===data.driver.id;
-  let controls=action("Details","detail",l.id,"ghost");
-  if(ui.role==="dispatcher"){
-   if(l.status==="Open")controls+=action("Edit","edit",l.id,"subtle")+action("Delete","delete",l.id,"danger");
-   if(l.status==="Booked")controls+=action("Approve","approve",l.id,"primary");
-   if(l.status==="Complete"&&l.payment.status!=="Paid")controls+=action("Mark paid","pay",l.id,"primary");
+ let role="dispatcher",tab="board",screen=null,selected=null,mode="new",drawer=false,search="",filter="Board",toast="";
+ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(ex){toast="Browser storage unavailable."}};
+ const own=l=>l.driver?.id===data.driver.id,active=()=>core.active(data);
+ const btn=(label,command,id,cls="")=>'<button type="button" class="button '+cls+'" data-action="'+command+'" '+(id?'data-id="'+esc(id)+'"':"")+'>'+label+'</button>';
+ const badge=st=>'<span class="badge badge-'+st.toLowerCase().replace(/\s/g,"-")+'">'+esc(st)+'</span>';
+ const row=(a,b)=>'<div class="data-row"><span>'+esc(a)+'</span><strong>'+esc(b??"—")+'</strong></div>';
+ const route=l=>esc(place(l.originId))+' <span class="route-arrow">→</span> '+esc(place(l.destinationId));
+ const group=(h,body)=>'<section class="group"><h2>'+esc(h)+'</h2>'+body+'</section>';
+ const blank=(h,p)=>'<div class="blank"><div>▣</div><b>'+esc(h)+'</b><p>'+esc(p)+'</p></div>';
+ const list=()=>{
+  if(tab==="board")return role==="driver"?data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked")):
+    filter==="Board"?data.loads.filter(l=>["Open","Booked"].includes(l.status)):filter==="All"?data.loads:data.loads.filter(l=>l.status===filter);
+  if(tab==="active")return data.loads.filter(l=>["Assigned","Picked up","In transit","Delivered"].includes(l.status)&&(role==="dispatcher"||own(l)));
+  return data.loads.filter(l=>l.status==="Complete"&&(role==="dispatcher"||own(l)));
+ };
+ const counts=()=>({
+  board:role==="driver"?data.loads.filter(l=>l.status==="Open"||(own(l)&&l.status==="Booked")).length:data.loads.filter(l=>["Open","Booked"].includes(l.status)).length,
+  active:data.loads.filter(l=>["Assigned","Picked up","In transit","Delivered"].includes(l.status)&&(role==="dispatcher"||own(l))).length,
+  history:data.loads.filter(l=>l.status==="Complete"&&(role==="dispatcher"||own(l))).length
+ });
+ const card=l=>{
+  const reserved=l.status==="Booked",visible=tab!=="board"||reserved||filter==="All";
+  return '<button class="load-card '+(reserved?"reserved":"")+'" data-load="'+esc(l.id)+'">'+
+   '<div class="card-top"><div class="route-name">'+route(l)+'</div>'+(visible?badge(l.status):"")+'<span class="chev">›</span></div>'+
+   '<div class="card-stats"><span>🚛 '+(l.containerFeet||40)+'ft</span><span>⚖ '+l.weightTons+' T</span><strong>💰 '+money(l.driverPay)+'</strong></div>'+
+   '<div class="card-bottom"><span>🛣 Full trip: '+l.routeMiles+' mi · sample</span><span>🕒 '+esc(l.id)+'</span>'+
+   (l.driver?'<span class="driver-name">◉ '+esc(l.driver.name)+'</span>':"")+'</div></button>';
+ };
+ function board(){
+  const items=list(),query=search.trim().toLowerCase();
+  const found=items.filter(l=>(l.id+" "+l.containerNo+" "+place(l.originId)+" "+place(l.destinationId)+" "+l.driver?.name+" "+l.driver?.truckPlate).toLowerCase().includes(query));
+  return '<div class="board"><div class="board-head"><h1>'+({board:"Board",active:"Active",history:"History"}[tab])+'</h1>'+
+   (tab==="board"&&role==="dispatcher"?btn("＋ New Load","new",null,"primary"):"")+'</div>'+
+   '<div class="search-field"><span>⌕</span><input id="load-search" aria-label="Search loads" placeholder="Search pickup, destination, container, truck, or driver" value="'+esc(search)+'"/></div>'+
+   (role==="dispatcher"&&tab==="board"?'<div class="board-filter"><label>Status <select id="board-filter">'+["Board","All",...core.STATUSES].map(s=>'<option value="'+esc(s)+'" '+(filter===s?"selected":"")+'>'+esc(s==="Board"?"Open & booked":s==="All"?"All statuses":s)+'</option>').join("")+'</select></label><span>'+found.length+' loads</span></div>':
+   '<p class="load-total">'+found.length+' '+(tab==="board"?"available or pending":tab==="active"?"active":"completed")+' loads</p>')+
+   (found.length?'<div class="load-stack">'+found.map(card).join("")+'</div>':blank("No loads found",search?"Try another search.":tab==="history"?"Completed trips appear here.":"Nothing to show in this section."))+'</div>';
+ }
+ function docs(l){
+  return group("Supporting Documents",'<div class="documents">'+[["pickup","Pickup Photo"],["delivery","Delivery Note"],["eir","Equipment Interchange Receipt (EIR)"]].map(([id,title])=>{
+   const x=l.evidence[id];
+   return '<div class="document '+(x?"uploaded":"")+'"><div class="document-icon">'+(x?"▣":"▧")+'</div><div><b>'+title+'</b><small>'+(x?"Sample attached":"Not attached")+'</small>'+
+    (x?'<div class="document-preview">SAMPLE PREVIEW<small>'+esc(x.reference)+'</small></div>':"")+'</div></div>';
+  }).join("")+'</div>');
+ }
+ function activity(l){
+  const rows=data.activity.filter(a=>a.loadId===l.id);
+  return group("Tracking Timeline",'<div class="timeline">'+(rows.length?rows:[{title:"Load posted",detail:"Available to drivers"}]).slice(0,9).map(a=>
+  '<div class="timeline-item"><span>●</span><div><b>'+esc(a.title)+'</b><p>'+esc(a.detail)+'</p></div></div>').join("")+'</div>');
+ }
+ function actions(l){
+  const buttons=[];
+  if(role==="dispatcher"){
+   if(l.status==="Open")buttons.push(btn("Edit Load","edit",l.id,"soft"),btn("Delete Load","delete",l.id,"danger"));
+   if(l.status==="Booked")buttons.push(btn("Approve Reservation","approve",l.id,"primary"),btn("Decline","decline",l.id,"soft"));
+   if(l.status==="Complete"&&l.payment.status!=="Paid")buttons.push(btn("Mark Driver Paid","pay",l.id,"primary"));
   }else if(l.status==="Open"){
-   controls+=action(active()?"Finish current load first":"Book load","book",l.id,active()?"disabled":"primary");
-  }else if(mine)controls+=action("Manage trip","detail",l.id,"primary");
-  return '<article class="load"><div class="line"><b>'+esc(l.id)+'</b>'+status(l.status)+'</div>'+
-  '<small class="ref">'+esc(l.containerNo)+'</small>'+location(l)+
-  '<div class="info-row"><span>'+esc(l.cargo)+'</span><span>'+l.weightTons+' t · '+l.routeMiles+' est. miles</span></div>'+
-  '<div class="fee"><div><small>Driver pay</small><strong>'+money(l.driverPay)+'</strong></div><div class="right"><small>'+esc(l.driver?.name||"Unassigned")+'</small><span>'+esc(l.payment.status)+'</span></div></div>'+
-  (l.truck?'<div class="position">◉ '+esc(l.truck.location)+'<b>'+l.truck.miles.toLocaleString()+' mi · sample</b></div>':'')+
-  '<div class="actions">'+controls+'</div></article>';
- }
- const metric=(t,v,s)=>'<div class="metric"><small>'+esc(t)+'</small><strong>'+v+'</strong><span>'+esc(s)+'</span></div>';
- function home(){
-  const m=core.metrics(data);
-  return '<div class="heading"><small>DISPATCH OPERATIONS</small><h1>Welcome, Grace</h1><p>Manage loads, drivers and deliveries.</p>'+action("+ Post load","post",null,"primary")+'</div>'+
-   '<div class="metrics">'+metric("Total loads",m.total,"All statuses")+metric("Available",m.open,"Open loads")+
-   metric("In delivery",m.moving,"Pickup to delivered")+metric("To pay",m.unpaid,money(m.owed))+'</div>'+
-   '<div class="subhead"><h2>Latest loads</h2><button data-tab="loads">View all →</button></div>'+data.loads.slice(0,5).map(card).join("");
- }
- function loads(){
-  const opts=["All",...core.STATUSES];
-  const filtered=data.loads.filter(l=>ui.filter==="All"||l.status===ui.filter);
-  return '<div class="heading"><small>FLEET DISPATCH</small><h1>Load board</h1><p>Manage status, rates and driver bookings.</p>'+action("+ Post load","post",null,"primary")+'</div>'+
-   '<div class="select-filter"><label for="filter">Filter by status</label><select id="filter">'+opts.map(s=>'<option'+(ui.filter===s?" selected":"")+' value="'+esc(s)+'">'+esc(s)+'</option>').join("")+'</select><b>'+filtered.length+' loads</b></div>'+
-   (filtered.length?filtered.map(card).join(""):msg("No matching loads","Try another status."));
- }
- function fleet(){
-  return '<div class="heading"><small>FLEET</small><h1>Truck locations</h1><p>Miles and locations shown are illustrative.</p></div>'+
-  '<div class="notice">No GPS or vehicle telemetry is connected. Locations update as demo trip stages change.</div>'+
-  data.loads.filter(l=>l.driver).map(l=>'<article class="load"><div class="line"><b>'+esc(l.driver.truckPlate)+'</b>'+status(l.status)+'</div>'+
-  '<p>'+esc(l.driver.name)+'</p><h2 class="mileage">'+l.truck.miles.toLocaleString()+' <small>sample miles</small></h2>'+
-  '<div class="position">◉ '+esc(l.truck.location)+'</div><div class="actions">'+action("View "+l.id,"detail",l.id,"ghost")+'</div></article>').join("");
- }
- function pay(){
-  const due=data.loads.filter(l=>l.status==="Complete"&&l.payment.status==="Unpaid");
-  const paid=data.loads.filter(l=>l.payment.status==="Paid");
-  return '<div class="heading"><small>DRIVER COMPENSATION</small><h1>Payments</h1><p>Rates are set when loads are posted.</p></div>'+
-  '<div class="metrics">'+metric("Ready to pay",due.length,"Completed trips")+metric("Amount due",money(core.metrics(data).owed),"Sample only")+'</div>'+
-  '<div class="subhead"><h2>Outstanding</h2></div>'+(due.length?due.map(card).join(""):msg("Nothing outstanding","No completed unpaid trips."))+
-  '<div class="subhead"><h2>Paid</h2></div>'+(paid.length?paid.map(card).join(""):msg("No payments","Simulated payments will appear here."));
- }
- function available(){
-  const list=data.loads.filter(l=>l.status==="Open"),current=active();
-  return '<div class="heading"><small>AVAILABLE CARGO</small><h1>Find a load</h1><p>'+list.length+' open loads · '+data.driver.capacityTons+'-tonne truck</p></div>'+
-  (current?'<div class="notice warning">You already booked '+esc(current.id)+'. Complete it before booking another.</div>':'')+
-  (list.length?list.map(card).join(""):msg("No loads available","Dispatcher can post new loads."));
- }
- function evidence(l,key,name){
-  const item=l.evidence[key];
-  return '<div class="evidence '+(item?"attached":"")+'"><span>'+ (item?"▣":"▧")+'</span><div><b>'+esc(name)+'</b><small>'+(item?"SAMPLE IMAGE / DOCUMENT ATTACHED":"No sample evidence")+'</small>'+
-  (item?'<p class="preview">SAMPLE PREVIEW<br>'+esc(item.reference)+'</p>':'')+'</div></div>';
- }
- function trip(l){
-  const mine=l.driver?.id===data.driver.id,controls=[];
-  if(mine){
-   if(l.status==="Assigned"){if(!l.evidence.pickup)controls.push(action("+ Add pickup photo placeholder","pickup",l.id,"subtle"));controls.push(action("Mark picked up","picked",l.id,"primary"))}
-   if(l.status==="Picked up")controls.push(action("Mark in transit","transit",l.id,"primary"));
-   if(l.status==="In transit"){if(!l.evidence.delivery)controls.push(action("+ Add delivery note placeholder","delivery",l.id,"subtle"));controls.push(action("Mark delivered","delivered",l.id,"primary"))}
-   if(l.status==="Delivered"){if(!l.evidence.eir)controls.push(action("+ Add EIR placeholder","eir",l.id,"subtle"));controls.push(action("Container returned to port · Complete","complete",l.id,"primary"))}
+   buttons.push(btn(active()?"Complete current load before booking":"Book Load","book",l.id,active()?"disabled":"primary"));
+  }else if(own(l)&&l.status==="Booked"){
+   buttons.push(btn("Cancel Reservation","cancel",l.id,"danger"));
+  }else if(own(l)){
+   if(l.status==="Assigned"){if(!l.evidence.pickup)buttons.push(btn("Add Pickup Photo (Sample)","pickup",l.id,"soft"));buttons.push(btn("Mark Picked Up","picked",l.id,"primary"))}
+   if(l.status==="Picked up")buttons.push(btn("Mark In Transit","transit",l.id,"primary"));
+   if(l.status==="In transit"){if(!l.evidence.delivery)buttons.push(btn("Add Delivery Note (Sample)","delivery",l.id,"soft"));buttons.push(btn("Mark Delivered","delivered",l.id,"primary"))}
+   if(l.status==="Delivered"){if(!l.evidence.eir)buttons.push(btn("Add EIR (Sample)","eir",l.id,"soft"));buttons.push(btn("Container Returned · Complete","complete",l.id,"primary"))}
   }
-  return '<section class="trip"><div class="subhead"><h2>Trip details</h2>'+status(l.status)+'</div>'+
-   '<div class="detail-grid"><div><small>Pickup</small><b>'+esc(place(l.originId))+'</b></div><div><small>Delivery</small><b>'+esc(place(l.destinationId))+'</b></div>'+
-   '<div><small>Container</small><b>'+esc(l.containerNo)+'</b></div><div><small>Driver pay</small><b>'+money(l.driverPay)+'</b></div>'+
-   '<div><small>Truck</small><b>'+esc(l.driver?.truckPlate||"Unassigned")+'</b></div><div><small>Route miles</small><b>'+l.routeMiles+' est.</b></div></div>'+
-   (l.truck?'<div class="position">◉ '+esc(l.truck.location)+'<b>'+l.truck.miles+' miles (sample)</b></div>':'')+
-   '<div class="subhead"><h2>Delivery evidence</h2><small>Placeholders only</small></div>'+
-   evidence(l,"pickup","Pickup photo")+evidence(l,"delivery","Delivery note")+evidence(l,"eir","Equipment Interchange Receipt (EIR)")+
-   '<div class="trip-buttons">'+controls.join("")+'</div>'+
-   (l.status==="Complete"?'<div class="notice good">✓ Empty container returned to Mombasa Port. Trip complete.</div>':'')+'</section>';
+  return buttons.length?group("Actions",'<div class="action-stack">'+buttons.join("")+'</div>'):"";
  }
- function myload(){
-  const l=active();
-  return '<div class="heading"><small>MY OPERATIONS</small><h1>My load</h1><p>Current booking, trip updates and evidence.</p></div>'+
-   (l?card(l)+trip(l):msg("No active load","Book a load from Find loads."))+
-   '<div class="notice">Pickup photo, delivery note and EIR are visible placeholders. No files, camera or location service is accessed.</div>';
+ function detail(){
+  const l=core.find(data,selected);if(!l)return blank("Load not found","Go back to the board.");
+  return '<div class="detail"><div class="detail-heading"><h1>'+route(l)+'</h1>'+badge(l.status)+'</div>'+
+   (role==="driver"&&l.status==="Open"&&active()?'<div class="hint warning">An active booking is already on your truck. Complete it before booking another load.</div>':"")+
+   group("Load Details",row("📏 Container feet",(l.containerFeet||40)+" ft")+row("🔢 Container number",l.containerNo)+
+   row("⚖ Weight",l.weightTons+" tons")+row("🚚 Pickup point",place(l.originId))+row("📍 Destination",place(l.destinationId))+
+   row("🏢 Consignee",l.consignee||core.CONSIGNEES[0])+row("↩ Empty return depot",place(l.returnId||"mombasa-port"))+
+   row("💰 Pay",money(l.driverPay))+row("🛣 Full trip",l.routeMiles+" mi · sample"))+
+   (l.driver?group("Driver & Truck",row("Driver",l.driver.name)+row("Truck",l.driver.truckPlate)+
+    (l.truck?'<div class="tracking"><b>◉ Truck location (sample)</b><p>'+esc(l.truck.location)+'</p><strong>'+l.truck.miles.toLocaleString()+' miles tracked</strong></div>':"")):"")+
+   actions(l)+(l.driver?docs(l):"")+activity(l)+
+   (l.status==="Complete"&&role==="dispatcher"?group("Driver Payment",row("Payable",money(l.driverPay))+row("Status",l.payment.status)+
+    (l.payment.reference?row("Reference",l.payment.reference):"")):"")+
+   '<div class="hint">Fictional data only. Truck locations, image evidence, and payments are simulated.</div></div>';
  }
- function history(){
-  const completed=data.loads.filter(l=>l.driver?.id===data.driver.id&&l.status==="Complete");
-  return '<div class="heading"><small>DRIVER HISTORY</small><h1>Completed loads</h1><p>Trips completed by this sample driver.</p></div>'+
-  (completed.length?completed.map(card).join(""):msg("No completed loads","Returned containers will appear here."));
+ const opts=(selectedValue)=>core.PORTS.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===selectedValue?"selected":"")+'>'+esc(p.name+" ("+p.region+")")+'</option>').join("");
+ function create(){
+  const editing=mode==="edit",l=editing?core.find(data,selected):null;
+  return '<div class="form-view"><h1>'+(editing?"Edit Load":"Create Load")+'</h1><form id="cargo-form" data-kind="'+mode+'">'+
+   '<div class="form-fields">'+
+   '<label>📏 Container feet<select name="containerFeet"><option value="20" '+((l?.containerFeet||40)===20?"selected":"")+'>20 ft</option><option value="40" '+((l?.containerFeet||40)===40?"selected":"")+'>40 ft</option></select></label>'+
+   '<label>🔢 Container number<input required minlength="4" maxlength="50" name="containerNo" value="'+esc(l?.containerNo||"DEMO-CONT-"+data.nextId)+'"/></label>'+
+   '<label>⚖ Weight (tons)<input required name="weightTons" type="number" min="0.5" max="28" step="0.1" value="'+esc(l?.weightTons??20)+'"/></label>'+
+   '<label>📍 Destination<select name="destinationId">'+opts(l?.destinationId||"nairobi-icd")+'</select></label>'+
+   '<label>🚚 Pickup point<select name="originId">'+opts(l?.originId||"mombasa-port")+'</select></label>'+
+   '<label>🏢 Consignee<select name="consignee">'+core.CONSIGNEES.map(c=>'<option '+((l?.consignee||core.CONSIGNEES[0])===c?"selected":"")+'>'+esc(c)+'</option>').join("")+'</select></label>'+
+   '<label>↩ Empty return depot<select name="returnId">'+opts(l?.returnId||"mombasa-port")+'</select></label>'+
+   '<label>💰 Pay (KSH)<input name="driverPay" type="number" min="1000" max="5000000" step="1" required value="'+esc(l?.driverPay??280000)+'"/></label>'+
+   '<label>🛣 Full trip miles<input name="routeMiles" type="number" min="1" max="1500" step="1" required value="'+esc(l?.routeMiles??305)+'"/></label>'+
+   '<label>Cargo description<input name="cargo" required minlength="4" maxlength="130" value="'+esc(l?.cargo||"40-ft shipping container · general cargo")+'"/></label></div>'+
+   '<button type="submit" class="button primary wide">'+(editing?"Save Changes":"Create Load")+'</button></form>'+
+   '<p class="hint">Sample data only. Locations and consignees are fictional selections.</p></div>';
  }
- function truck(){
-  const t=data.driver,l=active();
-  return '<div class="heading"><small>MY VEHICLE</small><h1>Truck</h1><p>Fictional vehicle details and trip stats.</p></div>'+
-  '<div class="truck-card"><div>🚚</div><h2>'+esc(t.truckPlate)+'</h2><b>'+esc(t.name)+'</b><p>Capacity: '+t.capacityTons+' tonnes</p></div>'+
-  '<div class="metrics">'+metric("Active booking",l?.id||"None","One at a time")+metric("Trip miles",l?l.truck?.miles+" mi":"—","Sample only")+'</div>'+
-  '<div class="notice">◉ '+esc(l?.truck?.location||"No active trip. Sample location unavailable.")+'</div>';
- }
- function drawer(){
-  const a=ui.drawer;if(!a)return "";
-  let contents="",title="",l=a.id?core.find(data,a.id):null;
-  if(a.kind==="post"||a.kind==="edit"){
-   title=a.kind==="post"?"Post a load":"Edit "+l?.id;
-   const select=id=>core.PORTS.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===id?" selected":"")+'>'+esc(p.name+", "+p.region)+'</option>').join("");
-   contents='<form data-form="'+a.kind+'" data-id="'+esc(a.id||"")+'"><div class="form-grid">'+
-    '<label>Pickup location<select name="originId" required>'+select(l?.originId||"mombasa-port")+'</select></label>'+
-    '<label>Delivery location<select name="destinationId" required>'+select(l?.destinationId||"nairobi-icd")+'</select></label>'+
-    '<label class="wide">Cargo description<input name="cargo" minlength="4" maxlength="130" required value="'+esc(l?.cargo||"40-ft containerized general cargo")+'"/></label>'+
-    '<label>Container number<input name="containerNo" minlength="4" maxlength="50" required value="'+esc(l?.containerNo||"DEMO-CONT-"+data.nextId)+'"/></label>'+
-    '<label>Cargo weight (tonnes)<input name="weightTons" type="number" min="0.5" max="28" step="0.1" required value="'+(l?.weightTons||20)+'"/></label>'+
-    '<label>Pay driver (KES)<input name="driverPay" type="number" min="1000" max="5000000" required step="1" value="'+(l?.driverPay||280000)+'"/></label>'+
-    '<label>Estimated route miles<input name="routeMiles" type="number" min="1" max="1500" required step="1" value="'+(l?.routeMiles||305)+'"/></label>'+
-    '</div><button type="submit" class="btn primary full">'+(a.kind==="post"?"Post load":"Save changes")+'</button></form>';
-  }else if(a.kind==="detail"&&l){
-   title=l.id+" · "+l.status;
-   contents=trip(l)+'<div class="actions">'+(ui.role==="dispatcher"?
-    (l.status==="Open"?action("Edit","edit",l.id,"subtle")+action("Delete","delete",l.id,"danger"):
-     l.status==="Booked"?action("Approve driver","approve",l.id,"primary"):
-     l.status==="Complete"&&l.payment.status!=="Paid"?action("Mark paid","pay",l.id,"primary"):""):
-    l.status==="Open"?action(active()?"Finish active trip first":"Book load","book",l.id,active()?"disabled":"primary"):"")+'</div>';
+ const drivers=()=>[data.driver,...data.loads.filter(l=>l.driver).map(l=>({id:l.driver.id,name:l.driver.name,truckPlate:l.driver.truckPlate}))].filter((a,i,all)=>all.findIndex(b=>b.id===a.id)===i);
+ function directory(){
+  if(screen==="fleet")return '<div class="directory"><h1>Fleet</h1>'+data.loads.filter(l=>l.driver).map(l=>
+   '<button class="directory-item" data-load="'+esc(l.id)+'"><span class="truck-icon">🚚</span><div><b>'+esc(l.driver.truckPlate)+'</b><small>'+esc(l.driver.name)+'</small><p>◉ '+esc(l.truck?.location||"Not available")+'</p><small>'+Number(l.truck?.miles||0).toLocaleString()+' mi · sample</small></div><span>›</span></button>').join("")+'</div>';
+  if(screen==="drivers")return '<div class="directory"><h1>Drivers</h1>'+drivers().map(x=>
+   '<article class="directory-item"><span class="truck-icon">◉</span><div><b>'+esc(x.name)+'</b><small>'+esc(x.truckPlate)+'</small></div></article>').join("")+'</div>';
+  if(screen==="finance"){
+   const completed=data.loads.filter(l=>l.status==="Complete");
+   return '<div class="directory"><h1>Finance</h1><div class="finance-banner"><span>Outstanding driver payouts</span><strong>'+money(completed.filter(l=>l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0))+'</strong><small>Demo balance</small></div>'+
+   completed.map(l=>'<button class="directory-item" data-load="'+esc(l.id)+'"><span class="truck-icon">◇</span><div><b>'+esc(l.id)+' · '+money(l.driverPay)+'</b><small>'+esc(l.driver?.name||"Driver")+' · '+esc(l.payment.status)+'</small></div><span>›</span></button>').join("")+'</div>';
   }
-  return '<div class="veil"><section class="drawer" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="handle"></div>'+
-  '<header><h2>'+esc(title)+'</h2><button data-cmd="close" aria-label="Close dialog">×</button></header>'+contents+'</section></div>';
+  if(screen==="locations")return '<div class="directory"><h1>Locations</h1>'+core.PORTS.map(p=>'<div class="directory-item"><span>📍</span><div><b>'+esc(p.name)+'</b><small>'+esc(p.region)+'</small></div></div>').join("")+'</div>';
+  if(screen==="consignees")return '<div class="directory"><h1>Consignees</h1>'+core.CONSIGNEES.map(x=>'<div class="directory-item"><span>▣</span><div><b>'+esc(x)+'</b><small>Fictional consignee</small></div></div>').join("")+'</div>';
+  return '<div class="directory"><h1>'+(screen==="profile"?"My Profile":"Settings")+'</h1>'+
+   group("Demo Account",row("User",role==="dispatcher"?"Grace · Dispatcher":"Kevin · Driver")+
+    row("Mode","Fictional / local"))+
+   (screen==="profile"?group("Truck",row("Plate",data.driver.truckPlate)+row("Capacity",data.driver.capacityTons+" tons")):"")+
+   group("Sample Workspace",'<p class="hint">Reset loads, bookings, mileage and sample document records.</p>'+
+    btn("Reset Demo Data","reset",null,"danger"))+'</div>';
+ }
+ function toolbar(){
+  const nested=!!screen;
+  const label=screen==="create"?(mode==="edit"?"Edit Load":"Create Load"):screen==="detail"?"Load":
+   screen?({fleet:"Fleet",drivers:"Drivers",finance:"Finance",locations:"Locations",consignees:"Consignees",settings:"Settings",profile:"My Profile"}[screen]):
+    tab==="board"?(role==="dispatcher"?"Grace.Dispatcher":"Kevin Mwangi"):tab==="active"?"Active":"History";
+  return '<header class="app-header"><button type="button" aria-label="'+(nested?"Go back":"Open menu")+'" class="header-btn" data-action="'+(nested?"back":"menu")+'">'+(nested?"‹":"☰")+'</button>'+
+   '<div class="header-heading"><b>'+esc(label)+'</b></div>'+
+   (nested?'<span></span>':'<select id="demo-role" aria-label="Demo user"><option value="dispatcher" '+(role==="dispatcher"?"selected":"")+'>Grace</option><option value="driver" '+(role==="driver"?"selected":"")+'>Kevin</option></select>')+'</header>';
+ }
+ function tabs(){
+  if(screen)return "";
+  const n=counts();
+  return '<nav class="bottom-tabs" aria-label="Cargo tabs">'+[["board","Board","▤"],["active","Active","🚚"],["history","History","◷"]].map(([id,label,icon])=>
+   '<button class="'+(id===tab?"current":"")+'" data-tab="'+id+'"><span>'+icon+'</span><small>'+label+"("+n[id]+")"+'</small></button>').join("")+'</nav>';
+ }
+ function sideMenu(){
+  if(!drawer)return "";
+  const items=[["fleet","Fleet","🚚"],["drivers","Drivers","◉"],["finance","Finance","◇"],["locations","Locations","📍"],["consignees","Consignees","▤"],["settings","Settings","⚙"]];
+  return '<div class="menu-wrap"><button class="menu-backdrop" data-action="menu-close" aria-label="Close menu"></button><aside class="drawer">'+
+   '<div class="drawer-banner"><b>Dispatcher</b><p>Grace · Fictional fleet</p></div>'+
+   items.map(([key,label,icon])=>'<button data-page="'+key+'"><span>'+icon+'</span>'+label+'<span class="drawer-arrow">›</span></button>').join("")+
+   '<a href="/demos/logistics">← Back to demos</a></aside></div>';
  }
  function render(){
-  const views={home,loads,fleet,pay,available,myload,history,truck};
-  const pages=tabs[ui.role];if(!pages.some(x=>x[0]===ui.tab))ui.tab=pages[0][0];
-  root.innerHTML='<div class="outer"><aside class="intro"><small>INTERACTIVE MOBILE CONCEPT</small><h2>Dispatch in your pocket.</h2>'+
-  '<p>One shared fictional cargo board. Dispatcher manages rates, loads and drivers; the driver handles one delivery at a time.</p>'+
-  '<a href="/demos/logistics">← Back to introduction</a></aside>'+
-  '<div class="phone"><div class="phone-status">9:41 <span>▰  ▱  ▰</span></div>'+
-  '<header class="app-header"><div class="brand"><b>↗</b><span><strong>Cargo Dispatch</strong><small>Fleet operations · Demo</small></span></div>'+
-  '<select id="role" aria-label="Simulated account"><option value="dispatcher"'+(ui.role==="dispatcher"?" selected":"")+'>Grace · Dispatcher</option>'+
-  '<option value="driver"'+(ui.role==="driver"?" selected":"")+'>Kevin · Driver</option></select><button type="button" class="reset-icon" data-cmd="reset" aria-label="Reset sample cargo data" title="Reset demo">↻</button></header>'+
-  '<main class="screen">'+views[ui.tab]()+'</main>'+
-  '<nav class="bottom" aria-label="Cargo application tabs">'+pages.map(([id,label,icon])=>
-    '<button class="'+(ui.tab===id?"active":"")+'" data-tab="'+id+'"><span>'+icon+'</span><small>'+esc(label)+'</small></button>').join("")+'</nav>'+
-  '<div class="home-line"><span></span></div></div>'+
-  '<div class="side"><a href="/demos/logistics">About this demo</a><button data-cmd="reset">↻ Reset demo data</button><small>No real GPS, uploads, payment or notifications</small></div>'+
-  '</div>'+drawer()+(ui.message?'<div class="toast" role="status">'+esc(ui.message)+'<button data-cmd="dismiss">×</button></div>':'');
+  mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app built around dispatching, reservations and driver trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
+   '<div class="device"><div class="status-bar"><span>9:41</span><span>▰ ▱ ▰</span></div>'+toolbar()+
+   '<main class="app-content">'+(screen==="detail"?detail():screen==="create"?create():screen?directory():board())+'</main>'+tabs()+
+   '<div class="gesture"><span></span></div></div>'+
+   '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · No live GPS, uploads or payments</small></aside></div>'+
+   (role==="dispatcher"?sideMenu():"")+
+   (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
  }
- function success(fn,msg){try{fn();save();ui.drawer=null;ui.message=msg;}catch(e){ui.message=e?.message||"Action failed.";}render();}
- document.addEventListener("change",e=>{
-  if(!root.contains(e.target))return;
-  if(e.target.id==="role"){ui.role=e.target.value==="driver"?"driver":"dispatcher";ui.tab=tabs[ui.role][0][0];ui.drawer=null;ui.message="Switched to "+roleNames[ui.role]+".";render();}
-  if(e.target.id==="filter"){ui.filter=core.STATUSES.includes(e.target.value)?e.target.value:"All";render();}
+ const done=(callback,msg)=>{try{callback();save();toast=msg;}catch(ex){toast=ex?.message||"Unable to complete action.";}render();};
+ const back=()=>{screen=screen==="create"&&mode==="edit"?"detail":null;toast="";render();};
+ document.addEventListener("change",event=>{
+  if(!mount.contains(event.target))return;
+  if(event.target.id==="demo-role"){role=event.target.value==="driver"?"driver":"dispatcher";screen=null;tab="board";drawer=false;search="";toast="";render();}
+  if(event.target.id==="board-filter"){filter=event.target.value;render();}
  });
- document.addEventListener("click",e=>{
-  const el=e.target.closest("[data-cmd],[data-tab]");if(!el||!root.contains(el))return;
-  if(el.dataset.tab){ui.tab=el.dataset.tab;ui.drawer=null;ui.message="";render();return;}
-  const cmd=el.dataset.cmd,id=el.dataset.id;
-  if(cmd==="close"){ui.drawer=null;ui.message="";render();return;}
-  if(cmd==="dismiss"){ui.message="";render();return;}
-  if(cmd==="reset"){if(window.confirm("Reset all fictional cargo loads?")){data=core.seed();ui.drawer=null;ui.filter="All";save();ui.message="Sample cargo board restored.";render();}return;}
-  if(["post","edit","detail"].includes(cmd)){
-   if(cmd!=="detail"&&ui.role!=="dispatcher")return;
-   ui.drawer={kind:cmd,id};render();return;
+ document.addEventListener("input",event=>{
+  if(!mount.contains(event.target)||event.target.id!=="load-search")return;
+  search=event.target.value;const start=event.target.selectionStart,end=event.target.selectionEnd;render();
+  const next=document.getElementById("load-search");
+  if(next&&typeof next.focus==="function"){next.focus();if(typeof next.setSelectionRange==="function")next.setSelectionRange(start,end);}
+ });
+ document.addEventListener("click",event=>{
+  const el=event.target.closest("[data-action],[data-tab],[data-load],[data-page]");
+  if(!el||!mount.contains(el))return;
+  if(el.dataset.tab){tab=el.dataset.tab;screen=null;drawer=false;search="";toast="";render();return;}
+  if(el.dataset.load){selected=el.dataset.load;screen="detail";drawer=false;toast="";render();return;}
+  if(el.dataset.page&&role==="dispatcher"){screen=el.dataset.page;drawer=false;toast="";render();return;}
+  const a=el.dataset.action,id=el.dataset.id;
+  if(a==="menu"){if(role==="dispatcher"){drawer=!drawer;}else{screen="profile";}render();return;}
+  if(a==="menu-close"){drawer=false;render();return;}
+  if(a==="back"){back();return;}
+  if(a==="dismiss"){toast="";render();return;}
+  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data?"))return;data=core.seed();save();screen=null;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
+  if(a==="new"&&role==="dispatcher"){screen="create";mode="new";selected=null;render();return;}
+  if(a==="edit"&&role==="dispatcher"){screen="create";mode="edit";selected=id;render();return;}
+  if(a==="delete"&&role==="dispatcher"){
+   if(!window.confirm("Delete open load "+id+"?"))return;
+   done(()=>{core.remove(data,id);screen=null;},"Load removed.");return;
   }
-  if(ui.role==="dispatcher"){
-   if(cmd==="delete"&&window.confirm("Delete open load "+id+"?"))success(()=>core.remove(data,id),"Open load deleted.");
-   if(cmd==="approve")success(()=>core.approve(data,id),"Driver booking approved.");
-   if(cmd==="pay")success(()=>core.pay(data,id),"Driver payment marked paid (simulated).");
-  }else{
-   if(cmd==="book")success(()=>core.book(data,id),"Booking submitted to Grace for approval.");
-   const evidence={pickup:"pickup",delivery:"delivery",eir:"eir"}[cmd];
-   if(evidence)success(()=>core.attach(data,id,evidence),"Sample "+core.LABELS[evidence]+" attached. No actual file uploaded.");
-   const next={picked:"Picked up",transit:"In transit",delivered:"Delivered",complete:"Complete"}[cmd];
-   if(next)success(()=>core.progress(data,id,next),"Load marked "+next.toLowerCase()+".");
+  if(a==="approve"&&role==="dispatcher"){done(()=>core.approve(data,id),"Reservation approved.");return;}
+  if(a==="decline"&&role==="dispatcher"){done(()=>core.decline(data,id),"Reservation declined.");return;}
+  if(a==="pay"&&role==="dispatcher"){done(()=>core.pay(data,id),"Driver payment marked paid (demo).");return;}
+  if(role==="driver"){
+   if(a==="book"){done(()=>core.book(data,id),"Load booked. Waiting for dispatcher approval.");return;}
+   if(a==="cancel"){done(()=>core.cancel(data,id),"Booking cancelled.");return;}
+   const proof={pickup:"pickup",delivery:"delivery",eir:"eir"}[a];
+   if(proof){done(()=>core.attach(data,id,proof),"Sample "+core.LABELS[proof]+" added. No file uploaded.");return;}
+   const next={picked:"Picked up",transit:"In transit",delivered:"Delivered",complete:"Complete"}[a];
+   if(next){done(()=>core.progress(data,id,next),"Load marked "+next.toLowerCase()+".");return;}
   }
  });
- document.addEventListener("submit",e=>{
-  const form=e.target;if(!form.dataset?.form||!root.contains(form))return;e.preventDefault();
-  if(ui.role!=="dispatcher")return;
-  const fields=Object.fromEntries(new FormData(form).entries());
-  if(form.dataset.form==="post")success(()=>core.post(data,fields),"Load posted.");
-  if(form.dataset.form==="edit")success(()=>core.edit(data,form.dataset.id,fields),"Load edited.");
+ document.addEventListener("submit",event=>{
+  const form=event.target;if(form.id!=="cargo-form"||!mount.contains(form))return;
+  event.preventDefault();if(role!=="dispatcher")return;
+  const vals=Object.fromEntries(new FormData(form).entries());
+  if(form.dataset.kind==="new")done(()=>{const l=core.post(data,vals);selected=l.id;screen="detail";},"Load posted.");
+  if(form.dataset.kind==="edit")done(()=>{core.edit(data,selected,vals);screen="detail";},"Load updated.");
  });
- document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ui.drawer){ui.drawer=null;render();}});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(drawer){drawer=false;render();}else if(screen)back();}});
  render();
 })(cargoCore);
