@@ -300,3 +300,48 @@ test('status badge is visible on every dispatcher Board card including Open',()=
  assert.ok(cards.length>=8);
  for(const c of cards)assert.match(c,/class="badge badge-/);
 });
+
+test('Fleet displays one truck card per plate with driver, mileage and completed-load history',()=>{
+ const h=browser();h.action('menu');h.page('fleet');
+ const v=h.root.innerHTML;
+ assert.match(v,/Fleet/);
+ assert.match(v,/KDA 384P/);
+ assert.match(v,/Assigned driver/);
+ assert.match(v,/Sample mileage/);
+ assert.match(v,/Last sample location/);
+ assert.match(v,/Load history/);
+ assert.match(v,/LD-3082/);
+ assert.match(v,/Njeri W/);
+ assert.doesNotMatch(v,/data-load=/);
+ assert.doesNotMatch(v,/Payment status|Driver Payment|Payable|Mark Driver Paid|data-action="pay"/);
+ assert.equal((v.match(/KCC 290Q/g)||[]).length,1);
+});
+test('Fleet history lists completed deliveries only and updates when a load completes',()=>{
+ const h=browser();h.role('driver');h.open('LD-3088');h.action('book','LD-3088');
+ h.action('back');h.role('dispatcher');h.open('LD-3088');h.action('approve','LD-3088');
+ h.action('menu');h.page('fleet');assert.doesNotMatch(h.root.innerHTML,/LD-3088/);
+ h.action('back');h.role('driver');h.tab('active');h.open('LD-3088');
+ h.action('picked','LD-3088');h.action('transit','LD-3088');h.action('delivered','LD-3088');h.action('complete','LD-3088');
+ h.action('back');h.role('dispatcher');h.action('menu');h.page('fleet');
+ assert.match(h.root.innerHTML,/LD-3088/);
+ assert.doesNotMatch(h.root.innerHTML,/data-load=/);
+});
+test('Finance has flat payment records and allows marking payments paid directly',()=>{
+ const h=browser();h.action('menu');h.page('finance');
+ assert.match(h.root.innerHTML,/Outstanding driver payouts/);
+ assert.match(h.root.innerHTML,/LD-3082/);
+ assert.doesNotMatch(h.root.innerHTML,/data-load=/);
+ assert.match(h.root.innerHTML,/data-action="pay" data-id="LD-3082"/);
+ h.action('pay','LD-3082');
+ assert.equal(h.data().loads.find(l=>l.id==='LD-3082').payment.status,'Paid');
+ assert.match(h.root.innerHTML,/<h1>Finance<\/h1>/);
+ assert.doesNotMatch(h.root.innerHTML,/data-load=/);
+ assert.doesNotMatch(h.root.innerHTML,/data-action="pay" data-id="LD-3082"/);
+});
+test('Dispatcher drawer stays inside the mobile device and dismisses normally',()=>{
+ const h=browser();h.action('menu');
+ assert.match(h.root.innerHTML,/<div class="gesture"><span><\/span><\/div><div class="menu-wrap">/);
+ assert.match(h.root.innerHTML,/<button class="menu-backdrop"/);
+ h.action('menu-close');
+ assert.doesNotMatch(h.root.innerHTML,/class="menu-wrap"/);
+});

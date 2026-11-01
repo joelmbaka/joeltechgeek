@@ -119,16 +119,46 @@
    '<div class="cargo-modal-body">'+create()+'</div></section></div>';
  }
  const drivers=()=>[data.driver,...data.loads.filter(l=>l.driver).map(l=>({id:l.driver.id,name:l.driver.name,truckPlate:l.driver.truckPlate}))].filter((a,i,all)=>all.findIndex(b=>b.id===a.id)===i);
+ function fleetDirectory(){
+  const trucks=new Map();
+  function record(plate,driver,load){
+   if(!plate)return;
+   if(!trucks.has(plate))trucks.set(plate,{plate,driver,loads:[]});
+   const t=trucks.get(plate);
+   if(driver)t.driver=driver;
+   if(load)t.loads.push(load);
+  }
+  record(data.driver.truckPlate,data.driver.name,null);
+  for(const l of data.loads)if(l.driver?.truckPlate)record(l.driver.truckPlate,l.driver.name,l);
+  const cards=Array.from(trucks.values()).map(t=>{
+   const current=t.loads.filter(l=>l.truck).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+   const history=t.loads.filter(l=>l.status==="Complete").sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+   return '<article class="fleet-truck"><div class="fleet-truck-head"><span class="truck-icon">🚚</span><div><b>'+esc(t.plate)+'</b><small>Container truck · demo fleet</small></div></div>'+
+    '<div class="fleet-facts">'+row("Assigned driver",t.driver)+
+    (t.plate===data.driver.truckPlate?row("Capacity",data.driver.capacityTons+" tonnes"):"")+
+    row("Sample mileage",Number(current?.truck?.miles||0).toLocaleString()+" mi")+
+    row("Last sample location",current?.truck?.location||"Not available")+'</div>'+
+    '<div class="fleet-history-heading">Load history <small>Completed only</small></div>'+
+    (history.length?'<ul class="fleet-history">'+history.map(l=>'<li><strong>'+esc(l.id)+'</strong><span>'+esc(place(l.originId))+' → '+esc(place(l.destinationId))+'</span></li>').join("")+'</ul>':
+     '<p class="fleet-no-history">No completed deliveries recorded yet.</p>')+'</article>';
+  }).join("");
+  return '<div class="directory"><h1>Fleet</h1><p class="directory-description">Trucks, assigned drivers, vehicle details and completed-load history.</p>'+
+   (cards||blank("No trucks","No trucks are recorded in this demo."))+'</div>';
+ }
+ function financeDirectory(){
+  const completed=data.loads.filter(l=>l.status==="Complete");
+  const due=completed.filter(l=>l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0);
+  return '<div class="directory"><h1>Finance</h1><div class="finance-banner"><span>Outstanding driver payouts</span><strong>'+money(due)+'</strong><small>Demo balance</small></div>'+
+   (completed.length?completed.map(l=>'<article class="finance-record"><div class="finance-record-top"><b>'+esc(l.id)+'</b><strong>'+money(l.driverPay)+'</strong></div>'+
+    '<p>'+esc(l.driver?.name||"Driver")+'</p><div class="finance-record-bottom"><span class="finance-status '+(l.payment.status==="Paid"?"paid":"")+'">'+esc(l.payment.status)+'</span>'+
+    (l.payment.status==="Unpaid"?btn("Mark paid","pay",l.id,"primary"):"")+'</div></article>').join(""):
+    blank("No completed loads","Driver settlements appear after a completed load."))+'</div>';
+ }
  function directory(){
-  if(screen==="fleet")return '<div class="directory"><h1>Fleet</h1>'+data.loads.filter(l=>l.driver).map(l=>
-   '<button class="directory-item" data-load="'+esc(l.id)+'"><span class="truck-icon">🚚</span><div><b>'+esc(l.driver.truckPlate)+'</b><small>'+esc(l.driver.name)+'</small><p>◉ '+esc(l.truck?.location||"Not available")+'</p><small>'+Number(l.truck?.miles||0).toLocaleString()+' mi · sample</small></div><span>›</span></button>').join("")+'</div>';
+  if(screen==="fleet")return fleetDirectory();
+  if(screen==="finance")return financeDirectory();
   if(screen==="drivers")return '<div class="directory"><h1>Drivers</h1>'+drivers().map(x=>
    '<article class="directory-item"><span class="truck-icon">◉</span><div><b>'+esc(x.name)+'</b><small>'+esc(x.truckPlate)+'</small></div></article>').join("")+'</div>';
-  if(screen==="finance"){
-   const completed=data.loads.filter(l=>l.status==="Complete");
-   return '<div class="directory"><h1>Finance</h1><div class="finance-banner"><span>Outstanding driver payouts</span><strong>'+money(completed.filter(l=>l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0))+'</strong><small>Demo balance</small></div>'+
-   completed.map(l=>'<button class="directory-item" data-load="'+esc(l.id)+'"><span class="truck-icon">◇</span><div><b>'+esc(l.id)+' · '+money(l.driverPay)+'</b><small>'+esc(l.driver?.name||"Driver")+' · '+esc(l.payment.status)+'</small></div><span>›</span></button>').join("")+'</div>';
-  }
   if(screen==="locations")return '<div class="directory"><h1>Locations</h1>'+core.PORTS.map(p=>'<div class="directory-item"><span>📍</span><div><b>'+esc(p.name)+'</b><small>'+esc(p.region)+'</small></div></div>').join("")+'</div>';
   if(screen==="consignees")return '<div class="directory"><h1>Consignees</h1>'+core.CONSIGNEES.map(x=>'<div class="directory-item"><span>▣</span><div><b>'+esc(x)+'</b><small>Fictional consignee</small></div></div>').join("")+'</div>';
   return '<div class="directory"><h1>'+(screen==="profile"?"My Profile":"Settings")+'</h1>'+
@@ -165,9 +195,9 @@
   mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app built around dispatching, reservations and driver trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
    '<div class="device"><div class="status-bar"><span>9:41</span><span>▰ ▱ ▰</span></div>'+toolbar()+
    '<main class="app-content">'+(screen==="detail"?detail():screen?directory():board())+'</main>'+tabs()+
-   '<div class="gesture"><span></span></div></div>'+
+   '<div class="gesture"><span></span></div>'+(role==="dispatcher"?sideMenu():"")+'</div>'+
    '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · No live GPS, uploads or payments</small></aside></div>'+
-   (role==="dispatcher"?sideMenu():"")+cargoFormModal()+
+   cargoFormModal()+
    (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
  }
  const done=(callback,msg)=>{try{callback();save();toast=msg;}catch(ex){toast=ex?.message||"Unable to complete action.";}render();};
