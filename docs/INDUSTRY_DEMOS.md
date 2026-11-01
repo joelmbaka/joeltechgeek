@@ -78,41 +78,43 @@ The repeatable tests use Node's built-in runner and no additional dependencies. 
 The Stockkeeper overview no longer displays a Point of Sale shortcut or an inaccessible Sales shortcut. The Cashier overview does not offer an inaccessible Purchasing shortcut. A purchase order can receive multiple partial deliveries; enter the quantity received now for each product (0 or blank for missing items). The number is limited to the outstanding ordered balance. A draft does not affect stock; receipts update quantities and a receipt history. Old browser-local orders are normalized without duplicating existing stock.
 
 
-## Construction & site operations concept (Nov 1, 2026)
+## Construction & site operations — Milliol-aligned demo (November 1, 2026)
 
-- /demos/construction — public indexable SiteFlow overview and suggested walkthrough
-- /demos/construction/demo.html — full-screen concept app, noindex and nofollow
-- /demos/construction/core.js — fictional project data, validated transitions and cost calculations
-- /demos/construction/app.js — simulated role-based interfaces and browser-local state
-- /demos/construction/styles.css — responsive theme and mobile role navigation
-- /demos/construction/favicon.svg — scoped concept icon
+Routes: /demos/construction (public introduction), /demos/construction/demo.html (standalone noindex mobile application), and scoped /demos/construction/{core.js,app.js,styles.css,favicon.svg}.
 
-SiteFlow Construction is not connected to the separate commercial Milliol Construction Manager project and includes no proprietary or production data from any existing construction customer. Amani Heights, Horizon Buildworks, budgets, staff, suppliers, and stock are fictional.
+The SiteFlow Construction brand and all data are fictional. This is a **workflow-reference demo**, not a connection to Milliol's API, project database, employees, customers, or payment services. The source of workflow role boundaries is the current mobile implementation in joelmbaka/milliol-realtors on GitHub, particularly src/auth/permissions.ts, src/supply/supplyModel.ts, src/navigation/roleNavigation.ts and the Expo site work / stock / procurement / finance screens.
 
-### Simulated role workflows
-- Supervisor: record material requests against tasks and enter increasing progress percentages with notes.
-- Project Manager: approve or reject pending requests, draft material purchase orders, review reports.
-- Storekeeper: issue no more than approved quantities and stock on hand; receive partial supplier deliveries and review stock movements.
-- Accountant: record fictional direct site expenses and review sample costs and reports.
+### Role-specific navigation
 
-All transitions mutate only this browser's localStorage. Role switching is **not** authenticated permission control. Neither payment processing, statutory compliance, messaging, real cost accounting, supplier ordering nor real construction inspections occur.
+- Project Manager (Nia) maps to Milliol's leadership/Admin permissions: primary **Home / Review / Finance** tabs and a project drawer for **Work, Materials, Stock, Reports, Activity**. Reviews submitted work, progress, material requests, purchase orders and reports; financial information is read-only.
+- Supervisor (Peter): **Work / Reports** tabs. Creates and submits Labour or Subcontract work items, records submitted progress with illustrative evidence, and submits site reports. A new work item becomes In progress only when Project Manager approves and starts it.
+- Stockkeeper (Asha): **To do / Stock / History** tabs. Creates material requests linked to approved work, monitors requests and expected supplier deliveries, issues approved quantities, receives ordered materials in partial batches and records returns.
+- Accountant (Samuel): **To do / Invoices / Payments** tabs and a project drawer for Purchase Orders and Work. The To do screen has **Create PO / Send / Pay** queues. Creates POs **only from approved uncovered material shortages**, sends Manager-approved POs (automatically creating the fictional payable) and records partial/final supplier payments.
 
-Budget reporting intentionally counts **issued material consumption at the unit cost when issued**, plus explicitly entered direct site expenses. It does not double count inventory purchases. Figures are illustrative and are not official finance statements.
+### State transitions enforced in browser-local core
 
-### Construction demo acceptance
-1. Visit /demos and verify Fire Safety, Retail and SiteFlow each have separate cards. Open /demos/construction and launch the full-screen demo.
-2. Supervisor: create a material request for 12 Cement 50 kg bags against Ground floor slab, with a note. Confirm Pending and no stock deduction.
-3. Manager: approve the request, then confirm the request is Approved without stock deduction.
-4. Storekeeper: issue 5 bags. Confirm Partially issued; stock decreases by 5; try issuing more than the approved remainder, which must be blocked. Then issue the remaining 7.
-5. Supervisor: record updated progress on Ground floor slab. Confirm reports and activity update.
-6. Manager: create a supplier order for 30 cement bags. Confirm a Draft does not affect stock.
-7. Storekeeper: receive 12 bags. Confirm Partially received; enter 19 for the second delivery (must fail), then 18 to finish.
-8. Accountant: record KES 4,200 in Site logistics. Confirm expenses and project direct-cost report increase.
-9. Verify no cross-role navigation links to inaccessible pages, and test return navigation, refresh persistence and Reset demo.
-10. Check at mobile/tablet/desktop widths (375, 768, 1024, 1440 px), keyboard controls, sitemap and noindex header on raw HTML.
+Work: Supervisor submission -> Awaiting approval -> Manager Approve & start or Return -> In progress -> Supervisor submits progress -> Manager approves/returns progress. Approved percent changes only when reviewed. Sample evidence attaches to progress submission; there is no upload endpoint.
 
-No changes to the Fire Safety or Retail application assets are intended in this construction addition.
+Materials: Stockkeeper request -> Submitted -> Manager approves/returns -> Approved -> Stockkeeper issues available quantities (including partial issue); low stock stays in the request queue. Available stock is reduced only on issue. Returned stock increases the balance.
 
+Purchasing: Accountant creates PO for an approved shortage -> Submitted -> Manager approves/returns -> Accountant sends approved PO -> Issued + one supplier payable -> Stockkeeper receives partial/remaining goods -> stock increases by accepted quantities. Over-ordering and double creation against the same uncovered shortage are prevented in the simulated state.
+
+Finance: The Accountant sees supplier payables generated by issued POs and can record partial/final payments (never exceeding outstanding amount). Manager cannot execute payments. Received stock does not increase an invoice or count as a payment.
+
+Reports: Supervisor submits a site report -> Manager approves/returns. Seed includes submitted and approved reports.
+
+### Minimal scope and acceptance
+
+A four-role, independently navigable mobile-shaped interface, shared fictional site, seeded pending/approved/in-progress/partially-received/partially-paid records, browser-local persistence/reset, sample evidence, role-checked mutations, and no live services. Excludes real uploads, crew attendance, subcontract certification accounting, invoice accounting journals, compliance, notifications, payments, project membership, transfers, and multi-project administration.
+
+Acceptance: 
+- Supervisor creates work and submits progress. Manager approves work and progress; approved percent changes only after review.
+- Stockkeeper creates a material request. Manager approves. Accountant creates and submits a shortage PO. Manager approves it. Accountant sends it. Stockkeeper receives part/all goods and issues approved materials. No negative stock or over-receiving.
+- Accountant records partial/final payments on the generated payable.
+- Supervisor submits a report and Manager reviews it.
+- All areas navigate freely (not a guided tour) and all four roles see the same records.
+
+Run: npm run test:construction-demo. On the branch, tests cover workflows, role boundaries, navigation, storage, and simulated documents. Run npm run build and visual browser QA locally before production. Other industry demos must remain untouched.
 
 ## Field Services & Maintenance — Northstar demo (November 1, 2026)
 

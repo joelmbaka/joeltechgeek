@@ -100,7 +100,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Construction &amp; site operations · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">SiteFlow Construction</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a work item from a supervisor&apos;s material request through manager approval, store issuance, progress tracking, and illustrative project cost reporting.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore a realistic site workflow: Supervisor work and progress approvals, Stockkeeper requests and receiving, Accountant purchase orders and supplier payments, and Project Manager reviews.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">4 simulated roles</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Material approvals</span>
