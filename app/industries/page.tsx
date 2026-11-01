@@ -73,6 +73,7 @@ export default function IndustriesPage() {
         <p className="mt-6 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
           Our published work spans property and finance, education, construction, healthcare, logistics and consumer AI. We remain industry-agnostic: if your business needs mobile or web interfaces, APIs, databases, payments, automation or operations software, we can begin with your specific workflows.
         </p>
+        <Link href="/demos" className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-palm-green px-5 py-2.5 text-sm font-semibold text-palm-green transition hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Explore interactive software demos <ArrowRight className="h-4 w-4" aria-hidden /></Link>
       </header>
 
       <section className="mt-12 grid gap-5 md:grid-cols-2" aria-label="Proven domain experience">

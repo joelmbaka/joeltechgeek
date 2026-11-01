@@ -10,6 +10,7 @@ import { BrandLogo } from './BrandLogo';
 const primaryLinks = [
   ['/services', 'Services'],
   ['/work', 'Portfolio'],
+  ['/demos', 'Demos'],
   ['/about', 'About'],
   ['/mentorship', 'Mentorship'],
   ['/careers', 'Careers'],

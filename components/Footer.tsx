@@ -20,6 +20,7 @@ export function Footer() {
             {[
               ['/services', 'Services'],
               ['/work', 'Portfolio'],
+              ['/demos', 'Interactive demos'],
               ['/industries', 'Industries'],
               ['/about', 'About company'],
               ['/founder', 'Founder'],
