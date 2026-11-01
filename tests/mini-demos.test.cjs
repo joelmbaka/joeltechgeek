@@ -50,7 +50,7 @@ const paymentRent=(h,amount,ref)=>{
 };
 
 test('all four demos provide product-specific titles, roles, records and a fictional seed',()=>{
- const expected={logistics:'Macsim Cargo',education:'SchoolPey',property:'RentPayor',healthcare:'CliviQue HMIS'};
+ const expected={logistics:'Cargo Dispatch',education:'School Fee Management',property:'Rental Management',healthcare:'Clinic Operations'};
  for(const slug of slugs){
   const def=definition(slug),seed=def.seed();
   assert.equal(def.slug,slug);
@@ -64,7 +64,7 @@ test('all four demos provide product-specific titles, roles, records and a ficti
  }
 });
 
-test('Macsim: load → request → approve → trip → proof → delivered',()=>{
+test('Logistics: load → request → approve → trip → proof → delivered',()=>{
  const h=harness('logistics');
  h.nav('workflow');
  h.submit('post',{origin:'Mombasa Port',destination:'Nairobi ICD',cargo:'Containerized cargo',weight:'12'});
@@ -84,7 +84,7 @@ test('Macsim: load → request → approve → trip → proof → delivered',()=
  assert.match(h.root.innerHTML,/DEMO-DN-001/);
 });
 
-test('Macsim: vehicle carrying capacity is validated without modifying booking state',()=>{
+test('Logistics: vehicle carrying capacity is validated without modifying booking state',()=>{
  const h=harness('logistics');h.nav('workflow');
  h.submit('post',{origin:'Mombasa Port',destination:'Nairobi ICD',cargo:'Containerized cargo',weight:'22'});
  h.role('driver');
@@ -94,7 +94,7 @@ test('Macsim: vehicle carrying capacity is validated without modifying booking s
  assert.match(h.root.innerHTML,/rated for 18 tonnes/);
 });
 
-test('Macsim: cannot book or close a nonexistent or unverified load',()=>{
+test('Logistics: cannot book or close a nonexistent or unverified load',()=>{
  const h=harness('logistics');h.nav('workflow');
  h.role('driver');h.submit('book',{driverId:'DRV-001'});
  assert.equal(h.saved(),null);
@@ -105,7 +105,7 @@ test('Macsim: cannot book or close a nonexistent or unverified load',()=>{
  assert.equal(h.data().load.status,'Open');
 });
 
-test('SchoolPey: student term fee invoice and a reconciled partial payment',()=>{
+test('School Fee Management: student term fee invoice and a reconciled partial payment',()=>{
  const h=harness('education');setupSchool(h);
  assert.equal(h.data().invoice.total,25000);
  h.role('guardian');h.submit('payment',{amount:'8000',method:'M-Pesa (simulated)'});
@@ -117,7 +117,7 @@ test('SchoolPey: student term fee invoice and a reconciled partial payment',()=>
  assert.equal(h.data().credit,0);
 });
 
-test('SchoolPey: overpayments become student credit, not negative balances',()=>{
+test('School Fee Management: overpayments become student credit, not negative balances',()=>{
  const h=harness('education');setupSchool(h);
  paymentSchool(h,8000);paymentSchool(h,20000);
  assert.equal(h.data().invoice.allocated,25000);
@@ -128,7 +128,7 @@ test('SchoolPey: overpayments become student credit, not negative balances',()=>
  h.nav('records');assert.match(h.root.innerHTML,/3,000/);
 });
 
-test('SchoolPey: rejects invalid fees and prevents parallel unreviewed payments',()=>{
+test('School Fee Management: rejects invalid fees and prevents parallel unreviewed payments',()=>{
  const h=harness('education');h.nav('workflow');
  h.submit('invoice',{tuition:'bad',activity:'3000',transport:'4000'});
  assert.equal(h.saved(),null);
@@ -141,7 +141,7 @@ test('SchoolPey: rejects invalid fees and prevents parallel unreviewed payments'
  assert.equal(h.data().payments.length,1);
 });
 
-test('RentPayor: partial rent payments flow through finance allocation and owner statement',()=>{
+test('Rental Management: partial rent payments flow through finance allocation and owner statement',()=>{
  const h=harness('property');setupRent(h);
  assert.equal(h.data().invoice.total,32000);
  h.submit('receipt',{amount:'12000',method:'Bank transfer',reference:'DEMO-PAY-001'});
@@ -155,7 +155,7 @@ test('RentPayor: partial rent payments flow through finance allocation and owner
  assert.equal(h.data().receipts.length,1);
 });
 
-test('RentPayor: overpayment preserves credit and report can be regenerated',()=>{
+test('Rental Management: overpayment preserves credit and report can be regenerated',()=>{
  const h=harness('property');setupRent(h);
  paymentRent(h,12000,'DEMO-PAY-001');
  h.role('manager');h.submit('statement');
@@ -168,7 +168,7 @@ test('RentPayor: overpayment preserves credit and report can be regenerated',()=
  assert.equal(h.data().statement.credit,5000);
 });
 
-test('RentPayor: duplicate external payment references are rejected with no new receipt',()=>{
+test('Rental Management: duplicate external payment references are rejected with no new receipt',()=>{
  const h=harness('property');setupRent(h);
  paymentRent(h,10000,'DEMO-PAY-001');
  h.role('manager');
@@ -179,7 +179,7 @@ test('RentPayor: duplicate external payment references are rejected with no new 
  assert.equal(h.data().payments.length,1);
 });
 
-test('CliviQue: OPD registration, triage, service, invoice and sample payment',()=>{
+test('Clinic Operations: OPD registration, triage, service, invoice and sample payment',()=>{
  const h=harness('healthcare');h.nav('workflow');
  h.submit('register',{name:'Jamie Sample (fictional)'});
  h.submit('visit');
@@ -195,7 +195,7 @@ test('CliviQue: OPD registration, triage, service, invoice and sample payment',(
  h.nav('records');assert.match(h.root.innerHTML,/BILL-DEMO-001/);
 });
 
-test('CliviQue: cannot bill without a clinician service or pay without an invoice',()=>{
+test('Clinic Operations: cannot bill without a clinician service or pay without an invoice',()=>{
  const h=harness('healthcare');h.nav('workflow');
  h.role('cashier');h.submit('bill');
  assert.equal(h.saved(),null);
@@ -209,7 +209,7 @@ test('CliviQue: cannot bill without a clinician service or pay without an invoic
  assert.equal(h.saved(),before);
 });
 
-test('CliviQue: invalid or duplicate payment does not alter the settled invoice',()=>{
+test('Clinic Operations: invalid or duplicate payment does not alter the settled invoice',()=>{
  const h=harness('healthcare');h.nav('workflow');
  h.submit('register',{name:'Jamie Sample (fictional)'});h.submit('visit');
  h.role('nurse');h.submit('triage',{priority:'Routine'});
@@ -252,4 +252,21 @@ test('form escapes user-provided markup in the client UI',()=>{
  h.nav('records');
  assert.doesNotMatch(h.root.innerHTML,/<svg onload=/);
  assert.match(h.root.innerHTML,/&lt;svg onload=/);
+});
+
+
+test('industry-facing content does not expose reference product names',()=>{
+ const forbidden=['Macsim Cargo','SchoolPey','RentPayor','CliviQue','Based on existing product','Real product inspiration'];
+ const files=[
+   'app/demos/page.tsx',
+   ...slugs.map(s=>'app/demos/'+s+'/page.tsx'),
+   ...slugs.map(s=>'public/demos/'+s+'/demo.html'),
+   ...slugs.map(s=>'public/demos/'+s+'/demo.js')
+ ];
+ for(const file of files){
+   const source=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
+   for(const brand of forbidden){
+     assert.equal(source.includes(brand),false,file+' exposes '+brand);
+   }
+ }
 });

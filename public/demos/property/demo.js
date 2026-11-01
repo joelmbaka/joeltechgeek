@@ -38,8 +38,8 @@ initMinimalDemo((function rentDemo(){
       }}
   ];
   return {
-    slug:"property",category:"Property & rent management",product:"RentPayor",mark:"⌂",
-    headline:"Rent invoicing & reconciliation",intro:"Walk through a simplified existing RentPayor workflow: a unit lease, monthly rent invoice, recorded collection, allocation and owner report.",
+    slug:"property",category:"Property & rent management",product:"Rental Management",mark:"⌂",
+    headline:"Rent invoicing & reconciliation",intro:"Explore a connected rental workflow: unit leases, monthly invoices, recorded payments, allocations, and owner statements.",
     hero:"Know what's billed, paid and outstanding.",
     heroDescription:"Realistic fictional rent transactions flow into a tenant ledger and an owner statement without any real payment collection.",
     instructions:"Start as Property Manager to issue rent, then record a sample payment. Switch to Finance to allocate it, and back to Property Manager to generate an owner statement.",

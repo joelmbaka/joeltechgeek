@@ -1,4 +1,4 @@
-initMinimalDemo((function macsimDemo(){
+initMinimalDemo((function logisticsDemo(){
   const money=n=>"KES "+new Intl.NumberFormat("en-KE").format(n);
   const string=(v,label,min=3,max=100)=>{const s=String(v??"").trim();if(s.length<min||s.length>max)throw new Error(label+" must have "+min+"–"+max+" characters.");return s};
   const number=(v,label,min=0)=>{if(v==null||String(v).trim()==="")throw new Error(label+" is required.");const n=Number(v);if(!Number.isFinite(n)||n<min)throw new Error(label+" must be at least "+min+".");return n};
@@ -50,8 +50,8 @@ initMinimalDemo((function macsimDemo(){
     }}
   ];
   return {
-    slug:"logistics",category:"Logistics & transport",product:"Macsim Cargo",mark:"↗",
-    headline:"Cargo, drivers & deliveries",intro:"Explore a simplified cargo dispatch cycle inspired by the existing Macsim Cargo mobile and operations workflows.",
+    slug:"logistics",category:"Logistics & transport",product:"Cargo Dispatch",mark:"↗",
+    headline:"Cargo, drivers & deliveries",intro:"Explore a fictional cargo dispatch cycle, from posting loads and assigning drivers to recording delivery references.",
     hero:"Track a shipment from an open load to proof of delivery.",
     heroDescription:"The dispatcher and driver act on one fictional cargo movement, with booking and delivery status kept in sync.",
     instructions:"Start as Dispatcher to post a load. Switch to Driver to request it, then back to Dispatcher for approval. The driver can start and submit delivery references; dispatch closes the job.",

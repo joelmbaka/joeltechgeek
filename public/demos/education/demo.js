@@ -33,12 +33,12 @@ initMinimalDemo((function schoolDemo(){
       }}
   ];
   return {
-    slug:"education",category:"School fee management",product:"SchoolPey",mark:"✦",
-    headline:"Fees, payments & parent balances",intro:"Explore the fee billing, parent payments, reconciliation and receipt records that SchoolPey is designed around.",
+    slug:"education",category:"School fee management",product:"School Fee Management",mark:"✦",
+    headline:"Fees, payments & parent balances",intro:"Explore term-fee billing, parent payments, reconciliation and student balances through an interactive school-finance workflow.",
     hero:"One reliable financial history for each student.",
     heroDescription:"A school issues term fees, a guardian pays, and finance allocates funds without losing partial payments or overpayment credit.",
     instructions:"Start as School Admin to issue fees, then Parent to simulate a payment, then Finance Officer to reconcile it. Switch back to Parent and repeat for a second payment or overpayment.",
-    disclaimer:"SchoolPey is a fee-finance platform, not an attendance or grading system. This demo does not send M-Pesa requests, collect real payments, or access a school.",
+    disclaimer:"This demo focuses on fee finance, not attendance or grading. This demo does not send M-Pesa requests, collect real payments, or access a school.",
     roles:[{id:"admin",name:"Lydia · School Admin"},{id:"guardian",name:"Mary · Parent"},{id:"finance",name:"David · Finance"}],
     seed:()=>({version:1,school:"Cedar Grove Academy (fictional)",students:[{id:"STU-101",name:"Brian Otieno (fictional)",grade:"Grade 6",guardian:"Mary (fictional)"}],invoice:null,payments:[],receipts:[],credit:0,activity:[]}),
     valid:d=>Array.isArray(d.students)&&Array.isArray(d.payments)&&Array.isArray(d.receipts)&&"credit"in d,

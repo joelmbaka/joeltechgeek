@@ -1,4 +1,4 @@
-initMinimalDemo((function cliviqueDemo(){
+initMinimalDemo((function healthcareDemo(){
   const money=n=>"KES "+new Intl.NumberFormat("en-KE").format(n);
   const safe=(v,name,min=3,max=100)=>{const s=String(v??"").trim();if(s.length<min||s.length>max)throw new Error(name+" must contain "+min+"–"+max+" characters.");return s};
   const options=[{id:"consult",label:"OPD consultation",amount:1500},{id:"consultlab",label:"OPD consultation + lab request",amount:2600}];
@@ -47,8 +47,8 @@ initMinimalDemo((function cliviqueDemo(){
     }}
   ];
   return {
-    slug:"healthcare",category:"Hospital & clinic operations",product:"CliviQue HMIS",mark:"✚",
-    headline:"Patient journeys & OPD operations",intro:"Try a minimal outpatient handoff inspired by CliviQue HMIS: registration, encounter, triage, consultation service, billing and payment.",
+    slug:"healthcare",category:"Hospital & clinic operations",product:"Clinic Operations",mark:"✚",
+    headline:"Patient journeys & OPD operations",intro:"Explore a fictional outpatient handoff: patient registration, encounter, triage, consultation service, and sample billing.",
     hero:"Follow one fictional outpatient encounter, end to end.",
     heroDescription:"Reception, nursing, clinical and billing views share an administrative record while keeping all medical content out of this demo.",
     instructions:"Begin at Reception to register a sample patient and open an OPD visit. Switch to Nurse for the triage handoff, Clinician for a demo service, then Billing to issue and mark the sample bill paid.",

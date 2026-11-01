@@ -142,18 +142,18 @@ All Northstar people, customers, addresses, assets, visits, parts, prices, work,
 - npm run build
 
 
-## Four minimal demos based on existing products (November 1, 2026)
+## Four workflow-based, neutrally named minimal demos (November 1, 2026)
 
-The remaining industry demos are intentionally small and self-contained. Their UI uses one shared static engine, four industry-specific configuration/workflow scripts, and a shared responsive theme.
+The remaining industry demos are intentionally small and self-contained. Existing software was inspected to understand workflows only; demo titles, metadata and interfaces use neutral industry names, not those products' brand names. Their UI uses one shared static engine, four industry-specific workflow scripts, and a shared responsive theme.
 
-| Industry | Existing product inspected | URL | Scope |
+| Industry | Public demo title | URL | Scope |
 |---|---|---|---|
-| Logistics | Macsim Cargo (joelmbaka/macsim-cargo-app) | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
-| School finance | SchoolPey (joelmbaka/schoolpey) | /demos/education | School term fee invoice → simulated parent payment → finance reconciliation, partials and student credit |
-| Rent | RentPayor (joelmbaka/rentpayor) | /demos/property | Lease-based rent invoice → externally received payment record → allocation → owner statement |
-| Healthcare | CliviQue HMIS (joelmbaka/clivique-hmis) | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
+| Logistics | Cargo Dispatch | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
+| School finance | School Fee Management | /demos/education | School term fee invoice → simulated parent payment → finance reconciliation, partials and student credit |
+| Rent | Rental Management | /demos/property | Lease-based rent invoice → externally received payment record → allocation → owner statement |
+| Healthcare | Clinic Operations | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
 
-Source workspaces inspected using GitHub repository roots, readmes, and workflow documentation; these mini demos are newly implemented concepts, **not** a copy of production applications, and cannot be represented as live integrations. SchoolPey excludes academics, examinations, attendance and general ERP workflows, matching the explicit product scope. RentPayor uses property-management/finance perspectives rather than assuming a mandatory tenant app. CliviQue does not handle actual clinical decisions or sensitive real patient information. Macsim does not upload files or track actual GPS coordinates.
+Source workspaces were reviewed for process understanding, not public branding. These mini demos are standalone concepts, **not** copies of production applications or live integrations. School fees exclude academics and attendance; rentals use manager and finance roles without mandatory tenant login; clinic operations exclude real clinical decisions or patient records; logistics records sample delivery references without uploads or live GPS.
 
 Architecture:
 - public/demos/shared/minimal-engine.js — consistent role-switching, simple forms, step sequencing, safe HTML escaping, record tables, data persistence and reset.
@@ -170,4 +170,6 @@ All sample names, invoices, payment references, cargo loads, truck capacities, p
 - npx tsc --noEmit
 - npm run build
 - Open the 4 /demos/<industry>/demo.html routes, complete every guided step and switch role, refresh/persist and Reset.
-- SchoolPey must reconcile partial payments and preserve credit; RentPayor must allocate partial payments without double-counting and prevent duplicate refs; Logistics must enforce truck capacity, delivery status and notes; CliviQue must gate invoices behind OPD service and prevent duplicate payments.
+- School fees must reconcile partial payments and preserve credit; rental management must allocate partial payments without double-counting and reject duplicate refs; logistics must enforce truck capacity and delivery states; clinic operations must gate invoicing behind completed OPD services and prevent duplicate payments.
+
+Public naming rule: these four concepts must never display the exact names of the source applications in gallery cards, overview pages, raw HTML, browser titles, or in-demo headers. Use neutral industry workflow titles consistently.

@@ -3,14 +3,14 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, MonitorPlay, Building2, WalletCards } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'RentPayor Interactive Demo | Joeltech Geek Systems',
-  description: 'Explore RentPayor\'s core rent operations with a fictional lease, rent invoice, manually recorded collection, allocation, and statement.',
+  title: 'Rental Management Interactive Demo | Joeltech Geek Systems',
+  description: 'Explore rental operations with a fictional lease, monthly rent invoice, recorded collection, payment allocation, and owner statement.',
   alternates: { canonical: '/demos/property' },
   openGraph: {
     type: 'website',
     url: '/demos/property',
-    title: 'RentPayor Interactive Concept | Joeltech Geek Systems',
-    description: 'Explore RentPayor\'s core rent operations with a fictional lease, rent invoice, manually recorded collection, allocation, and statement.',
+    title: 'Rental Management Interactive Concept | Joeltech Geek Systems',
+    description: 'Explore rental operations with a fictional lease, monthly rent invoice, recorded collection, payment allocation, and owner statement.',
   },
 };
 
@@ -42,9 +42,9 @@ export default function DemoOverviewPage() {
       </nav>
       <div className="grid items-start gap-10 lg:grid-cols-[1.15fr_0.85fr]">
         <header>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Property & rent management · Existing product concept</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">RentPayor</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore RentPayor's core rent operations with a fictional lease, rent invoice, manually recorded collection, allocation, and statement.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Property & rent management · Interactive workflow concept</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Rental Management</h1>
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore rental operations with a fictional lease, monthly rent invoice, recorded collection, payment allocation, and owner statement.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="/demos/property/demo.html" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
               <MonitorPlay className="h-5 w-5" aria-hidden /> Launch interactive demo <ArrowRight className="h-4 w-4" aria-hidden />
@@ -58,7 +58,7 @@ export default function DemoOverviewPage() {
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">See the operational handoffs</h2>
           <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Generate rent for a leased unit, record payment received externally, allocate partial receipts, and prepare a sample owner report.</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-            <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Real product inspiration</span>
+            <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Industry workflow demo</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Simulated team roles</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Fictional records</span>
           </div>

@@ -3,14 +3,14 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, MonitorPlay, Truck, PackageCheck } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Macsim Cargo Interactive Demo | Joeltech Geek Systems',
-  description: 'Explore a minimal logistics concept based on Macsim Cargo: load posting, driver bookings, dispatch approval, trip statuses, and delivery evidence.',
+  title: 'Cargo Dispatch Interactive Demo | Joeltech Geek Systems',
+  description: 'Explore a logistics workflow with load posting, driver bookings, dispatch approval, trip updates, and delivery evidence.',
   alternates: { canonical: '/demos/logistics' },
   openGraph: {
     type: 'website',
     url: '/demos/logistics',
-    title: 'Macsim Cargo Interactive Concept | Joeltech Geek Systems',
-    description: 'Explore a minimal logistics concept based on Macsim Cargo: load posting, driver bookings, dispatch approval, trip statuses, and delivery evidence.',
+    title: 'Cargo Dispatch Interactive Concept | Joeltech Geek Systems',
+    description: 'Explore a logistics workflow with load posting, driver bookings, dispatch approval, trip updates, and delivery evidence.',
   },
 };
 
@@ -42,9 +42,9 @@ export default function DemoOverviewPage() {
       </nav>
       <div className="grid items-start gap-10 lg:grid-cols-[1.15fr_0.85fr]">
         <header>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Logistics & transport · Existing product concept</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Macsim Cargo</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a minimal logistics concept based on Macsim Cargo: load posting, driver bookings, dispatch approval, trip statuses, and delivery evidence.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Logistics & transport · Interactive workflow concept</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Cargo Dispatch</h1>
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a logistics workflow with load posting, driver bookings, dispatch approval, trip updates, and delivery evidence.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="/demos/logistics/demo.html" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
               <MonitorPlay className="h-5 w-5" aria-hidden /> Launch interactive demo <ArrowRight className="h-4 w-4" aria-hidden />
@@ -58,7 +58,7 @@ export default function DemoOverviewPage() {
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">See the operational handoffs</h2>
           <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Post a cargo load, let a driver request it, approve dispatch, then record delivery references and close the trip.</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-            <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Real product inspiration</span>
+            <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Industry workflow demo</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Simulated team roles</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Fictional records</span>
           </div>
