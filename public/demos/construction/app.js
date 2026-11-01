@@ -232,7 +232,7 @@
       '<label class="wide">Description<input class="field" name="description" maxlength="180" required placeholder="Describe the fictional site expense"/></label></div>'+
       '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn primary" type="submit">Record expense</button></div></form>';
     }
-    return '<div class="overlay" data-overlay="true"><section class="modal" role="dialog" aria-modal="true" aria-label="Construction demo action"><header class="modal-bar"><span>AMANi HEIGHTS · CONCEPT DEMO</span><button class="close-btn" data-action="close" aria-label="Close dialog">×</button></header>'+content+'</section></div>';
+    return '<div class="overlay" data-overlay="true"><section class="modal" role="dialog" aria-modal="true" aria-label="Construction demo action"><header class="modal-bar"><span>AMANI HEIGHTS · CONCEPT DEMO</span><button class="close-btn" data-action="close" aria-label="Close dialog">×</button></header>'+content+'</section></div>';
   }
   function render(){
     const views={overview,tasks,requests,materials,purchases,costs,reports,settings};
@@ -316,7 +316,7 @@
         message="Draft order "+po.id+" created; stock unchanged until receipt.";
       }else if(kind==="receive"&&is("storekeeper")){
         const p=purchase(form.dataset.id);if(!p)throw new Error("Purchase order not found.");
-        const delivery=p.lines.filter(l=>l.receivedQty<l.qty).map(l=>({materialId:l.materialId,qty:fields["receive-"+l.materialId]??"0"}));
+        const delivery=p.lines.filter(l=>l.receivedQty<l.qty).map(l=>({materialId:l.materialId,qty:fields["receive-"+l.materialId]===""?"0":fields["receive-"+l.materialId]??"0"}));
         const units=delivery.reduce((n,l)=>n+(Number(l.qty)||0),0);
         const po=core.receivePurchase(data,p.id,delivery);
         ui.deliveryDraft={};message=units+" units received. "+po.status+".";
