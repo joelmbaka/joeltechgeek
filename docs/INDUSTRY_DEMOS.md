@@ -112,3 +112,31 @@ Budget reporting intentionally counts **issued material consumption at the unit 
 10. Check at mobile/tablet/desktop widths (375, 768, 1024, 1440 px), keyboard controls, sitemap and noindex header on raw HTML.
 
 No changes to the Fire Safety or Retail application assets are intended in this construction addition.
+
+
+## Field Services & Maintenance — Northstar demo (November 1, 2026)
+
+- /demos/field-services — indexable industry introduction and four-role walkthrough
+- /demos/field-services/demo.html — browser-only interactive static page, noindex / nofollow
+- /demos/field-services/core.js — pure ticket, dispatch, checklist, stock, review, invoicing and payment rules
+- /demos/field-services/app.js — role-based interactive UI, scoped localStorage persistence
+- /demos/field-services/styles.css — responsive JoelTechGeek palette, printable sample invoice
+- /demos/field-services/favicon.svg — scoped concept favicon
+
+All Northstar people, customers, addresses, assets, visits, parts, prices, work, invoices, and payments are fictional. Role selection is for demonstrations, not actual authentication or permission protection. Payment marking is simulated with no gateway or M-Pesa network calls. No real customer notifications, work scheduling, finance records, maintenance compliance certificates or equipment inspections.
+
+### Recommended scenario
+1. Open the Field Services demo. Grace (Dispatcher) creates a service request for Harbor Point Offices' HVAC unit; assign it to Daniel with a visit date.
+2. Switch to Daniel (Technician), start the assigned job. Record one Air filter 20 × 20, and confirm inventory reduces by one.
+3. Submit a four-item Pass service checklist with notes and labour hours. Switch to Nia (Service Manager), review and approve; confirm unapproved jobs cannot be billed.
+4. Switch to Amina (Billing). Generate a sample invoice from the approved job; inspect line items and printable demo disclaimer. Record a simulated Cash payment; confirm both invoice and service job show Paid and reports update.
+5. Reset. Try submitting one checklist result as Attention; manager approval must be blocked. Return with a reason, resume as technician, submit all Pass, and approve.
+6. Test overselling parts, blank/invalid checklists, malformed customer requests, incomplete assignment, duplicate invoices and duplicate payments. These must leave data unchanged.
+7. Refresh to confirm local browser state and reset to restore. Check 375 / 768 / 1024 / 1440 px, keyboard interactions and printer view.
+8. Verify all four industry cards coexist, field-services source assets are noindex, and no existing Fire Safety, Retail or Construction demo routes changed.
+
+### Developer checks
+- npm run test:field-services-demo
+- npx tsc --noEmit
+- npx eslint .
+- npm run build

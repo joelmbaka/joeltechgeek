@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/demos/fire-safety`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/retail`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/construction`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
+    { url: `${base}/demos/field-services`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/contact`, lastModified: CAREERS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.88 },
   ];
 

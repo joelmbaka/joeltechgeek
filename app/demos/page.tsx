@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, ClipboardCheck, ShoppingCart, PackageCheck, TrendingUp, CreditCard, HardHat, Boxes, ClipboardList } from 'lucide-react';
+import { ArrowRight, ShieldCheck, ClipboardCheck, ShoppingCart, PackageCheck, TrendingUp, CreditCard, HardHat, Boxes, ClipboardList, Wrench, CalendarCheck, FileCheck2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Interactive Software Demos | Joeltech Geek Systems',
-  description: 'Explore interactive fire safety, retail and construction software concepts from Joeltech Geek Systems. Fictional workflows, no signup or backend.',
+  description: 'Explore interactive fire safety, retail, construction and field-service software concepts from Joeltech Geek Systems. Fictional workflows, no signup.',
   alternates: { canonical: '/demos' },
-  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore fire safety, retail and construction software concepts with fictional records and simulated workflows.' },
+  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore four interactive business software concepts with fictional records and simulated workflows.' },
 };
 
 export default function DemosPage() {
@@ -121,6 +121,40 @@ export default function DemosPage() {
                   <div className="rounded-xl bg-white/10 p-4"><Boxes className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Project materials</p><p className="mt-1 text-xs text-white/70">Requests, issues &amp; receipts</p></div>
                 </div>
                 <p className="mt-4 text-xs leading-6 text-white/80">Approved stock issues and site expenses update the same project budget overview.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="grid lg:grid-cols-[1fr_1.05fr]">
+            <div className="flex flex-col p-7 sm:p-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><Wrench className="h-6 w-6" aria-hidden /></span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Field services &amp; maintenance · Concept</span>
+              </div>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Northstar Field Services</h3>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Track a maintenance request through technician assignment, on-site checks, spare-parts usage, manager approval, and a simulated customer invoice.</p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">4 simulated roles</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Work orders &amp; approvals</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No sign-in</span>
+              </div>
+              <Link href="/demos/field-services" className="mt-8 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
+                Explore field service demo <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            </div>
+            <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
+                <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
+                  <div className="flex items-center gap-2"><Wrench className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Maintenance workspace</span></div>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Concept preview</span>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white/10 p-4"><CalendarCheck className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Dispatch &amp; visits</p><p className="mt-1 text-xs text-white/70">Schedule a technician</p></div>
+                  <div className="rounded-xl bg-white/10 p-4"><FileCheck2 className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Service reports</p><p className="mt-1 text-xs text-white/70">Checklists &amp; review</p></div>
+                </div>
+                <p className="mt-5 text-xs leading-6 text-white/80">A reviewed service visit can flow into an illustrative invoice and payment record.</p>
               </div>
             </div>
           </div>
