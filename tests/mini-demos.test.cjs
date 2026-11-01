@@ -5,7 +5,7 @@ const path=require('node:path');
 
 const base=path.join(__dirname,'..','public','demos');
 const engine=fs.readFileSync(path.join(base,'shared','minimal-engine.js'),'utf8');
-const slugs=['education','property','healthcare'];
+const slugs=['property','healthcare'];
 const scripts=Object.fromEntries(slugs.map(s=>[s,fs.readFileSync(path.join(base,s,'demo.js'),'utf8')]));
 function definition(slug){
  let captured;
@@ -32,25 +32,17 @@ function harness(slug,previous=null){
  };
 }
 const listed=(def,id)=>def.actions.find(s=>s.id===id);
-function setupSchool(h){
- h.nav('workflow');
- h.submit('invoice',{tuition:'18000',activity:'3000',transport:'4000'});
-}
 function setupRent(h){
  h.nav('workflow');
  h.submit('invoice');
 }
-const paymentSchool=(h,amount)=>{
- h.role('guardian');h.submit('payment',{amount:String(amount),method:'M-Pesa (simulated)'});
- h.role('finance');h.submit('reconcile');
-};
 const paymentRent=(h,amount,ref)=>{
  h.role('manager');h.submit('receipt',{amount:String(amount),method:'Bank transfer',reference:ref});
  h.role('finance');h.submit('allocate');
 };
 
-test('all three demos provide product-specific titles, roles, records and a fictional seed',()=>{
- const expected={education:'School Fee Management',property:'Rental Management',healthcare:'Clinic Operations'};
+test('both mini demos provide product-specific titles, roles, records and a fictional seed',()=>{
+ const expected={property:'Rental Management',healthcare:'Clinic Operations'};
  for(const slug of slugs){
   const def=definition(slug),seed=def.seed();
   assert.equal(def.slug,slug);
@@ -62,42 +54,6 @@ test('all three demos provide product-specific titles, roles, records and a fict
   assert.ok(def.actions.every(s=>def.roles.some(r=>r.id===s.role)));
   assert.ok(Array.isArray(def.metrics(seed)));
  }
-});
-
-test('School Fee Management: student term fee invoice and a reconciled partial payment',()=>{
- const h=harness('education');setupSchool(h);
- assert.equal(h.data().invoice.total,25000);
- h.role('guardian');h.submit('payment',{amount:'8000',method:'M-Pesa (simulated)'});
- assert.equal(h.data().invoice.allocated,0);
- assert.equal(h.data().payments[0].status,'Pending');
- h.role('finance');h.submit('reconcile');
- assert.equal(h.data().invoice.allocated,8000);
- assert.equal(h.data().receipts.length,1);
- assert.equal(h.data().credit,0);
-});
-
-test('School Fee Management: overpayments become student credit, not negative balances',()=>{
- const h=harness('education');setupSchool(h);
- paymentSchool(h,8000);paymentSchool(h,20000);
- assert.equal(h.data().invoice.allocated,25000);
- assert.equal(h.data().credit,3000);
- assert.equal(h.data().receipts.length,2);
- assert.equal(h.data().receipts[1].allocated,17000);
- assert.equal(h.data().receipts[1].credit,3000);
- h.nav('records');assert.match(h.root.innerHTML,/3,000/);
-});
-
-test('School Fee Management: rejects invalid fees and prevents parallel unreviewed payments',()=>{
- const h=harness('education');h.nav('workflow');
- h.submit('invoice',{tuition:'bad',activity:'3000',transport:'4000'});
- assert.equal(h.saved(),null);
- h.submit('invoice',{tuition:'18000',activity:'3000',transport:'4000'});
- h.role('guardian');h.submit('payment',{amount:'10000',method:'M-Pesa (simulated)'});
- const before=h.saved();
- h.submit('payment',{amount:'10000',method:'M-Pesa (simulated)'});
- assert.equal(h.saved(),before);
- h.role('finance');h.submit('reconcile');
- assert.equal(h.data().payments.length,1);
 });
 
 test('Rental Management: partial rent payments flow through finance allocation and owner statement',()=>{
@@ -182,7 +138,7 @@ test('Clinic Operations: invalid or duplicate payment does not alter the settled
  assert.equal(h.data().invoice.reference,'SIM-CLV-001');
 });
 
-test('all three demos expose role switching, records navigation and local reset',()=>{
+test('both mini demos expose role switching, records navigation and local reset',()=>{
  for(const slug of slugs){
   const h=harness(slug);
   assert.match(h.root.innerHTML,/INTERACTIVE INDUSTRY CONCEPT/);
@@ -202,7 +158,7 @@ test('each demo uses an independent browser storage key',()=>{
   const h=harness(slug);h.reset();
   assert.equal(h.data().version,1);
  }
- assert.equal(new Set(found).size,3);
+ assert.equal(new Set(found).size,2);
 });
 
 test('property module safely escapes user-entered payment references',()=>{
