@@ -10,7 +10,8 @@
     "test:retail-demo": "node --test tests/retail-demo.test.cjs",
     "test:construction-demo": "node --test tests/construction-demo.test.cjs",
     "test:field-services-demo": "node --test tests/field-services-demo.test.cjs",
-    "test:mini-demos": "node --test tests/mini-demos.test.cjs",
+    "test:mini-demos": "node --test tests/clinic-demo.test.cjs",
+    "test:clinic-demo": "node --test tests/clinic-demo.test.cjs",
     "test:property-demo": "node --test tests/property-demo.test.cjs",
     "test:school-demo": "node --test tests/school-demo.test.cjs",
     "test:cargo-demo": "node --test tests/cargo-demo.test.cjs"
