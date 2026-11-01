@@ -160,7 +160,7 @@ Source workspaces were reviewed for process understanding, not public branding. 
 Architecture:
 - public/demos/shared/minimal-engine.js — consistent role-switching, simple forms, step sequencing, safe HTML escaping, record tables, data persistence and reset.
 - public/demos/shared/minimal.css — responsive workspace theme.
-- public/demos/{logistics,education,property,healthcare}/demo.js — product-specific state, steps, validation, calculations and sample records.
+- Legacy note: the original shared mini-demo demo.js scripts were replaced by standalone industry apps. Healthcare now lives in core.js, views.js, app.js and styles.css.
 - public/demos/{logistics,education,property,healthcare}/demo.html — isolated noindex concept routes.
 - app/demos/{logistics,education,property,healthcare}/page.tsx — indexable explanations, launch links and workflow guides.
 - app/demos/page.tsx — all 8 industry entries.
@@ -171,8 +171,8 @@ All sample names, invoices, payment references, cargo loads, truck capacities, p
 - npm run test:mini-demos
 - npx tsc --noEmit
 - npm run build
-- Open the 4 /demos/<industry>/demo.html routes, complete every guided step and switch role, refresh/persist and Reset.
-- School fees must reconcile partial payments and preserve credit; rental management must allocate partial payments without double-counting and reject duplicate refs; logistics must enforce truck capacity and delivery states; clinic operations must gate invoicing behind completed OPD services and prevent duplicate payments.
+- Open the active /demos/<industry>/demo.html routes and verify freely navigable roles, records, mutations, browser persistence and Reset; no guided steps are required.
+- School fees must reconcile partial payments and preserve credit; rental management must allocate partial payments without duplicate refs; logistics must enforce truck capacity and delivery states; HMIS must gate clinical actions by role and discharge by clearance, with validated sample payments.
 
 Public naming rule: these four concepts must never display the exact names of the source applications in gallery cards, overview pages, raw HTML, browser titles, or in-demo headers. Use neutral industry workflow titles consistently.
 

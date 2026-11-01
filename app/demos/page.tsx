@@ -270,9 +270,9 @@ export default function DemosPage() {
             <div className="flex flex-col p-7 sm:p-10">
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><HeartPulse className="h-6 w-6" aria-hidden /></span>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Hospital & clinic operations · Concept</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Hospital &amp; clinic operations · HMIS web app</span>
               </div>
-              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Clinic Operations</h3>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Hospital Operations</h3>
               <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore a responsive HMIS with preloaded cash and insured patients, six staff roles, OPD encounters, triage, diagnostics, pharmacy, billing, and read-only inpatient beds.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Interactive workflow</span>
@@ -286,7 +286,7 @@ export default function DemosPage() {
             <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
               <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
                 <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
-                  <div className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Clinic Operations workflow</span></div>
+                  <div className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Hospital Operations HMIS</span></div>
                   <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Concept preview</span>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3">
