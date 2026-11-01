@@ -1,4 +1,4 @@
-# Interactive Industry Demos — Fire Safety Pilot
+# Interactive Industry Demos
 
 ## Routes
 - /demos — indexable gallery; currently lists only Fire Safety Ops
@@ -60,3 +60,14 @@ GreenBasket General Store, its products, suppliers and transactions are fictiona
 11. Test 375, 768, 1024, 1440px viewports, keyboard focus, sample receipt printing, return navigation and noindex on raw demo.
 
 Do not represent this fictional demo as a commercial deployment, real accounting report, or proof of payment. Preserve fire safety unchanged while reviewing retail.
+
+### Retail developer checks
+
+```bash
+npm run test:retail-demo
+npx tsc --noEmit
+npx eslint .
+npm run build
+```
+
+The repeatable tests use Node's built-in runner and no additional dependencies. Complete the browser/manual acceptance checklist before public deployment.

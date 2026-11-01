@@ -19,7 +19,7 @@ export default function DemosPage() {
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Interactive software demos</p>
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Don&apos;t just imagine it. Explore how it could work.</h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-          Explore an interactive example of business software, with realistic fictional records and working sample workflows. These are concepts, not live customer deployments.
+          Explore interactive examples of business software, with realistic fictional records and working sample workflows. These are concepts, not live customer deployments.
         </p>
       </header>
       <section aria-labelledby="available-demos" className="mt-12">

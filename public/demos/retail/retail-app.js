@@ -35,10 +35,6 @@
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(error){ui.toast="Browser storage unavailable. Changes are temporary.";}}
   function toast(s){ui.toast=String(s);render();}
   function cartTotal(){return ui.cart.reduce((sum,l)=>sum+(byId(l.id)?.price||0)*l.qty,0)}
-  function linesSummary(lines){return lines.map(l=>{
-    const p=byId(l.productId);
-    return '<div class="line-summary"><span>'+escapeHtml(p?p.name:(l.name||"Removed product"))+' <span class="muted">× '+l.qty+'</span></span><b>'+currency(l.qty*(l.cost??l.price))+'</b></div>';
-  }).join("");}
   function pill(status){return '<span class="pill '+(status==="Received"?"good":status==="Draft"?"warn":"")+'">'+escapeHtml(status)+'</span>'}
   function status(p){return p.stock===0?'<span class="pill bad">Out of stock</span>':low(p)?'<span class="pill warn">Low stock</span>':'<span class="pill good">In stock</span>'}
   function stat(label,value,detail,symbol){return '<div class="stat"><div class="stat-top"><span>'+escapeHtml(label)+'</span><span class="stat-icon">'+symbol+'</span></div><div class="stat-value">'+value+'</div><div class="stat-detail">'+detail+'</div></div>'}
@@ -213,7 +209,7 @@
     const pages=["dashboard","pos","inventory","purchasing","sales","reports","settings"];
     if(!pages.includes(id)||!roles[ui.role].items.includes(id))return;
     ui.view=id;ui.modal=null;ui.toast="";render();
-    window.scrollTo({top:0,behavior:"instant"});
+    window.scrollTo({top:0,behavior:"auto"});
   }
   function addCart(id){
     const p=byId(id);
