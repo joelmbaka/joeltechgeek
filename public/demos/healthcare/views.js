@@ -170,10 +170,80 @@ return function(d,s,c){
     navigation+content;
  }
 
- function diagnostics(){return empty("Diagnostics","Nothing to show.");}
- function pharmacy(){return empty("Pharmacy","Nothing to show.");}
- function billingPage(){return empty("Billing","Nothing to show.");}
- function inpatients(){return empty("Inpatients","Nothing to show.");}
+
+ function diagnostics(department){
+  const items=d.encounters.flatMap(v=>v.orders.filter(o=>o.department===department).map(o=>({v,o})));
+  const waiting=items.filter(x=>x.o.status==="Pending"),reported=items.filter(x=>x.o.status==="Reported");
+  const row=({v,o})=>{
+   let button="";
+   if(is("diagnostics")&&o.status==="Pending")
+    button=btn("Record result","report",v.id,"primary compact",'data-order-id="'+e(o.id)+'"');
+   return '<div class="task-row"><div><b>'+e(person(v).name)+'</b><small>'+e(v.id)+" · "+e(o.label)+'</small></div>'+
+    badge(o.status)+buttonOpen("encounter",v.id)+button+'</div>';
+  };
+  return title(department==="Lab"?"Laboratory":"Imaging","Existing work orders with fictional sample results.")+
+   '<div class="metrics three">'+metric("Pending",waiting.length,"To report")+
+    metric("Reported",reported.length,"Completed")+
+    metric("Total",items.length,"All requests")+'</div>'+
+   panel("Pending orders",waiting.map(row).join("")||empty("Nothing pending","No results waiting."))+
+   panel("Reported",reported.map(row).join("")||empty("No results yet","Completed orders will appear here."));
+ }
+
+
+ function pharmacy(){
+  const items=d.encounters.flatMap(v=>v.prescriptions.map(rx=>({v,rx})));
+  const waiting=items.filter(x=>x.rx.status==="Pending"),done=items.filter(x=>x.rx.status==="Dispensed");
+  const row=({v,rx})=>{
+   let action="";
+   if(is("pharmacy")&&rx.status==="Pending")
+    action=btn("Mark dispensed","dispense",v.id,"primary compact",'data-rx-id="'+e(rx.id)+'"');
+   return '<div class="task-row"><div><b>'+e(person(v).name)+'</b><small>'+e(v.id)+" · "+e(rx.label)+'</small></div>'+
+    badge(rx.status)+buttonOpen("encounter",v.id)+action+'</div>';
+  };
+  return title("Pharmacy","Illustrative medication requests and sample dispensing.")+
+   '<div class="metrics three">'+metric("Pending",waiting.length,"To dispense")+
+    metric("Dispensed",done.length,"Completed")+
+    metric("All prescriptions",items.length,"Fictional items")+'</div>'+
+   panel("To dispense",waiting.map(row).join("")||empty("No pending orders","Pharmacy worklist is clear."))+
+   panel("Dispensing history",done.map(row).join("")||empty("No fulfilled orders","Completed items will appear here."));
+ }
+
+
+ function billingPage(){
+  const all=d.encounters.filter(v=>!v.dischargedAt),unpaid=all.filter(v=>bill(v).balance>0);
+  let rows="";
+  for(const v of all){
+   const b=bill(v);
+   const collect=is("billing")&&b.balance>0?btn("Record payment","pay",v.id,"primary compact"):"";
+   rows+='<div class="task-row"><div><b>'+e(person(v).name)+'</b><small>'+e(v.id)+" · "+e(person(v).paymentType)+'</small></div>'+
+    '<span class="amount">'+k(b.balance)+'</span>'+badge(b.balance>0?"Outstanding":"Cleared")+
+     buttonOpen("encounter",v.id)+collect+'</div>';
+  }
+  return title("Billing & clearance","Charges, simulated insurer portions and sample collections.")+
+   '<div class="metrics three">'+metric("Open encounters",all.length,"In current queue")+
+    metric("Receivables",k(unpaid.reduce((n,v)=>n+bill(v).balance,0)),"Sample balances")+
+    metric("Cleared",all.length-unpaid.length,"Zero outstanding")+'</div>'+
+   panel("OPD invoices",rows)+
+   '<p class="muted">Eligible fictional coverage assigns an illustrative 80% to the insurer. No real payment or insurer activity occurs.</p>';
+ }
+
+
+ function inpatients(){
+  let rows="";
+  for(const admission of d.inpatients){
+   const p=patient(admission.patientId);
+   rows+='<div class="task-row"><div><b>'+e(p.name)+'</b><small>'+
+    e(admission.ward)+" · Bed "+e(admission.bed)+" · "+e(admission.admittedAt)+'</small></div>'+
+    payer(p)+badge(admission.status)+buttonOpen("patient",p.id)+'</div>';
+  }
+  return title("Inpatients","Ward overview only. OPD is the interactive scope.")+
+   '<div class="metrics three">'+metric("Admitted",d.inpatients.length,"Current patients")+
+    metric("Ward A",d.inpatients.filter(x=>x.ward==="Ward A").length,"Beds occupied")+
+    metric("Ward B",d.inpatients.filter(x=>x.ward==="Ward B").length,"Beds occupied")+'</div>'+
+   panel("Current admissions",rows)+
+   '<p class="muted">Inpatient bed transfers, medication administration, ward rounds and inpatient discharge are out of scope.</p>';
+ }
+
  function dialog(){return"";}
  return {main,dialog,NAV,ROLE_NAMES,btn,e};
 };
