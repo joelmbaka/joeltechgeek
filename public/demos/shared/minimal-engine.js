@@ -1,117 +1,120 @@
-const initMinimalDemo=function initMinimalDemo(def){
-  "use strict";
-  const root=document.getElementById("app");
-  if(!root)throw new Error("Demo mount element is missing.");
-  const KEY="joeltechgeek-mini-"+def.slug+"-v1";
-  const esc=x=>String(x==null?"":x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const roleMap=Object.fromEntries(def.roles.map(r=>[r.id,r]));
-  function load(){
-    try{
-      const val=JSON.parse(localStorage.getItem(KEY)||"null");
-      if(val&&val.version===1&&Array.isArray(val.activity)&&def.valid(val))return val;
-    }catch(e){}
-    return def.seed();
-  }
-  let data=load();
-  const ui={role:def.roles[0].id,view:"overview",message:""};
-  const role=id=>roleMap[id];
-  const status=step=>step.done(data)?"completed":step.ready(data)?"available":"blocked";
-  const stats=()=>def.metrics(data).map(m=>'<div class="stat"><div class="stat-top"><span>'+esc(m.label)+'</span><span class="mini-dot">●</span></div><strong>'+esc(m.value)+'</strong><small>'+esc(m.detail||"")+'</small></div>').join("");
-  const formField=(field,stepId)=>{
-    const label=esc(field.label),name=esc(field.name);
-    const required=field.required===false?"":" required";
-    if(field.type==="select"){
-      const opts=typeof field.options==="function"?field.options(data):field.options;
-      return '<label>'+label+'<select class="field" name="'+name+'"'+required+'>'+
-        (field.placeholder?'<option value="">'+esc(field.placeholder)+'</option>':"")+
-        opts.map(o=>'<option value="'+esc(o.value)+'">'+esc(o.label)+'</option>').join("")+'</select></label>';
-    }
-    if(field.type==="textarea")return '<label class="wide">'+label+'<textarea class="field" name="'+name+'" rows="3" maxlength="'+(field.maxlength||250)+'" placeholder="'+esc(field.placeholder||"")+'"'+required+'></textarea></label>';
-    return '<label>'+label+'<input class="field" name="'+name+'" type="'+esc(field.type||"text")+'"'+
-       (field.min!==undefined?' min="'+esc(field.min)+'"':"")+
-       (field.max!==undefined?' max="'+esc(field.max)+'"':"")+
-       (field.step!==undefined?' step="'+esc(field.step)+'"':"")+
-       (field.maxlength!==undefined?' maxlength="'+esc(field.maxlength)+'"':"")+
-       ' placeholder="'+esc(field.placeholder||"")+'"'+(field.value!==undefined?' value="'+esc(field.value)+'"':"")+required+'/></label>';
-  };
-  const stepsHtml=()=>def.steps.map((s,i)=>{
-    const st=status(s),mine=ui.role===s.role,canSubmit=mine&&s.ready(data);
-    const cls=st==="completed"?"done":st==="available"?"ready":"locked";
-    const tag=st==="completed"?"Completed":st==="available"?"Ready":"Waiting";
-    return '<article class="step '+cls+'" id="step-'+esc(s.id)+'">'+
-      '<div class="step-number">'+String(i+1).padStart(2,"0")+'</div>'+
-      '<div class="step-main"><div class="step-heading"><div><small>'+esc(role(s.role).name)+' · '+esc(s.category||"Workflow")+'</small><h3>'+esc(s.title)+'</h3></div><span class="pill '+cls+'">'+tag+'</span></div>'+
-      '<p>'+esc(s.description)+'</p>'+
-      (canSubmit?'<form data-step="'+esc(s.id)+'"><div class="form-grid">'+(s.fields||[]).map(f=>formField(f,s.id)).join("")+'</div><button class="btn primary" type="submit">'+esc(s.button||"Save step")+' →</button></form>':
-       mine?'<div class="step-note">'+esc(st==="completed"?(s.completedText||"This action has been completed."):s.blockedText||"Complete the preceding steps first.")+'</div>':
-       '<button class="link switch" type="button" data-role="'+esc(s.role)+'">Switch to '+esc(role(s.role).name)+' →</button>')+
-      '</div></article>';
-  }).join("");
-  const shortWorkflow=()=>'<div class="path">'+def.steps.map((s,i)=>{
-    const cls=status(s)==="completed"?"completed":status(s)==="available"?"available":"blocked";
-    return '<div class="path-item '+cls+'"><span class="path-num">'+(i+1)+'</span><div><b>'+esc(s.title)+'</b><small>'+esc(role(s.role).name)+'</small></div></div>';
-  }).join("")+'</div>';
-  const records=()=>def.sections.map(s=>{
-    const rows=s.rows(data);
-    return '<section class="card section"><div class="section-head"><h2>'+esc(s.title)+'</h2><p>'+esc(s.description||"")+'</p></div>'+
-      (rows.length?'<div class="table-scroll"><table><thead><tr>'+s.columns.map(col=>'<th>'+esc(col.title)+'</th>').join("")+'</tr></thead><tbody>'+
-        rows.map(row=>'<tr>'+s.columns.map(col=>'<td>'+esc(row[col.key]??"—")+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>':
-       '<div class="empty">No records yet. Complete a workflow step to see records appear here.</div>')+'</section>';
-  }).join("");
-  function render(){
-    const num=def.steps.filter(s=>s.done(data)).length,total=def.steps.length;
-    const navs=[["overview","Overview","▦"],["workflow","Interactive workflow","⇄"],["records","Records & reports","▤"]];
-    root.innerHTML='<div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-icon">'+esc(def.mark||"◆")+'</div><div><b>'+esc(def.product)+'</b><small>'+esc(def.category)+' · DEMO</small></div></div>'+
-      '<a class="back" href="/demos/'+esc(def.slug)+'">← Back to JoelTechGeek</a>'+
-      '<div class="nav-caption">SIMULATED WORKSPACE</div><nav aria-label="Demo navigation" class="side-nav">'+navs.map(([id,name,ico])=>'<button class="nav-item '+(ui.view===id?"active":"")+'" data-nav="'+id+'"><span>'+ico+'</span>'+name+'</button>').join("")+'</nav>'+
-      '<div class="side-footer"><b>● FICTIONAL DATA</b><p>No production connection, actual transactions or real customer records.</p><button data-reset="true">↻ Reset demo</button></div></aside>'+
-      '<div class="main-wrap"><header class="topbar"><div class="crumb"><a class="mobile-back" href="/demos/'+esc(def.slug)+'">←</a><span>'+esc(def.product)+'</span><span>/</span><b>'+esc(navs.find(n=>n[0]===ui.view)[1])+'</b></div>'+
-      '<div class="top-right"><span class="concept">Interactive concept</span><label for="role-select" class="sr-only">Simulated team member</label><select id="role-select" class="role-select">'+def.roles.map(r=>'<option value="'+esc(r.id)+'"'+(ui.role===r.id?" selected":"")+'>'+esc(r.name)+'</option>').join("")+'</select></div></header>'+
-      '<main class="content"><div class="page-heading"><div><div class="eyebrow">'+esc(def.category.toUpperCase())+' · '+esc(ui.view.toUpperCase())+'</div><h1>'+esc(ui.view==="overview"?def.headline:ui.view==="workflow"?"Interactive workflow":"Demo records & reports")+'</h1><p>'+esc(ui.view==="overview"?def.intro:ui.view==="workflow"?"Work through each operation by switching simulated staff roles. All changes remain in this browser.": "Review the fictional records generated by your actions.")+'</p></div>'+
-      (ui.view!=="workflow"?'<button class="btn primary" data-nav="workflow">Try the workflow →</button>':'')+'</div>'+
-      (ui.view==="overview"?'<section class="hero"><div><span>EXISTING PRODUCT · INTERACTIVE CONCEPT</span><h2>'+esc(def.hero)+'</h2><p>'+esc(def.heroDescription)+'</p></div><div class="hero-count"><small>Completed stages</small><strong>'+num+' / '+total+'</strong><span>Reset to try again</span></div></section>'+
-       '<div class="stats">'+stats()+'</div><div class="two-col"><section class="card"><div class="section-head"><h2>How the workflow connects</h2><p>Each stage updates the same sample records.</p></div>'+shortWorkflow()+'</section>'+
-       '<section class="card"><div class="section-head"><h2>Activity log</h2><p>Changes made in this browser.</p></div>'+activity()+'</section></div>':
-       ui.view==="workflow"?'<div class="workflow-grid"><section class="card process"><div class="section-head"><h2>Run the demo</h2><p>Role: <b>'+esc(role(ui.role).name)+'</b> · Follow the sequence below.</p></div>'+stepsHtml()+'</section><aside class="sidebar-right"><section class="card hint"><h2>How to use this demo</h2><p>'+esc(def.instructions)+'</p><div class="progress"><span style="width:'+(100*num/total)+'%"></span></div><small>'+num+' of '+total+' milestones completed</small></section><section class="card hint"><h2>Sample activity</h2>'+activity(5)+'</section></aside></div>':
-       '<div class="stats">'+stats()+'</div>'+records())+
-      '<div class="notice"><b>Demo only.</b> '+esc(def.disclaimer)+' Fictional sample data is stored only in this browser. Role switching does not authenticate users or enforce backend permissions.</div>'+
-      '</main></div><nav class="mobile-nav" aria-label="Mobile demo navigation">'+navs.map(([id,name,ico])=>'<button data-nav="'+id+'" class="'+(ui.view===id?"active":"")+'"><span>'+ico+'</span><small>'+name+'</small></button>').join("")+'</nav></div>'+
-      (ui.message?'<div class="toast" role="status"><span>'+esc(ui.message)+'</span><button data-dismiss="true" aria-label="Dismiss message">×</button></div>':'');
-  }
-  function activity(limit=6){
-    return '<div class="activity">'+(data.activity.length?data.activity.slice(0,limit).map(a=>'<div class="event"><span class="dot"></span><div><b>'+esc(a.title)+'</b><p>'+esc(a.detail)+'</p></div></div>').join(""):'<div class="empty">No demo activity yet.</div>')+'</div>';
-  }
-  function persist(){try{localStorage.setItem(KEY,JSON.stringify(data));}catch(error){ui.message="Storage is unavailable; changes will not survive a reload.";}}
-  document.addEventListener("change",ev=>{
-    const el=ev.target;
-    if(!root.contains(el))return;
-    if(el.id==="role-select"&&roleMap[el.value]){ui.role=el.value;ui.message="Switched to "+role(el.value).name+" (simulated).";render();}
-  });
-  document.addEventListener("click",ev=>{
-    const el=ev.target.closest("[data-nav],[data-role],[data-reset],[data-dismiss]");
-    if(!el||!root.contains(el))return;
-    if(el.dataset.nav){ui.view=el.dataset.nav;ui.message="";render();return;}
-    if(el.dataset.role&&roleMap[el.dataset.role]){ui.role=el.dataset.role;ui.message="Switched to "+role(el.dataset.role).name+" (simulated).";render();return;}
-    if(el.dataset.dismiss){ui.message="";render();return;}
-    if(el.dataset.reset){
-      if(!window.confirm("Reset the fictional "+def.product+" demo? Changes in this browser will be lost."))return;
-      data=def.seed();ui.view="overview";persist();ui.message="Sample data restored.";render();
-    }
-  });
-  document.addEventListener("submit",ev=>{
-    const form=ev.target,id=form.dataset?.step;
-    if(!id||!root.contains(form))return;
-    ev.preventDefault();
-    const step=def.steps.find(s=>s.id===id);
-    if(!step||step.role!==ui.role||!step.ready(data)){ui.message="This step is not available for the selected role or current state.";render();return;}
-    try{
-      const fields=Object.fromEntries(new FormData(form).entries());
-      const result=step.run(data,fields);
-      data.activity.unshift({title:step.title,detail:result||"Fictional workflow step completed."});
-      persist();
-      ui.message=result||"Workflow step completed.";
-    }catch(error){ui.message=error?.message||"Unable to complete action.";}
-    render();
-  });
-  render();
+const initMinimalDemo=function app(def){
+"use strict";
+const root=document.getElementById("app"),KEY="joeltechgeek-mini-"+def.slug+"-v1";
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sectionsByRole={education:{admin:[0],guardian:[0,1,2],finance:[1,2]},property:{manager:[0,1,2],finance:[0,1]},healthcare:{reception:[0],nurse:[0],clinician:[0,1],cashier:[1,2]}};
+const moduleTitle={education:{admin:"Term billing",guardian:"Parent account",finance:"Finance & payments"},property:{manager:"Property operations",finance:"Rent allocation"},healthcare:{reception:"Patient reception",nurse:"Triage desk",clinician:"Consultation desk",cashier:"Service billing"}};
+const roleNames=Object.fromEntries(def.roles.map(r=>[r.id,r.name]));
+const nav=[["home","Overview","▦"],["work","Workspace","▤"],["records","Records","☷"]];
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+if(!(state?.version===1&&Array.isArray(state.activity)&&def.valid(state)))state=def.seed();
+const ui={role:def.roles[0].id,view:"home",modal:null,message:""};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){ui.message="Storage unavailable; changes may not persist."}};
+const title=()=>moduleTitle[def.slug]?.[ui.role]||"Operations";
+const available=()=>def.steps.filter(s=>s.role===ui.role&&s.ready(state));
+const action=(label,id)=>'<button type="button" class="btn primary" data-action="'+esc(id)+'">'+esc(label)+'</button>';
+const metrics=()=>'<div class="metrics">'+def.metrics(state).map(m=>'<div class="metric"><small>'+esc(m.label)+'</small><strong>'+esc(m.value)+'</strong><span>'+esc(m.detail||"")+'</span></div>').join("")+'</div>';
+function registers(filter){
+ const indexes=sectionsByRole[def.slug]?.[ui.role];
+ return def.sections.map((sec,i)=>{
+  if(filter&&indexes&&!indexes.includes(i))return "";
+  const rows=sec.rows(state);
+  return '<section class="data-section"><div class="subhead"><h2>'+esc(sec.title)+'</h2></div><p>'+esc(sec.description||"")+'</p>'+
+    (rows.length?'<div class="table-wrap"><table><thead><tr>'+sec.columns.map(c=>'<th>'+esc(c.title)+'</th>').join("")+'</tr></thead><tbody>'+
+    rows.map(row=>'<tr>'+sec.columns.map(c=>'<td>'+esc(row[c.key]??"—")+'</td>').join("")+'</tr>').join("")+'</tbody></table></div>':
+    '<div class="empty"><strong>No entries yet</strong><p>Records appear here as your team works.</p></div>')+'</section>';
+ }).join("");
+}
+function actions(){
+ const ready=available();
+ return '<div class="operation-buttons">'+(ready.length?ready.map(s=>action(s.button||s.title,s.id)).join(""):
+  '<div class="notice">No action is available for this account right now. You can review existing records or switch team members.</div>')+'</div>';
+}
+const heading=(k,t,desc)=>'<div class="heading"><small>'+esc(k)+'</small><h1>'+esc(t)+'</h1><p>'+esc(desc)+'</p></div>';
+function home(){
+ return heading(def.category.toUpperCase(),def.headline,def.intro)+
+ '<section class="app-feature"><span>'+esc(def.category)+'</span><h2>'+esc(def.hero)+'</h2><p>'+esc(def.heroDescription)+'</p></section>'+
+ metrics()+'<section class="section-panel"><div class="subhead"><h2>'+esc(title())+'</h2><button class="text-link" data-nav="work">Open →</button></div>'+
+ actions()+'</section><div class="subhead"><h2>Recent activity</h2></div>'+activity()+
+ '<div class="notice">All information and transactions are fictional. There is no backend or live account access.</div>';
+}
+function activity(){
+ return '<div class="activity-list">'+(state.activity.length?state.activity.slice(0,6).map(a=>
+ '<article class="activity-item"><span class="bullet">●</span><div><b>'+esc(a.title)+'</b><p>'+esc(a.detail)+'</p></div></article>').join(""):
+ '<div class="empty"><strong>No activity yet</strong><p>Your actions will appear here.</p></div>')+'</div>';
+}
+function work(){
+ return heading(def.category.toUpperCase(),title(),"Work with current records and role-specific actions.")+
+ '<section class="section-panel"><div class="subhead"><h2>Available actions</h2><span>'+available().length+' available</span></div>'+actions()+'</section>'+registers(true);
+}
+function records(){
+ return heading("OPERATIONS REGISTER","Records & reports","Current fictional business data across this workspace.")+metrics()+registers(false);
+}
+function field(f){
+ const value=f.value!==undefined?String(f.value):"";
+ const options=typeof f.options==="function"?f.options(state):f.options;
+ const required=f.required===false?"":" required";
+ if(f.type==="select")return '<label>'+esc(f.label)+'<select name="'+esc(f.name)+'"'+required+'>'+
+   (f.placeholder?'<option value="">'+esc(f.placeholder)+'</option>':"")+
+   options.map(o=>'<option value="'+esc(o.value)+'">'+esc(o.label)+'</option>').join("")+'</select></label>';
+ if(f.type==="textarea")return '<label class="wide">'+esc(f.label)+'<textarea name="'+esc(f.name)+'" rows="3" maxlength="'+(f.maxlength||250)+'"'+required+' placeholder="'+esc(f.placeholder||"")+'"></textarea></label>';
+ return '<label>'+esc(f.label)+'<input name="'+esc(f.name)+'" type="'+esc(f.type||"text")+'"'+
+   (f.min!==undefined?' min="'+esc(f.min)+'"':"")+(f.max!==undefined?' max="'+esc(f.max)+'"':"")+
+   (f.step!==undefined?' step="'+esc(f.step)+'"':"")+(f.maxlength!==undefined?' maxlength="'+esc(f.maxlength)+'"':"")+
+   ' value="'+esc(value)+'" placeholder="'+esc(f.placeholder||"")+'"'+required+'/></label>';
+}
+function modal(){
+ if(!ui.modal)return "";
+ const s=def.steps.find(s=>s.id===ui.modal);if(!s)return "";
+ return '<div class="veil"><section class="drawer" role="dialog" aria-modal="true" aria-label="'+esc(s.title)+'">'+
+ '<div class="handle"></div><header><h2>'+esc(s.title)+'</h2><button type="button" data-close="1" aria-label="Close">×</button></header>'+
+ '<p class="modal-context">'+esc(s.description)+'</p>'+
+ '<form data-step="'+esc(s.id)+'"><div class="form-grid">'+(s.fields||[]).map(field).join("")+'</div>'+
+ '<button type="submit" class="btn primary full">'+esc(s.button||"Save")+'</button></form></section></div>';
+}
+function render(){
+ const pages={home,work,records};
+ root.innerHTML='<div class="outer"><aside class="intro"><small>INTERACTIVE INDUSTRY CONCEPT</small><h2>'+esc(def.hero)+'</h2>'+
+ '<p>'+esc(def.heroDescription)+'</p><a href="/demos/'+esc(def.slug)+'">← Back to introduction</a></aside>'+
+ '<div class="phone"><div class="phone-status">9:41 <span>▰  ▱  ▰</span></div>'+
+ '<header class="app-header"><div class="brand"><b>'+esc(def.mark||"◆")+'</b><span><strong>'+esc(def.product)+'</strong><small>'+esc(def.category)+' · Demo</small></span></div>'+
+ '<select id="role-select" aria-label="Simulated account">'+def.roles.map(r=>'<option value="'+esc(r.id)+'"'+(ui.role===r.id?" selected":"")+'>'+esc(r.name)+'</option>').join("")+'</select></header>'+
+ '<main class="screen">'+pages[ui.view]()+'</main>'+
+ '<nav class="bottom" aria-label="Application tabs">'+nav.map(([id,label,ico])=>
+ '<button data-nav="'+id+'" class="'+(ui.view===id?"active":"")+'"><span>'+ico+'</span><small>'+label+'</small></button>').join("")+'</nav>'+
+ '<div class="home-line"><span></span></div></div>'+
+ '<div class="side"><a href="/demos/'+esc(def.slug)+'">About this demo</a><button data-reset="true">↻ Reset data</button><small>'+esc(def.disclaimer)+'</small></div></div>'+
+ modal()+(ui.message?'<div class="toast" role="status">'+esc(ui.message)+'<button data-dismiss="true" aria-label="Dismiss">×</button></div>':'');
+}
+document.addEventListener("change",e=>{
+ if(!root.contains(e.target))return;
+ if(e.target.id==="role-select"&&roleNames[e.target.value]){
+  ui.role=e.target.value;ui.view="work";ui.modal=null;ui.message="Switched to "+roleNames[ui.role]+".";render();
+ }
+});
+document.addEventListener("click",e=>{
+ const el=e.target.closest("[data-nav],[data-action],[data-role],[data-close],[data-dismiss],[data-reset]");
+ if(!el||!root.contains(el))return;
+ if(el.dataset.nav){ui.view=el.dataset.nav==="workflow"?"work":el.dataset.nav;ui.modal=null;ui.message="";render();return;}
+ if(el.dataset.role&&roleNames[el.dataset.role]){ui.role=el.dataset.role;ui.view="work";ui.modal=null;render();return;}
+ if(el.dataset.action){const s=def.steps.find(s=>s.id===el.dataset.action);if(s&&s.role===ui.role&&s.ready(state)){ui.modal=s.id;ui.message="";render();}return;}
+ if(el.dataset.close){ui.modal=null;ui.message="";render();return;}
+ if(el.dataset.dismiss){ui.message="";render();return;}
+ if(el.dataset.reset){if(!window.confirm("Reset this fictional business demo?"))return;state=def.seed();ui.modal=null;ui.view="home";save();ui.message="Sample data restored.";render();}
+});
+document.addEventListener("submit",e=>{
+ const form=e.target,id=form.dataset?.step;if(!id||!root.contains(form))return;e.preventDefault();
+ const s=def.steps.find(s=>s.id===id);
+ if(!s||s.role!==ui.role||!s.ready(state)){ui.message="This action is unavailable in the current state.";render();return;}
+ try{
+  const fields=Object.fromEntries(new FormData(form).entries());
+  const result=s.run(state,fields);
+  state.activity.unshift({title:s.title,detail:result||"Action recorded."});save();
+  ui.modal=null;ui.message=result||"Saved.";
+ }catch(err){ui.message=err?.message||"Could not save the action.";}
+ render();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ui.modal){ui.modal=null;render();}});
+render();
 };
