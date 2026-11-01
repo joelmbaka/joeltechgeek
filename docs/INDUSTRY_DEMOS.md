@@ -152,7 +152,7 @@ The remaining industry demos are intentionally small and self-contained. Existin
 |---|---|---|---|
 | Logistics | Cargo Dispatch | /demos/logistics | Post load → driver booking → dispatch assignment → in transit → delivery-note reference → close |
 | School finance | School Fee Management | /demos/education | Three linked children, pre-issued grade-term invoices with add-ons → sample parent checkout → immediately updated finance ledger and balances |
-| Rent | Rental Management | /demos/property | Lease-based rent invoice → externally received payment record → allocation → owner statement |
+| Rent | Rental Management | /demos/property | Mobile Rent / Leases / Tenants / Portfolio → manual received rent and receipts → payments, expenses, owner position |
 | Healthcare | Clinic Operations | /demos/healthcare | Fictional patient → OPD encounter → triage handoff → service → sample bill → fake payment |
 
 Source workspaces were reviewed for process understanding, not public branding. These mini demos are standalone concepts, **not** copies of production applications or live integrations. School fees exclude academics and attendance; rentals use manager and finance roles without mandatory tenant login; clinic operations exclude real clinical decisions or patient records; logistics records sample delivery references without uploads or live GPS.
@@ -186,7 +186,7 @@ Public branding remains neutral. Cargo Dispatch now has its own two-account mobi
 - Evidence: visible sample pickup-photo placeholder before pickup, delivery-note placeholder before delivery, and Equipment Interchange Receipt (EIR) placeholder before completion. No camera, file, or network upload exists.
 - Cargo seed includes loads across Open, Booked, Assigned, Picked up, In transit, Delivered and Complete. All locations and mileage are simulated; no GPS, notifications, telematics or payment gateway.
 - Cargo source: public/demos/logistics/core.js, app.js, styles.css and demo.html. Old logistics/demo.js has been retired.
-- School Fee Management, Rental Management and Clinic Operations retain their business rules but use mobile-style Overview, Workspace and Records screens, with role-specific action sheets and no numbered guide. Their internal configuration is now called actions instead of steps.
+- Clinic Operations retains its original fictional mini-demo workflow. School Fee Management and Rental Management now have standalone mobile interfaces with domain-specific navigation. Their internal configuration is now called actions instead of steps.
 - Public industry landing pages present role capabilities, not numbered walkthroughs. Guided blocks were also removed from the Construction and Field Services app overviews.
 
 Validation: npm run test:cargo-demo, npm run test:mini-demos, npm run test:construction-demo, npm run test:field-services-demo, and npm run build. Browser visual QA remains necessary.
@@ -239,5 +239,34 @@ Parent selects an issued, outstanding invoice and taps Pay with M-Pesa; checkout
 
 - public/demos/education/{core.js,app.js,styles.css,demo.html}; the obsolete public/demos/education/demo.js / shared minimal engine use was removed.
 - tests/school-demo.test.cjs; run npm run test:school-demo.
-- tests/mini-demos.test.cjs now covers the unchanged Rental Management and Clinic Operations demos.
+- tests/mini-demos.test.cjs now covers only the unchanged Clinic Operations demo; the Property and School demos have dedicated regression suites.
 - Build/visual browser review locally with npm run build / npm run dev before shipping. Other industry apps and demos are untouched.
+
+
+## Property / rent demo — RentPayor mobile workflow alignment (November 1, 2026)
+
+Routes: public /demos/property, standalone noindex /demos/property/demo.html.
+Source: public/demos/property/{core.js,views.js,app.js,styles.css,demo.html}.
+Acceptance suite: npm run test:property-demo.
+Source reference inspected: joelmbaka/rentpayor branch continuous-improvement, notably app/(app)/_layout.tsx, invoices/index.tsx, invoices/[invoiceId].tsx, leases, tenants, properties, units, payments.tsx and financials/index.tsx.
+
+The Rental Management concept is completely fictional, browser-local, and not connected to RentPayor APIs or real tenants. Only JoelTechGeek's Beach Sunset colors are used; reference product branding is excluded from public pages.
+
+### Mobile structure
+
+- Exactly one landlord/management workspace, **not** a Property Manager/Finance switcher.
+- Four primary tabs: Rent (with Rent overview), Leases, Tenants, Portfolio (Properties).
+- In-phone drawer: Finance → Payments, Expenses, Accounting; Operations → Invoice history. These mirror the key actual mobile areas; advanced rental tax and meter readings are omitted for minimal scope.
+- Rent overview displays collected and invoiced in November, total outstanding, unit occupancy, search, and status/month/property filtering. Overdue invoices precede due invoices. Existing paid invoices appear under invoice history.
+- Leases show active leases and linked invoices; Tenants show phone, unit, history and tenant credit; Portfolio lists properties, occupancy, units, and a standalone unit.
+
+### Seed and actions
+
+- Two fictional properties, six units (five occupied, one vacant), five tenants, five active monthly leases, ten current and historical rent invoices, prior payment records and two property expenses.
+- Invoice details show lease-derived rent and service charge, tenant/property/unit, billing period, due date, paid amount, outstanding, payment activity and receipts.
+- **Record manual payment** simulates rent *already received externally*, by bank, M-Pesa outside the demo, or cash, including transaction date, receiving account and unique reference. The demo allocates to the chosen invoice immediately; partial payment reduces the balance, full payment settles it; overpayment becomes separate tenant credit. There is no real collection or tenant checkout.
+- Clicking a payment presents a fictional receipt showing received/applied/credit, payer, unit, source and reference; records update the shared rent dashboard and ledger.
+- A vacant unit can start a simple new lease with inline fictional tenant and optional first November invoice. This is the only creation wizard included.
+- The Expenses drawer screen records fictional property costs; Accounting shows read-only illustrative owner positions derived from rent and expenses (not accounting journals, distributions, tax or full general ledger). Invoice history lists paid invoices.
+
+No tenant authentication, real payments, notifications, actual document sharing, real maintenance/issue workflows, real bank accounts, multi-user permissions, or API calls. The mobile UI is independently navigable, not a guided demo, with browser-local persistence and reset. Run the full Next build and browser visual QA locally before merging/deploying.

@@ -5,7 +5,7 @@ const path=require('node:path');
 
 const base=path.join(__dirname,'..','public','demos');
 const engine=fs.readFileSync(path.join(base,'shared','minimal-engine.js'),'utf8');
-const slugs=['property','healthcare'];
+const slugs=['healthcare'];
 const scripts=Object.fromEntries(slugs.map(s=>[s,fs.readFileSync(path.join(base,s,'demo.js'),'utf8')]));
 function definition(slug){
  let captured;
@@ -32,17 +32,8 @@ function harness(slug,previous=null){
  };
 }
 const listed=(def,id)=>def.actions.find(s=>s.id===id);
-function setupRent(h){
- h.nav('workflow');
- h.submit('invoice');
-}
-const paymentRent=(h,amount,ref)=>{
- h.role('manager');h.submit('receipt',{amount:String(amount),method:'Bank transfer',reference:ref});
- h.role('finance');h.submit('allocate');
-};
-
-test('both mini demos provide product-specific titles, roles, records and a fictional seed',()=>{
- const expected={property:'Rental Management',healthcare:'Clinic Operations'};
+test('clinic mini demo provide product-specific titles, roles, records and a fictional seed',()=>{
+ const expected={healthcare:'Clinic Operations'};
  for(const slug of slugs){
   const def=definition(slug),seed=def.seed();
   assert.equal(def.slug,slug);
@@ -54,44 +45,6 @@ test('both mini demos provide product-specific titles, roles, records and a fict
   assert.ok(def.actions.every(s=>def.roles.some(r=>r.id===s.role)));
   assert.ok(Array.isArray(def.metrics(seed)));
  }
-});
-
-test('Rental Management: partial rent payments flow through finance allocation and owner statement',()=>{
- const h=harness('property');setupRent(h);
- assert.equal(h.data().invoice.total,32000);
- h.submit('receipt',{amount:'12000',method:'Bank transfer',reference:'DEMO-PAY-001'});
- assert.equal(h.data().invoice.allocated,0);
- h.role('finance');h.submit('allocate');
- assert.equal(h.data().invoice.allocated,12000);
- assert.equal(h.data().invoice.status,'Partially paid');
- h.role('manager');h.submit('statement');
- assert.equal(h.data().statement.received,12000);
- assert.equal(h.data().statement.remaining,20000);
- assert.equal(h.data().receipts.length,1);
-});
-
-test('Rental Management: overpayment preserves credit and report can be regenerated',()=>{
- const h=harness('property');setupRent(h);
- paymentRent(h,12000,'DEMO-PAY-001');
- h.role('manager');h.submit('statement');
- paymentRent(h,25000,'DEMO-PAY-002');
- assert.equal(h.data().invoice.allocated,32000);
- assert.equal(h.data().invoice.status,'Paid');
- assert.equal(h.data().credit,5000);
- h.role('manager');h.submit('statement');
- assert.equal(h.data().statement.remaining,0);
- assert.equal(h.data().statement.credit,5000);
-});
-
-test('Rental Management: duplicate external payment references are rejected with no new receipt',()=>{
- const h=harness('property');setupRent(h);
- paymentRent(h,10000,'DEMO-PAY-001');
- h.role('manager');
- const before=h.saved();
- h.submit('receipt',{amount:'5000',method:'Bank transfer',reference:'DEMO-PAY-001'});
- assert.equal(h.saved(),before);
- assert.match(h.root.innerHTML,/already been recorded/);
- assert.equal(h.data().payments.length,1);
 });
 
 test('Clinic Operations: OPD registration, triage, service, invoice and sample payment',()=>{
@@ -138,7 +91,7 @@ test('Clinic Operations: invalid or duplicate payment does not alter the settled
  assert.equal(h.data().invoice.reference,'SIM-CLV-001');
 });
 
-test('both mini demos expose role switching, records navigation and local reset',()=>{
+test('clinic mini demo expose role switching, records navigation and local reset',()=>{
  for(const slug of slugs){
   const h=harness(slug);
   assert.match(h.root.innerHTML,/INTERACTIVE INDUSTRY CONCEPT/);
@@ -158,17 +111,8 @@ test('each demo uses an independent browser storage key',()=>{
   const h=harness(slug);h.reset();
   assert.equal(h.data().version,1);
  }
- assert.equal(new Set(found).size,2);
+ assert.equal(new Set(found).size,1);
 });
-
-test('property module safely escapes user-entered payment references',()=>{
- const h=harness('property');setupRent(h);
- h.submit('receipt',{amount:'10000',method:'Bank transfer',reference:'<svg onload=alert(1)>'});
- h.nav('records');
- assert.doesNotMatch(h.root.innerHTML,/<svg onload=/);
- assert.match(h.root.innerHTML,/&lt;svg onload=/);
-});
-
 
 test('industry-facing content does not expose reference product names',()=>{
  const forbidden=['Macsim Cargo','SchoolPey','RentPayor','CliviQue','Based on existing product','Real product inspiration'];
