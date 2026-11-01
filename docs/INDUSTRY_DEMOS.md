@@ -39,8 +39,9 @@ No backend, database, real authentication, messages, real compliance records, or
 GreenBasket General Store, its products, suppliers and transactions are fictional. The simulated Owner, Cashier, and Stockkeeper selectors change visible navigation only; they are NOT authentication or permission controls. Payment methods are mock Cash / M-Pesa and never initiate payment requests. Data lives only in browser localStorage under a different key from the fire-safety demo. Neither a backend nor a real payment provider is involved.
 
 ### Core logic checked during implementation
-- Creating and receiving a draft supplier order increases stock exactly once.
-- A received order cannot be received again.
+- Draft orders do not affect stock. Receiving asks for the actual units delivered for each product, up to the ordered remainder.
+- Partial deliveries update inventory only by accepted quantities and keep the purchase order open.
+- Each confirmed receipt is logged, and fully received orders cannot be received again.
 - A cash checkout calculates change and decrements stock.
 - Overselling and negative manual stock adjustments are rejected before mutation.
 - Duplicate lines in a supplier order are rejected.
@@ -50,7 +51,7 @@ GreenBasket General Store, its products, suppliers and transactions are fictiona
 1. Open /demos. Confirm both Fire Safety Ops and GreenBasket Retail have separate cards and links.
 2. Open /demos/retail, launch raw demo, and return via Back to JoelTechGeek.
 3. As Alex (Owner), go to Purchasing and order 20 Cooking oil 1L from Citywide Distributors. Save a draft. Confirm stock has NOT increased yet.
-4. Receive the order. Confirm stock rises from 4 to 24 and the purchase is marked Received; retry must be blocked.
+4. Receive only 8 units first and confirm stock rises from 4 to 12 and order is Partially received. Reopen; enter 13 (must be rejected because only 12 remain), then receive the remaining 12. Stock becomes 24, and status becomes Received.
 5. Switch to Miriam (Cashier), add 5 Cooking oil 1L units in POS, then pay KES 1,500 via simulated Cash. Confirm KES 75 change, quantity becomes 19, and sample receipt can be printed.
 6. Return as owner to Reports. Confirm revenue and estimated gross profit reflect this sale.
 7. Try to sell more units than remain; checkout/cart should prevent overselling.
@@ -71,3 +72,7 @@ npm run build
 ```
 
 The repeatable tests use Node's built-in runner and no additional dependencies. Complete the browser/manual acceptance checklist before public deployment.
+
+### Follow-up: stockkeeper and partial receiving
+
+The Stockkeeper overview no longer displays a Point of Sale shortcut or an inaccessible Sales shortcut. The Cashier overview does not offer an inaccessible Purchasing shortcut. A purchase order can receive multiple partial deliveries; enter the quantity received now for each product (0 or blank for missing items). The number is limited to the outstanding ordered balance. A draft does not affect stock; receipts update quantities and a receipt history. Old browser-local orders are normalized without duplicating existing stock.
