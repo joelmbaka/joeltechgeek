@@ -2,7 +2,7 @@ initMinimalDemo((function healthcareDemo(){
   const money=n=>"KES "+new Intl.NumberFormat("en-KE").format(n);
   const safe=(v,name,min=3,max=100)=>{const s=String(v??"").trim();if(s.length<min||s.length>max)throw new Error(name+" must contain "+min+"–"+max+" characters.");return s};
   const options=[{id:"consult",label:"OPD consultation",amount:1500},{id:"consultlab",label:"OPD consultation + lab request",amount:2600}];
-  const steps=[
+  const actions=[
     {id:"register",role:"reception",category:"Patient registry",title:"Register a fictional patient",description:"Start a demonstration patient record. Do not enter real personal or medical information.",button:"Register sample patient",
       fields:[{name:"name",label:"Fictional patient display name",value:"Jamie Sample (fictional)",maxlength:100}],
       ready:d=>!d.patient,done:d=>!!d.patient,run(d,v){
@@ -61,7 +61,7 @@ initMinimalDemo((function healthcareDemo(){
       {label:"Outpatient encounters",value:d.encounter?1:0,detail:"Administrative workflow"},
       {label:"Visit stage",value:d.encounter?.status||"Not started",detail:"Cross-team handoffs"},
       {label:"Service billed",value:money(d.invoice?.total||0),detail:"Simulated billing only"}
-    ],steps,
+    ],actions,
     sections:[
       {title:"Patient and encounter",description:"No real identifiers, diagnoses or observations are captured.",columns:[{key:"patient",title:"Sample patient"},{key:"id",title:"Encounter"},{key:"priority",title:"Queue priority"},{key:"status",title:"Stage"}],
         rows:d=>d.encounter?[{patient:d.patient?.name||"—",id:d.encounter.id,priority:d.encounter.priority||"Not triaged",status:d.encounter.status}]:[]},

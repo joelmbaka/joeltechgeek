@@ -3,7 +3,7 @@ initMinimalDemo((function schoolDemo(){
   const amount=(v,label)=>{if(v==null||String(v).trim()==="")throw new Error(label+" is required.");const n=Number(v);if(!Number.isSafeInteger(n)||n<1||n>300000)throw new Error(label+" must be a whole shilling amount between 1 and 300,000.");return n};
   const due=d=>d.invoice?Math.max(0,d.invoice.total-d.invoice.allocated):0;
   const pending=d=>d.payments.find(p=>p.status==="Pending");
-  const steps=[
+  const actions=[
     {id:"invoice",role:"admin",category:"Fee structures",title:"Generate a term-fee invoice",description:"The school creates an invoice from tuition, activities and transport charges for a fictional learner.",button:"Generate fee invoice",
       fields:[{name:"tuition",label:"Tuition fee (KES)",type:"number",min:1,step:1,value:"18000"},
         {name:"activity",label:"Activity fee (KES)",type:"number",min:0,step:1,value:"3000"},
@@ -47,7 +47,7 @@ initMinimalDemo((function schoolDemo(){
       {label:"Allocated to fees",value:money(d.invoice?.allocated||0),detail:"Only reconciled amounts"},
       {label:"Outstanding balance",value:money(due(d)),detail:"Supports partial payments"},
       {label:"Student credit",value:money(d.credit),detail:"Preserved overpayments"}
-    ],steps,
+    ],actions,
     sections:[
       {title:"Student billing",description:"Illustrative school/grade/term context.",columns:[{key:"student",title:"Student"},{key:"grade",title:"Grade"},{key:"term",title:"Term"},{key:"invoiced",title:"Invoiced"},{key:"balance",title:"Outstanding"}],
         rows:d=>d.invoice?[{student:d.students[0].name,grade:d.students[0].grade,term:d.invoice.term,invoiced:money(d.invoice.total),balance:money(due(d))}]:[]},

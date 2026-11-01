@@ -5,7 +5,7 @@ const path=require('node:path');
 
 const base=path.join(__dirname,'..','public','demos');
 const engine=fs.readFileSync(path.join(base,'shared','minimal-engine.js'),'utf8');
-const slugs=['logistics','education','property','healthcare'];
+const slugs=['education','property','healthcare'];
 const scripts=Object.fromEntries(slugs.map(s=>[s,fs.readFileSync(path.join(base,s,'demo.js'),'utf8')]));
 function definition(slug){
  let captured;
@@ -31,7 +31,7 @@ function harness(slug,previous=null){
   saved:()=>persisted,data:()=>JSON.parse(persisted)
  };
 }
-const listed=(def,id)=>def.steps.find(s=>s.id===id);
+const listed=(def,id)=>def.actions.find(s=>s.id===id);
 function setupSchool(h){
  h.nav('workflow');
  h.submit('invoice',{tuition:'18000',activity:'3000',transport:'4000'});
@@ -49,60 +49,19 @@ const paymentRent=(h,amount,ref)=>{
  h.role('finance');h.submit('allocate');
 };
 
-test('all four demos provide product-specific titles, roles, records and a fictional seed',()=>{
- const expected={logistics:'Cargo Dispatch',education:'School Fee Management',property:'Rental Management',healthcare:'Clinic Operations'};
+test('all three demos provide product-specific titles, roles, records and a fictional seed',()=>{
+ const expected={education:'School Fee Management',property:'Rental Management',healthcare:'Clinic Operations'};
  for(const slug of slugs){
   const def=definition(slug),seed=def.seed();
   assert.equal(def.slug,slug);
   assert.equal(def.product,expected[slug]);
   assert.equal(def.valid(seed),true);
   assert.ok(def.roles.length>=2);
-  assert.ok(def.steps.length>=3);
+  assert.ok(def.actions.length>=3);
   assert.ok(def.sections.length>=2);
-  assert.ok(def.steps.every(s=>def.roles.some(r=>r.id===s.role)));
+  assert.ok(def.actions.every(s=>def.roles.some(r=>r.id===s.role)));
   assert.ok(Array.isArray(def.metrics(seed)));
  }
-});
-
-test('Logistics: load → request → approve → trip → proof → delivered',()=>{
- const h=harness('logistics');
- h.nav('workflow');
- h.submit('post',{origin:'Mombasa Port',destination:'Nairobi ICD',cargo:'Containerized cargo',weight:'12'});
- assert.equal(h.data().load.status,'Open');
- h.role('driver');h.submit('book',{driverId:'DRV-001'});
- assert.equal(h.data().load.status,'Requested');
- h.role('dispatcher');h.submit('approve');
- assert.equal(h.data().load.status,'Assigned');
- h.role('driver');h.submit('depart');
- assert.equal(h.data().load.status,'In transit');
- h.submit('proof',{container:'DEMO-CONT-001',deliveryNote:'DEMO-DN-001'});
- assert.equal(h.data().load.status,'Proof submitted');
- h.role('dispatcher');h.submit('close');
- assert.equal(h.data().load.status,'Delivered');
- assert.equal(h.data().load.documents.length,1);
- h.nav('records');
- assert.match(h.root.innerHTML,/DEMO-DN-001/);
-});
-
-test('Logistics: vehicle carrying capacity is validated without modifying booking state',()=>{
- const h=harness('logistics');h.nav('workflow');
- h.submit('post',{origin:'Mombasa Port',destination:'Nairobi ICD',cargo:'Containerized cargo',weight:'22'});
- h.role('driver');
- const before=h.saved();
- h.submit('book',{driverId:'DRV-001'});
- assert.equal(h.saved(),before);
- assert.match(h.root.innerHTML,/rated for 18 tonnes/);
-});
-
-test('Logistics: cannot book or close a nonexistent or unverified load',()=>{
- const h=harness('logistics');h.nav('workflow');
- h.role('driver');h.submit('book',{driverId:'DRV-001'});
- assert.equal(h.saved(),null);
- assert.match(h.root.innerHTML,/not available/);
- h.role('dispatcher');h.submit('post',{origin:'Mombasa Port',destination:'Nairobi ICD',cargo:'Containerized cargo',weight:'12'});
- const before=h.saved();h.submit('close');
- assert.equal(h.saved(),before);
- assert.equal(h.data().load.status,'Open');
 });
 
 test('School Fee Management: student term fee invoice and a reconciled partial payment',()=>{
@@ -223,15 +182,15 @@ test('Clinic Operations: invalid or duplicate payment does not alter the settled
  assert.equal(h.data().invoice.reference,'SIM-CLV-001');
 });
 
-test('all four demos expose role switching, records navigation and local reset',()=>{
+test('all three demos expose role switching, records navigation and local reset',()=>{
  for(const slug of slugs){
   const h=harness(slug);
-  assert.match(h.root.innerHTML,/Interactive concept/);
-  assert.match(h.root.innerHTML,/FICTIONAL DATA/);
+  assert.match(h.root.innerHTML,/INTERACTIVE INDUSTRY CONCEPT/);
+  assert.match(h.root.innerHTML,/fictional/i);
   const def=definition(slug);
   h.clickRole(def.roles[def.roles.length-1].id);
   assert.match(h.root.innerHTML,new RegExp(def.roles[def.roles.length-1].name.split(' · ')[0]));
-  h.nav('records');assert.match(h.root.innerHTML,/Demo records &amp; reports/);
+  h.nav('records');assert.match(h.root.innerHTML,/Records &amp; reports/);
   h.reset();assert.match(h.root.innerHTML,/Sample data restored/);
   assert.equal(h.data().version,1);
  }
@@ -243,12 +202,12 @@ test('each demo uses an independent browser storage key',()=>{
   const h=harness(slug);h.reset();
   assert.equal(h.data().version,1);
  }
- assert.equal(new Set(found).size,4);
+ assert.equal(new Set(found).size,3);
 });
 
-test('form escapes user-provided markup in the client UI',()=>{
- const h=harness('logistics');h.nav('workflow');
- h.submit('post',{origin:'<svg onload=alert(1)>',destination:'Nairobi ICD',cargo:'Cargo',weight:'12'});
+test('property module safely escapes user-entered payment references',()=>{
+ const h=harness('property');setupRent(h);
+ h.submit('receipt',{amount:'10000',method:'Bank transfer',reference:'<svg onload=alert(1)>'});
  h.nav('records');
  assert.doesNotMatch(h.root.innerHTML,/<svg onload=/);
  assert.match(h.root.innerHTML,/&lt;svg onload=/);

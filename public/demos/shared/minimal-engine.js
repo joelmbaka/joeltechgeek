@@ -12,7 +12,7 @@ if(!(state?.version===1&&Array.isArray(state.activity)&&def.valid(state)))state=
 const ui={role:def.roles[0].id,view:"home",modal:null,message:""};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){ui.message="Storage unavailable; changes may not persist."}};
 const title=()=>moduleTitle[def.slug]?.[ui.role]||"Operations";
-const available=()=>def.steps.filter(s=>s.role===ui.role&&s.ready(state));
+const available=()=>def.actions.filter(s=>s.role===ui.role&&s.ready(state));
 const action=(label,id)=>'<button type="button" class="btn primary" data-action="'+esc(id)+'">'+esc(label)+'</button>';
 const metrics=()=>'<div class="metrics">'+def.metrics(state).map(m=>'<div class="metric"><small>'+esc(m.label)+'</small><strong>'+esc(m.value)+'</strong><span>'+esc(m.detail||"")+'</span></div>').join("")+'</div>';
 function registers(filter){
@@ -66,7 +66,7 @@ function field(f){
 }
 function modal(){
  if(!ui.modal)return "";
- const s=def.steps.find(s=>s.id===ui.modal);if(!s)return "";
+ const s=def.actions.find(s=>s.id===ui.modal);if(!s)return "";
  return '<div class="veil"><section class="drawer" role="dialog" aria-modal="true" aria-label="'+esc(s.title)+'">'+
  '<div class="handle"></div><header><h2>'+esc(s.title)+'</h2><button type="button" data-close="1" aria-label="Close">×</button></header>'+
  '<p class="modal-context">'+esc(s.description)+'</p>'+
@@ -98,14 +98,14 @@ document.addEventListener("click",e=>{
  if(!el||!root.contains(el))return;
  if(el.dataset.nav){ui.view=el.dataset.nav==="workflow"?"work":el.dataset.nav;ui.modal=null;ui.message="";render();return;}
  if(el.dataset.role&&roleNames[el.dataset.role]){ui.role=el.dataset.role;ui.view="work";ui.modal=null;render();return;}
- if(el.dataset.action){const s=def.steps.find(s=>s.id===el.dataset.action);if(s&&s.role===ui.role&&s.ready(state)){ui.modal=s.id;ui.message="";render();}return;}
+ if(el.dataset.action){const s=def.actions.find(s=>s.id===el.dataset.action);if(s&&s.role===ui.role&&s.ready(state)){ui.modal=s.id;ui.message="";render();}return;}
  if(el.dataset.close){ui.modal=null;ui.message="";render();return;}
  if(el.dataset.dismiss){ui.message="";render();return;}
  if(el.dataset.reset){if(!window.confirm("Reset this fictional business demo?"))return;state=def.seed();ui.modal=null;ui.view="home";save();ui.message="Sample data restored.";render();}
 });
 document.addEventListener("submit",e=>{
  const form=e.target,id=form.dataset?.step;if(!id||!root.contains(form))return;e.preventDefault();
- const s=def.steps.find(s=>s.id===id);
+ const s=def.actions.find(s=>s.id===id);
  if(!s||s.role!==ui.role||!s.ready(state)){ui.message="This action is unavailable in the current state.";render();return;}
  try{
   const fields=Object.fromEntries(new FormData(form).entries());

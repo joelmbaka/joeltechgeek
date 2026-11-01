@@ -4,7 +4,7 @@ initMinimalDemo((function rentDemo(){
   const text=(v,label)=>{const s=String(v??"").trim();if(s.length<3||s.length>80)throw new Error(label+" must have 3–80 characters.");return s;};
   const due=d=>d.invoice?Math.max(0,d.invoice.total-d.invoice.allocated):0;
   const pending=d=>d.payments.find(p=>p.status==="Unallocated");
-  const steps=[
+  const actions=[
     {id:"invoice",role:"manager",category:"Rent invoicing",title:"Generate a monthly rent invoice",description:"Issue a fictional monthly invoice from the lease and current unit rent.",button:"Generate November rent invoice",fields:[],
       ready:d=>!d.invoice,done:d=>!!d.invoice,run(d){
         d.invoice={id:"INV-RENT-001",period:"November 2026",leaseId:"LEASE-101",total:d.lease.rent,allocated:0,status:"Unpaid"};
@@ -52,7 +52,7 @@ initMinimalDemo((function rentDemo(){
       {label:"Allocated receipts",value:money(d.invoice?.allocated||0),detail:"Reconciled payments"},
       {label:"Outstanding rent",value:money(due(d)),detail:"Partial payment supported"},
       {label:"Tenant credit",value:money(d.credit),detail:"Unallocated excess"}
-    ],steps,
+    ],actions,
     sections:[
       {title:"Lease and rent invoice",description:"Unit-level billing remains tied to the correct lease.",columns:[{key:"property",title:"Property / unit"},{key:"occupant",title:"Occupant"},{key:"period",title:"Period"},{key:"invoiced",title:"Billed"},{key:"outstanding",title:"Outstanding"},{key:"status",title:"Status"}],
         rows:d=>d.invoice?[{property:d.property.name+" · "+d.property.unit,occupant:d.lease.occupant,period:d.invoice.period,invoiced:money(d.invoice.total),outstanding:money(due(d)),status:d.invoice.status}]:[]},

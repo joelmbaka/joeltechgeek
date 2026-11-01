@@ -173,3 +173,18 @@ All sample names, invoices, payment references, cargo loads, truck capacities, p
 - School fees must reconcile partial payments and preserve credit; rental management must allocate partial payments without double-counting and reject duplicate refs; logistics must enforce truck capacity and delivery states; clinic operations must gate invoicing behind completed OPD services and prevent duplicate payments.
 
 Public naming rule: these four concepts must never display the exact names of the source applications in gallery cards, overview pages, raw HTML, browser titles, or in-demo headers. Use neutral industry workflow titles consistently.
+
+
+## Operational UI revision — Cargo and shared industry demos
+
+Public branding remains neutral. Cargo Dispatch now has its own two-account mobile presentation, with Grace (Dispatcher) and Kevin (Driver). It no longer uses the shared mini demo engine or its old numbered form source.
+
+- Cargo dispatcher: post/edit/delete open loads; set pickup and delivery with location dropdowns; specify cargo weight, estimated route miles, container reference and driver pay in KES; see all statuses; approve booked loads; view simulated fleet locations and miles; mark completed driver payments as simulated.
+- Cargo driver: browse available loads, book only one at a time, and progress an approved trip through Picked up, In transit, Delivered, and Complete upon empty-container return to Mombasa Port.
+- Evidence: visible sample pickup-photo placeholder before pickup, delivery-note placeholder before delivery, and Equipment Interchange Receipt (EIR) placeholder before completion. No camera, file, or network upload exists.
+- Cargo seed includes loads across Open, Booked, Assigned, Picked up, In transit, Delivered and Complete. All locations and mileage are simulated; no GPS, notifications, telematics or payment gateway.
+- Cargo source: public/demos/logistics/core.js, app.js, styles.css and demo.html. Old logistics/demo.js has been retired.
+- School Fee Management, Rental Management and Clinic Operations retain their business rules but use mobile-style Overview, Workspace and Records screens, with role-specific action sheets and no numbered guide. Their internal configuration is now called actions instead of steps.
+- Public industry landing pages present role capabilities, not numbered walkthroughs. Guided blocks were also removed from the Construction and Field Services app overviews.
+
+Validation: npm run test:cargo-demo, npm run test:mini-demos, npm run test:construction-demo, npm run test:field-services-demo, and npm run build. Browser visual QA remains necessary.
