@@ -15,6 +15,7 @@ function browser(stored){
  return {root,data:()=>JSON.parse(saved),saved:()=>saved,tab:tab=>click({tab}),open:(open,id)=>click({open,id}),
   drawer:drawer=>click({drawer}),action:(action,id)=>click({action,id}),
   change:(id,value)=>listeners.change({target:{id,value}}),
+  role:value=>listeners.change({target:{id:"role-select",value}}),
   search:value=>listeners.input({target:{id:"rent-search",value,selectionStart:value.length,selectionEnd:value.length}}),
   submit:(type,id,fields)=>listeners.submit({preventDefault:()=>{},target:{id:"property-form",dataset:{type,id:id||""},fields}})
  };
@@ -179,4 +180,71 @@ test("demo files use JoelTechGeek brand colors and not RentPayor branding or leg
  for(const x of ["#059669","#047857","#0ea5e9","#f59e0b","#fef3c7"])a.match(code["styles.css"],new RegExp(x));
  a.match(code["styles.css"],/\.drawer-wrap\{position:absolute/);
  a.match(code["styles.css"],/\.modal-overlay\{position:fixed/);
+});
+
+test("exactly two roles, Property Manager and Tenant, are selectable",()=>{
+ const h=browser();
+ a.match(h.root.innerHTML,/Anne \(Property Manager\)/);
+ a.match(h.root.innerHTML,/Alex \(Tenant\)/);
+ a.doesNotMatch(h.root.innerHTML,/<option value="finance"|Finance Officer/);
+});
+test("Manager Rent has a working tenant dropdown and combines with property and period",()=>{
+ const h=browser();
+ a.match(h.root.innerHTML,/id="tenant-filter"/);
+ h.change("tenant-filter","T-102");a.match(h.root.innerHTML,/INV-2026-1102/);
+ a.doesNotMatch(h.root.innerHTML,/INV-2026-1101/);
+ h.change("month-filter","2026-11");a.doesNotMatch(h.root.innerHTML,/INV-2026-1002/);
+ h.change("property-filter","P-102");a.match(h.root.innerHTML,/No matching invoices/);
+ h.change("property-filter","P-101");a.match(h.root.innerHTML,/INV-2026-1102/);
+ h.change("tenant-filter","all");a.match(h.root.innerHTML,/INV-2026-1101/);
+});
+test("Tenant role has My rent, Payments, My lease and no management drawer",()=>{
+ const h=browser();h.role("tenant");
+ for(const x of ["tenantRent","tenantPayments","tenantLease"])
+  a.match(h.root.innerHTML,new RegExp('data-tab="'+x+'"'));
+ a.doesNotMatch(h.root.innerHTML,/data-tab="portfolio"|data-action="drawer"|Record manual payment/);
+ h.tab("tenantPayments");a.match(h.root.innerHTML,/My payments/);
+ h.tab("tenantLease");a.match(h.root.innerHTML,/A-101/);
+});
+test("Tenant sees own past and current invoices, not other tenants",()=>{
+ const h=browser();h.role("tenant");
+ a.match(h.root.innerHTML,/INV-2026-1101/);a.match(h.root.innerHTML,/INV-2026-1001/);
+ a.doesNotMatch(h.root.innerHTML,/INV-2026-1102|INV-2026-1103/);
+ h.open("invoice","INV-2026-1101");a.match(h.root.innerHTML,/KES 26,000/);
+ a.doesNotMatch(h.root.innerHTML,/Record manual payment/);
+});
+test("Tenant receipts are scoped and cannot open another tenant invoice or lease",()=>{
+ const h=browser();h.role("tenant");h.tab("tenantPayments");
+ a.match(h.root.innerHTML,/BANK-204-1/);
+ a.doesNotMatch(h.root.innerHTML,/MPESA-204-2/);
+ h.open("receipt","PAY-1001");a.match(h.root.innerHTML,/Payment received/);
+ h.open("receipt","PAY-1002");a.doesNotMatch(h.root.innerHTML,/MPESA-204-2/);
+ h.open("invoice","INV-2026-1102");a.doesNotMatch(h.root.innerHTML,/Daniel Kariuki/);
+ h.open("lease","L-102");a.doesNotMatch(h.root.innerHTML,/Daniel Kariuki/);
+});
+test("Tenant cannot open manager pages or create payments, leases and expenses",()=>{
+ const h=browser(),initial=h.saved();h.role("tenant");
+ for(const s of ["accounting","expenses","portfolio","history","tenants"])h.open(s);
+ for(const x of ["drawer","new-expense","new-lease"])h.action(x);
+ h.action("new-payment","INV-2026-1101");
+ h.submit("payment","INV-2026-1101",pay(500,"FORGED-COLLECTION"));
+ a.doesNotMatch(h.root.innerHTML,/Record manual payment|Create lease|Record property expense|class="drawer-wrap"/);
+ a.equal(h.saved(),initial);
+});
+test("Changing roles clears nested screens and keeps shared fictional records",()=>{
+ const h=browser();h.action("drawer");h.drawer("accounting");
+ h.role("tenant");a.match(h.root.innerHTML,/My rent/);
+ a.doesNotMatch(h.root.innerHTML,/Owner position/);
+ h.role("manager");a.match(h.root.innerHTML,/Rent overview/);
+ a.match(h.root.innerHTML,/id="tenant-filter"/);
+});
+test("Manual Property Manager receipt immediately changes Tenant balance and history",()=>{
+ const h=browser();h.open("invoice","INV-2026-1101");h.action("new-payment","INV-2026-1101");
+ h.submit("payment","INV-2026-1101",pay(10000,"ROLE-SYNC-PAY"));
+ a.equal(core().balance(item(h.data().invoices,"INV-2026-1101")),16000);
+ h.role("tenant");a.match(h.root.innerHTML,/KES 16,000/);
+ h.tab("tenantPayments");a.match(h.root.innerHTML,/ROLE-SYNC-PAY/);
+ h.open("receipt",h.data().payments[0].id);a.match(h.root.innerHTML,/KES 10,000/);
+ h.action("go-invoice","INV-2026-1101");a.match(h.root.innerHTML,/KES 16,000/);
+ a.doesNotMatch(h.root.innerHTML,/Record manual payment/);
 });

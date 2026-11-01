@@ -7,7 +7,7 @@ import {
 
 export const metadata: Metadata = {
   title: 'Rental Property Management Interactive Demo | JoelTechGeek Systems',
-  description: 'Explore a fictional mobile property portfolio: rent overview, leases, tenants, units, invoices, externally recorded rent, receipts, property expenses and owner positions.',
+  description: 'Explore Property Manager and Tenant views with tenant rent filters, shared invoices, receipts, leases, payments, property expenses and owner positions.',
   alternates: { canonical: '/demos/property' },
   openGraph: {
     type: 'website',
@@ -59,9 +59,9 @@ export default function RentalManagementDemoPage() {
             Rental Management
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-            Manage rental operations from a fictional mobile landlord workspace,
-            with connected rent invoices, leases, tenants, property units,
-            payments, expenses and owner positions.
+            Explore fictional rent management through Property Manager and Tenant views,
+            with tenant-filtered invoices, leases, receipts, and shared balances.
+            Managers can also record payments, expenses and owner positions.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="/demos/property/demo.html"
@@ -101,7 +101,7 @@ export default function RentalManagementDemoPage() {
           Explore the mobile workspace
         </h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Use the four primary tabs and the in-phone navigation drawer. There is no forced walkthrough or separate finance login.
+          Switch inside the phone between Property Manager and Tenant. Managers use Rent, Leases, Tenants and Portfolio; tenants use My rent, Payments and My lease. There is no separate Finance role or forced walkthrough.
         </p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           {areas.map(({ name, icon: Icon, detail }) => (

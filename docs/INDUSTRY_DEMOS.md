@@ -254,9 +254,9 @@ The Rental Management concept is completely fictional, browser-local, and not co
 
 ### Mobile structure
 
-- Exactly one landlord/management workspace, **not** a Property Manager/Finance switcher.
-- Four primary tabs: Rent (with Rent overview), Leases, Tenants, Portfolio (Properties).
-- In-phone drawer: Finance → Payments, Expenses, Accounting; Operations → Invoice history. These mirror the key actual mobile areas; advanced rental tax and meter readings are omitted for minimal scope.
+- Exactly two fictional demo accounts, selectable in the mobile header: **Anne (Property Manager)** and **Alex (Tenant)**. No Finance account. They share the same browser-local records.
+- Property Manager tabs: Rent, Leases, Tenants, Portfolio. The Rent filters include **Status, Period, Property and Tenant**. Tenants can be chosen individually to narrow open invoices.
+- Property Manager in-phone drawer: **Collections & records** → Payments, Expenses, Accounting; **Operations** → Invoice history. They remain manager features, not a separate Finance role.
 - Rent overview displays collected and invoiced in November, total outstanding, unit occupancy, search, and status/month/property filtering. Overdue invoices precede due invoices. Existing paid invoices appear under invoice history.
 - Leases show active leases and linked invoices; Tenants show phone, unit, history and tenant credit; Portfolio lists properties, occupancy, units, and a standalone unit.
 
@@ -269,4 +269,6 @@ The Rental Management concept is completely fictional, browser-local, and not co
 - A vacant unit can start a simple new lease with inline fictional tenant and optional first November invoice. This is the only creation wizard included.
 - The Expenses drawer screen records fictional property costs; Accounting shows read-only illustrative owner positions derived from rent and expenses (not accounting journals, distributions, tax or full general ledger). Invoice history lists paid invoices.
 
-No tenant authentication, real payments, notifications, actual document sharing, real maintenance/issue workflows, real bank accounts, multi-user permissions, or API calls. The mobile UI is independently navigable, not a guided demo, with browser-local persistence and reset. Run the full Next build and browser visual QA locally before merging/deploying.
+- Tenant tabs: **My rent / Payments / My lease**. Alex sees only his own invoices (current and historical), payments, receipts, and lease details. Tenant screens are read-only; navigation and simulated actions are role-scoped.
+
+No real tenant authentication, real payments, notifications, actual document sharing, real maintenance/issue workflows, real bank accounts, or API calls. The mobile UI is independently navigable, not a guided demo, with browser-local persistence and reset. Run the full Next build and browser visual QA locally before merging/deploying.

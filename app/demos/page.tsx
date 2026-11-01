@@ -238,7 +238,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Property & rent management · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Rental Management</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore Rent, Leases, Tenants and Portfolio in a mobile landlord workspace, with preloaded invoices, manual rent recording, receipts, expenses and accounting.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore Property Manager and Tenant mobile views, with tenant-filtered invoices, rent receipts, leases, collections, expenses and owner positions.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Interactive workflow</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Browser-local data</span>
