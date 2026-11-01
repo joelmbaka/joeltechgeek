@@ -1,333 +1,274 @@
 (function constructionApp(core){
-  "use strict";
-  const KEY="joeltechgeek-siteflow-demo-v1";
-  const root=document.getElementById("app");
-  const nav=[
-    ["overview","Site overview","▦"],["tasks","Site tasks","▤"],["requests","Material requests","⇄"],
-    ["materials","Store & stock","▥"],["purchases","Purchasing","▣"],
-    ["costs","Site expenses","◇"],["reports","Project reports","▧"],["settings","Demo settings","⚙"]
-  ];
-  const roles={
-    manager:{label:"Nia · Project Manager",views:["overview","tasks","requests","materials","purchases","costs","reports","settings"],start:"overview"},
-    supervisor:{label:"Peter · Supervisor",views:["overview","tasks","requests","settings"],start:"tasks"},
-    storekeeper:{label:"Asha · Storekeeper",views:["overview","requests","materials","purchases","settings"],start:"requests"},
-    accountant:{label:"Samuel · Accountant",views:["overview","costs","reports","settings"],start:"costs"}
-  };
-  const escape=s=>String(s===undefined||s===null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const amount=n=>"KES "+new Intl.NumberFormat("en-KE",{maximumFractionDigits:2}).format(Number(n)||0);
-  const date=s=>{const dt=new Date(s);return Number.isNaN(dt.getTime())?"—":new Intl.DateTimeFormat("en-KE",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(dt);};
-  function load(){
-    try{
-      const d=JSON.parse(localStorage.getItem(KEY)||"null");
-      if(d&&d.version===1&&d.project&&["tasks","materials","requests","purchases","expenses","movements","activity"].every(k=>Array.isArray(d[k])))return d;
-    }catch(err){}
-    return core.seed();
-  }
-  let data=load();
-  const ui={view:"overview",role:"manager",modal:null,notice:"",deliveryDraft:{}};
-  const task=id=>data.tasks.find(x=>x.id===id);
-  const material=id=>data.materials.find(x=>x.id===id);
-  const purchase=id=>data.purchases.find(x=>x.id===id);
-  const request=id=>data.requests.find(x=>x.id===id);
-  const can=(view)=>roles[ui.role].views.includes(view);
-  const is=(role)=>ui.role===role;
-  const progressValue=(p)=>'<div class="progress-bar" role="progressbar" aria-valuenow="'+p+'" aria-valuemin="0" aria-valuemax="100"><div style="width:'+p+'%"></div></div>';
-  const empty=text=>'<div class="empty">'+escape(text)+'</div>';
-  const badge=s=>'<span class="badge '+(s==="Issued"||s==="Received"||s==="Completed"?"ok":s==="Rejected"?"bad":s==="Pending"?"pending":"open")+'">'+escape(s)+'</span>';
-  const btn=(label,action,opts="")=>'<button class="btn" type="button" data-action="'+action+'" '+opts+'>'+label+'</button>';
-  const header=(eyebrow,title,description,cta="")=>'<div class="page-head"><div><div class="eyebrow">'+escape(eyebrow)+'</div><h1>'+escape(title)+'</h1><p>'+escape(description)+'</p></div>'+cta+'</div>';
-  const stat=(name,value,description,symbol)=>'<div class="stat"><div class="stat-meta"><span>'+escape(name)+'</span><span class="stat-symbol">'+symbol+'</span></div><div class="stat-value">'+value+'</div><div class="stat-help">'+description+'</div></div>';
-  const table=(headers,rows)=>'<div class="table-scroll"><table><thead><tr>'+headers.map(h=>'<th>'+escape(h)+'</th>').join("")+'</tr></thead><tbody>'+rows.join("")+'</tbody></table></div>';
-  const option=(list,selected,mapper)=>list.map(x=>{const [value,label]=mapper(x);return '<option value="'+escape(value)+'" '+(value===selected?"selected":"")+'>'+escape(label)+'</option>';}).join("");
-  function overview(){
-    const m=core.metrics(data);
-    const actions={
-      manager:['requests','Review requests →'],
-      supervisor:['requests','Request materials →'],
-      storekeeper:['requests','Issue approved stock →'],
-      accountant:['costs','Record site expense →']
-    };
-    const [dest,label]=actions[ui.role];
-    return header("PROJECT COMMAND CENTRE / FICTIONAL DATA","Site overview",
-        data.project.name+" · "+data.project.location,
-        '<button class="btn primary" data-nav="'+dest+'">'+label+'</button>')+
-      '<section class="intro-banner"><div><span class="banner-kicker">ACTIVE DEMO PROJECT</span><h2>'+escape(data.project.name)+'</h2>'+
-      '<p>Follow one connected site workflow from a supervisor request to manager approval, store issue, progress, and project costs.</p></div><div class="banner-balance"><span>Illustrative project budget</span><b>'+amount(data.project.budget)+'</b><small>No real client, contract, or accounting records</small></div></section>'+
-      '<div class="stats">'+stat("Average task progress",m.progress+"%","Across "+data.tasks.length+" work items","↗")+
-      stat("Requests awaiting approval",m.pending,"Manager action needed","◎")+
-      stat("Approved issues pending",m.approved,"Stockkeeper action needed","⇄")+
-      stat("Estimated costs",amount(m.spent),"Issues + site expenses","◈")+'</div>'+
-      '<div class="cols"><section class="card"><div class="section-head"><div><h2>Work programme</h2><p>Task progress updates flow through the project.</p></div>'+(can("tasks")?'<button class="text-link" data-nav="tasks">View tasks →</button>':'')+'</div>'+
-      '<div class="stack">'+data.tasks.slice(0,5).map(t=>'<div class="task-preview"><div class="row"><b>'+escape(t.name)+'</b><span>'+t.progress+'%</span></div>'+progressValue(t.progress)+'<div class="muted tiny">'+escape(t.phase)+' · Planned '+t.planned+'%</div></div>').join("")+'</div></section>'+
-      '<section class="card"><div class="section-head"><div><h2>Latest activity</h2><p>Actions in this browser, not real site events.</p></div></div>'+
-      '<div class="activity">'+(data.activity.length?data.activity.slice(0,6).map(a=>'<div class="activity-item"><span class="activity-dot"></span><div><b>'+escape(a.title)+'</b><p>'+escape(a.detail)+'</p><small>'+date(a.at)+'</small></div></div>').join(""):empty("No activity recorded"))+'</div></section></div>'+
-      '';
-  }
-  function tasks(){
-    return header("SITE DELIVERY / WORK PROGRAMME","Site tasks","Monitor construction activities and record progress with a reason.")+
-      '<div class="card"><div class="section-head"><div><h2>Work items</h2><p>Task progress is illustrative; it is not a certified site measurement.</p></div></div>'+
-      table(["Work item","Phase","Progress","Target","Status","Action"],
-      data.tasks.map(t=>'<tr><td><b>'+escape(t.name)+'</b><span class="sub">'+escape(t.id)+'</span></td><td>'+escape(t.phase)+'</td><td><div class="cell-progress"><b>'+t.progress+'%</b>'+progressValue(t.progress)+'</div></td><td>'+t.planned+'%</td><td>'+badge(t.progress===100?"Completed":t.progress>0?"In progress":"Not started")+'</td><td>'+
-      (is("supervisor")&&t.progress<100?'<button class="text-link" data-action="progress" data-id="'+escape(t.id)+'">Update progress →</button>':
-      '<button class="text-link" data-action="task" data-id="'+escape(t.id)+'">Details →</button>')+'</td></tr>'))+'</div>'+
-      '<section class="card section"><div class="section-head"><div><h2>Progress history</h2><p>Updates show the previous and new completion percentage.</p></div></div>'+
-      (data.progressHistory.length?table(["Work item","Change","Note","Time"],data.progressHistory.slice(0,12).map(h=>'<tr><td>'+escape(task(h.taskId)?.name||h.taskId)+'</td><td><b>'+h.from+'% → '+h.to+'%</b></td><td>'+escape(h.note)+'</td><td>'+date(h.at)+'</td></tr>')):empty("No new progress updates yet. Switch to Supervisor to record one."))+'</section>';
-  }
-  function requests(){
-    const cta=is("supervisor")?'<button class="btn primary" data-action="new-request">+ Request materials</button>':"";
-    return header("MATERIAL FLOW / CONTROLLED ISSUES","Material requests",
-      "Supervisor submits → manager approves → storekeeper issues approved quantities.",cta)+
-      '<div class="card"><div class="section-head"><div><h2>Request register</h2><p>Approvals alone do not reduce inventory. Stock changes only when issued.</p></div></div>'+
-      table(["Request","Work item","Material","Requested","Issued / remaining","Status","Action"],
-      data.requests.map(r=>{const m=material(r.materialId);
-        let actions='<button class="text-link" data-action="request" data-id="'+escape(r.id)+'">Details →</button>';
-        if(is("manager")&&r.status==="Pending")actions='<button class="text-link" data-action="review" data-id="'+escape(r.id)+'">Review request →</button>';
-        if(is("storekeeper")&&["Approved","Partially issued"].includes(r.status))actions='<button class="btn primary mini" data-action="issue" data-id="'+escape(r.id)+'">Issue stock</button>';
-        return '<tr><td><b>'+escape(r.id)+'</b><span class="sub">'+date(r.createdAt)+'</span></td><td>'+escape(task(r.taskId)?.name||r.taskId)+'</td><td>'+escape(m?.name||r.materialId)+'</td><td>'+r.qty+' '+escape(m?.unit||"units")+'</td><td>'+r.issuedQty+' / '+(r.qty-r.issuedQty)+' remaining</td><td>'+badge(r.status)+'</td><td>'+actions+'</td></tr>';
-      }))+'</div>'+
-      '<div class="notice section">Only a manager can approve a request. Storekeepers may issue fewer units than approved, but never more than the remaining approved quantity or available stock. These are simulated roles rather than access-controlled accounts.</div>';
-  }
-  function materials(){
-    const low=data.materials.filter(m=>m.stock<=m.reorder).length;
-    return header("PROJECT STORES / INVENTORY","Store & stock","Stock increases when supplier deliveries are received and falls only when approved materials are issued.",
-      can("purchases")?'<button class="btn primary" data-nav="purchases">Purchase materials →</button>':"")+
-      '<div class="stats compact">'+stat("Material categories",data.materials.length,"Fictional store items","▥")+
-      stat("Low-stock items",low,"At or below reorder level","!")+
-      stat("Inventory at cost",amount(core.metrics(data).materialValue),"Illustrative weighted-average carrying value","◇")+'</div>'+
-      '<section class="card"><div class="section-head"><div><h2>Current balances</h2><p>Physical stock is kept separate from task expenses.</p></div></div>'+
-      table(["Material","On hand","Reorder","Average unit cost","Status"],data.materials.map(m=>'<tr><td><b>'+escape(m.name)+'</b><span class="sub">'+escape(m.id)+'</span></td><td><b>'+m.stock+' '+escape(m.unit)+'</b></td><td>'+m.reorder+'</td><td>'+amount(m.cost)+'</td><td>'+badge(m.stock<=m.reorder?"Low stock":"In stock")+'</td></tr>'))+'</section>'+
-      '<section class="card section"><div class="section-head"><div><h2>Stock movement history</h2><p>Supplier receipts and issues to work items.</p></div></div>'+
-      (data.movements.length?table(["Material","Movement","Source","Value at event","Time"],data.movements.slice(0,20).map(m=>
-        '<tr><td>'+escape(material(m.materialId)?.name||m.materialId)+'</td><td><b class="'+(m.qty>0?"positive":"negative")+'">'+(m.qty>0?"+":"")+m.qty+'</b></td><td>'+escape(m.reference)+'</td><td>'+amount(Math.abs(m.qty)*m.unitCost)+'</td><td>'+date(m.at)+'</td></tr>')):empty("Movements appear after a delivery or stock issue."))+'</section>';
-  }
-  function purchases(){
-    const cta=is("manager")?'<button class="btn primary" data-action="new-purchase">+ New purchase order</button>':"";
-    const m=core.metrics(data);
-    return header("PROCUREMENT / DELIVERIES","Purchasing","Order project materials and receive only the quantities actually delivered.",cta)+
-      '<div class="stats compact">'+stat("Open purchase orders",m.openPO,"Draft or partly received","▣")+
-      stat("Outstanding order value",amount(m.committed),"Unreceived material value","◇")+
-      stat("Completed orders",data.purchases.filter(p=>p.status==="Received").length,"Fully received","✓")+'</div>'+
-      '<section class="card"><div class="section-head"><div><h2>Supplier orders</h2><p>Purchase receipts add inventory, not direct project consumption.</p></div></div>'+
-      (data.purchases.length?table(["Order","Supplier","Ordered / received","Value","Status","Action"],data.purchases.map(p=>{
-        const ordered=p.lines.reduce((n,l)=>n+l.qty,0),received=p.lines.reduce((n,l)=>n+l.receivedQty,0);
-        return '<tr><td><b>'+escape(p.id)+'</b><span class="sub">'+date(p.createdAt)+'</span></td><td>'+escape(p.supplier)+'</td><td>'+received+' / '+ordered+' units</td><td>'+amount(p.lines.reduce((n,l)=>n+l.qty*l.unitCost,0))+'</td><td>'+badge(p.status)+'</td><td>'+
-          (is("storekeeper")&&p.status!=="Received"?'<button class="btn primary mini" data-action="receive" data-id="'+escape(p.id)+'">Receive stock</button>':'<button class="text-link" data-action="purchase" data-id="'+escape(p.id)+'">Details →</button>')+'</td></tr>';
-      })):empty("No purchase orders yet. As Project Manager, create a sample order."))+'</section>';
-  }
-  function costs(){
-    const m=core.metrics(data);
-    return header("SITE FINANCE / ILLUSTRATIVE COSTS","Site expenses",
-      "Record direct site expenses and review material value issued to work items.",
-      is("accountant")?'<button class="btn primary" data-action="new-expense">+ Record expense</button>':"")+
-      '<div class="stats compact">'+stat("Direct site expenses",amount(m.expenseCost),"Expense records entered in this demo","◇")+
-      stat("Materials issued",amount(m.issuedCost),"Quantity × unit cost when issued","⇄")+
-      stat("Estimated direct cost",amount(m.spent),"No VAT or overhead modelling","↗")+'</div>'+
-      '<div class="cols"><section class="card"><div class="section-head"><div><h2>Site expense register</h2><p>Fictional direct expenses recorded by Accountant.</p></div></div>'+
-      (data.expenses.length?table(["Reference","Category","Description","Amount"],data.expenses.map(e=>'<tr><td><b>'+escape(e.id)+'</b></td><td>'+escape(e.category)+'</td><td>'+escape(e.description)+'</td><td><b>'+amount(e.amount)+'</b></td></tr>')):empty("No expenses recorded."))+'</section>'+
-      '<section class="card"><div class="section-head"><div><h2>Consumption by task</h2><p>Only issued material quantities are counted.</p></div></div>'+
-      (data.movements.some(x=>x.kind==="issue")?table(["Work item","Consumed material cost"],data.tasks.map(t=>({name:t.name,total:data.movements.filter(x=>x.kind==="issue"&&x.taskId===t.id).reduce((n,x)=>n+Math.abs(x.qty)*x.unitCost,0)})).filter(x=>x.total>0).map(x=>'<tr><td>'+escape(x.name)+'</td><td><b>'+amount(x.total)+'</b></td></tr>')):empty("Issue approved materials to see work-item costs."))+'</section></div>';
-  }
-  function reports(){
-    const m=core.metrics(data),rate=Math.max(0,Math.min(100,m.spent/data.project.budget*100));
-    return header("PROJECT INSIGHTS / DEMO ESTIMATES","Project reports",
-      "Review work progress, outstanding approvals, stock risk and illustrative direct costs.")+
-      '<section class="budget"><div><div class="eyebrow light">ILLUSTRATIVE PROJECT BUDGET</div><h2>'+amount(data.project.budget)+'</h2><p>Project allowance, not a contractual budget or audited financial statement.</p></div>'+
-      '<div class="budget-side"><div class="budget-pair"><span>Estimated direct cost</span><b>'+amount(m.spent)+'</b></div>'+
-      '<div class="budget-meter"><span style="width:'+rate+'%"></span></div>'+
-      '<div class="budget-pair"><span>Illustrative remaining budget</span><b>'+amount(m.budgetRemaining)+'</b></div></div></section>'+
-      '<div class="stats">'+stat("Overall task progress",m.progress+"%","Simple mean of demo task progress","↗")+
-      stat("Pending manager approvals",m.pending,"Material request queue","◎")+
-      stat("Open supplier orders",m.openPO,"May need goods receiving","▣")+
-      stat("Low-stock materials",m.lowStock,"Below or at reorder level","!")+'</div>'+
-      '<div class="cols"><section class="card"><div class="section-head"><div><h2>Progress by activity</h2><p>Actual vs sample planned percentage.</p></div></div><div class="report-bars">'+
-      data.tasks.map(t=>'<div class="report-row"><div class="row"><b>'+escape(t.name)+'</b><span>'+t.progress+'% / '+t.planned+'% planned</span></div>'+
-        '<div class="dual-bar"><span class="target" style="width:'+t.planned+'%"></span><span class="actual" style="width:'+t.progress+'%"></span></div></div>').join("")+'</div></section>'+
-      '<section class="card"><div class="section-head"><div><h2>Cost composition</h2><p>Amounts respond to stock issuance and direct expense entries.</p></div></div>'+
-      '<div class="cost-bars"><div class="cost-line"><span>Issued material cost</span><b>'+amount(m.issuedCost)+'</b></div>'+progressValue(m.spent?Math.round(m.issuedCost/m.spent*100):0)+
-      '<div class="cost-line"><span>Direct site expenses</span><b>'+amount(m.expenseCost)+'</b></div>'+progressValue(m.spent?Math.round(m.expenseCost/m.spent*100):0)+
-      '<p class="disclaimer">Supplier deliveries increase stock balances; they are not added to cost a second time. These figures omit payroll, accruals, taxes and accounting journals.</p></div></section></div>';
-  }
-  function settings(){
-    return header("DEMO CONTROLS / FICTIONAL DATA","Demo settings","Switch the simulated team view or restore the initial project.")+
-      '<div class="cols"><section class="card padded"><h2>Explore each team role</h2><p class="muted">These are interface perspectives, not authenticated user accounts or production permissions.</p>'+
-      Object.entries(roles).map(([id,r])=>'<button class="role-option '+(ui.role===id?"selected":"")+'" data-action="role" data-role="'+id+'"><b>'+escape(r.label)+'</b><span>'+ (ui.role===id?"Current view ✓":"Switch view →")+'</span></button>').join("")+'</section>'+
-      '<section class="card padded"><h2>Browser-only example</h2><p class="muted">Actions use only localStorage in your current browser. No actual work orders, purchase agreements, messages or payments are created.</p>'+
-      '<div class="setting-row"><span>Site tasks</span><b>'+data.tasks.length+'</b></div><div class="setting-row"><span>Material requests</span><b>'+data.requests.length+'</b></div>'+
-      '<div class="setting-row"><span>Purchase orders</span><b>'+data.purchases.length+'</b></div><div class="setting-row"><span>Site expenses</span><b>'+data.expenses.length+'</b></div>'+
-      '<button class="btn danger full" data-action="reset">Reset fictional project</button></section></div>'+
-      '<div class="notice section">A JoelTechGeek Systems industry concept. The project, company, staff, suppliers, quantities, budgets and reports are entirely fictional. This demo does not represent any real client deployment or safety approval.</div>';
-  }
-  function modal(){
-    if(!ui.modal)return "";
-    const x=ui.modal;
-    let content="";
-    if(x.type==="request-new"){
-      content='<h2>Request materials</h2><p class="muted">A supervisor request needs manager approval before the storekeeper can issue stock.</p>'+
-      '<form data-form="request"><div class="form-grid"><label>Work item<select class="field" name="taskId" required>'+option(data.tasks,null,t=>[t.id,t.name])+'</select></label>'+
-      '<label>Material<select class="field" name="materialId" required>'+option(data.materials,null,m=>[m.id,m.name+" · "+m.unit])+'</select></label>'+
-      '<label>Quantity requested<input class="field" name="qty" type="number" min="1" step="1" required placeholder="e.g. 12"/></label>'+
-      '<label class="wide">Reason / site requirement<textarea class="field" name="note" rows="3" maxlength="220" required placeholder="Why these materials are needed for this work item"></textarea></label></div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn primary" type="submit">Submit request</button></div></form>';
-    }else if(x.type==="review"){
-      const r=request(x.id),m=material(r?.materialId);
-      content=r?'<h2>Review material request</h2><p class="muted">'+escape(r.id)+' · '+escape(task(r.taskId)?.name||r.taskId)+'</p>'+
-      '<div class="review-panel"><b>'+r.qty+' '+escape(m?.unit||"units")+' · '+escape(m?.name||"Material")+'</b><p>'+escape(r.note)+'</p><small>Available in store: '+(m?.stock||0)+' '+escape(m?.unit||"units")+'</small></div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn danger" data-action="decision" data-id="'+escape(r.id)+'" data-decision="Rejected">Reject</button><button class="btn primary" data-action="decision" data-id="'+escape(r.id)+'" data-decision="Approved">Approve</button></div>':empty("Request not found.");
-    }else if(x.type==="issue"){
-      const r=request(x.id),m=material(r?.materialId);
-      content=r?'<h2>Issue approved materials</h2><p class="muted">'+escape(r.id)+' · '+escape(task(r.taskId)?.name||r.taskId)+'</p>'+
-      '<div class="review-panel"><b>'+escape(m?.name||"Material")+'</b><div class="mini-stats"><span>Approved: <strong>'+r.qty+'</strong></span><span>Issued: <strong>'+r.issuedQty+'</strong></span>'+
-      '<span>Remaining: <strong>'+(r.qty-r.issuedQty)+'</strong></span><span>In store: <strong>'+(m?.stock||0)+'</strong></span></div></div>'+
-      '<form data-form="issue" data-id="'+escape(r.id)+'"><label>Quantity to issue now<input class="field" name="qty" type="number" min="1" max="'+Math.min(r.qty-r.issuedQty,m?.stock||0)+'" step="1" required placeholder="Actual units being issued"/></label>'+
-      '<div class="notice section">You may issue part of the approved quantity. It cannot exceed approved units remaining or stock on hand.</div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn primary" type="submit">Confirm stock issue</button></div></form>':empty("Request not found.");
-    }else if(x.type==="request"){
-      const r=request(x.id),m=material(r?.materialId);
-      content=r?'<h2>Request '+escape(r.id)+'</h2><p class="muted">'+escape(task(r.taskId)?.name||r.taskId)+'</p>'+
-      '<div class="review-panel"><b>'+escape(m?.name||"Material")+'</b><p>'+escape(r.note)+'</p><div class="mini-stats"><span>Requested <strong>'+r.qty+'</strong></span><span>Issued <strong>'+r.issuedQty+'</strong></span><span>Outstanding <strong>'+(r.qty-r.issuedQty)+'</strong></span></div></div>'+
-      '<div class="row small-gap">'+badge(r.status)+'<small class="muted">Created '+date(r.createdAt)+'</small></div>'+
-      (r.issues.length?'<div class="section-mini"><h3>Issue history</h3>'+r.issues.map(i=>'<div class="history-row"><span>'+date(i.at)+'</span><b>'+i.qty+' '+escape(m?.unit||"units")+'</b></div>').join("")+'</div>':'')+
-      '<div class="modal-actions">'+btn("Close","close")+'</div>':empty("Request not found.");
-    }else if(x.type==="progress"){
-      const t=task(x.id);
-      content=t?'<h2>Update site progress</h2><p class="muted">'+escape(t.name)+'</p><div class="review-panel"><b>Current progress: '+t.progress+'%</b>'+progressValue(t.progress)+'</div>'+
-      '<form data-form="progress" data-id="'+escape(t.id)+'"><div class="form-grid"><label>New completion percentage<input class="field" name="percent" type="number" min="'+Math.min(100,t.progress+1)+'" max="100" step="1" required placeholder="0–100"/></label>'+
-      '<label class="wide">Site update note<textarea class="field" name="note" rows="3" maxlength="220" required placeholder="Work completed or site observation"></textarea></label></div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn primary" type="submit">Record progress</button></div></form>':empty("Work item not found.");
-    }else if(x.type==="task"){
-      const t=task(x.id);
-      content=t?'<h2>'+escape(t.name)+'</h2><p class="muted">'+escape(t.id)+' · '+escape(t.phase)+'</p><div class="review-panel"><b>'+t.progress+'% complete</b>'+progressValue(t.progress)+'<p>Sample planned progress: '+t.planned+'%</p><p>Last note: '+escape(t.notes)+'</p></div>'+
-      '<div class="modal-actions">'+btn("Close","close")+'</div>':empty("Work item not found.");
-    }else if(x.type==="purchase-new"){
-      content='<h2>New supplier purchase order</h2><p class="muted">Create a fictional draft order. Goods are added to inventory only when actually received.</p>'+
-      '<form data-form="purchase"><div class="form-grid"><label class="wide">Supplier name<input class="field" name="supplier" value="Summit Materials Supply (fictional)" maxlength="100" required/></label>'+
-      '<label>Material<select class="field" name="materialId">'+option(data.materials,null,m=>[m.id,m.name+" · "+m.unit])+'</select></label>'+
-      '<label>Quantity ordered<input class="field" name="qty" type="number" min="1" step="1" placeholder="e.g. 30" required/></label>'+
-      '<label>Unit cost (KES)<input class="field" name="unitCost" type="number" min="0.01" step="0.01" placeholder="e.g. 820" required/></label></div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button type="submit" class="btn primary">Create draft order</button></div></form>';
-    }else if(x.type==="receive"){
-      const p=purchase(x.id);
-      content=p?'<h2>Record supplier delivery</h2><p class="muted">'+escape(p.id)+' · '+escape(p.supplier)+'</p>'+
-      '<form data-form="receive" data-id="'+escape(p.id)+'"><div class="receipt-lines">'+p.lines.map(l=>{
-        const m=material(l.materialId),remaining=l.qty-l.receivedQty;
-        return '<div class="receive-row"><div><b>'+escape(m?.name||"Unknown material")+'</b><span class="sub">Ordered '+l.qty+' · Previously received '+l.receivedQty+' · Remaining '+remaining+' '+escape(m?.unit||"units")+'</span></div>'+
-        (remaining?'<label class="receive-input">Received now<input class="field" name="receive-'+escape(l.materialId)+'" type="number" min="0" max="'+remaining+'" step="1" placeholder="0" value="'+escape(ui.deliveryDraft[l.materialId]??"")+'"/></label>':
-        '<span class="badge ok">Fully received</span>')+'</div>';
-      }).join("")+'</div>'+
-      '<div class="notice section">Only confirmed units add to inventory. Enter 0 or leave blank for products not delivered; no item can exceed its remaining ordered balance.</div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button type="submit" class="btn primary">Confirm received quantities</button></div></form>':empty("Purchase order not found.");
-    }else if(x.type==="purchase"){
-      const p=purchase(x.id);
-      content=p?'<h2>Purchase order '+escape(p.id)+'</h2><p class="muted">'+escape(p.supplier)+'</p>'+
-      '<div class="row small-gap">'+badge(p.status)+'<small class="muted">Created '+date(p.createdAt)+'</small></div><div class="receipt-lines">'+p.lines.map(l=>
-        '<div class="history-row"><div><b>'+escape(material(l.materialId)?.name||"Material")+'</b><span class="sub">Ordered '+l.qty+' · Received '+l.receivedQty+' · Remaining '+(l.qty-l.receivedQty)+'</span></div><b>'+amount(l.unitCost*l.qty)+'</b></div>').join("")+'</div>'+
-      (p.receipts.length?'<div class="section-mini"><h3>Delivery history</h3>'+p.receipts.map(r=>'<div class="history-row"><span>'+escape(r.id)+' · '+date(r.at)+'</span><b>'+r.lines.reduce((n,l)=>n+l.qty,0)+' units</b></div>').join("")+'</div>':'')+
-      '<div class="modal-actions">'+btn("Close","close")+(is("storekeeper")&&p.status!=="Received"?'<button type="button" class="btn primary" data-action="receive" data-id="'+escape(p.id)+'">Receive stock</button>':'')+'</div>':empty("Purchase order not found.");
-    }else if(x.type==="expense-new"){
-      content='<h2>Record direct site expense</h2><p class="muted">A fictional cost entry, not a real payment, invoice or accounting journal.</p>'+
-      '<form data-form="expense"><div class="form-grid"><label>Expense category<select class="field" name="category">'+
-      ["Transport","Equipment hire","Site logistics","Labour support","Other"].map(x=>'<option>'+escape(x)+'</option>').join("")+'</select></label>'+
-      '<label>Amount (KES)<input class="field" name="amount" type="number" min="0.01" step="0.01" required placeholder="e.g. 7500"/></label>'+
-      '<label class="wide">Description<input class="field" name="description" maxlength="180" required placeholder="Describe the fictional site expense"/></label></div>'+
-      '<div class="modal-actions">'+btn("Cancel","close")+'<button class="btn primary" type="submit">Record expense</button></div></form>';
-    }
-    return '<div class="overlay" data-overlay="true"><section class="modal" role="dialog" aria-modal="true" aria-label="Construction demo action"><header class="modal-bar"><span>AMANI HEIGHTS · CONCEPT DEMO</span><button class="close-btn" data-action="close" aria-label="Close dialog">×</button></header>'+content+'</section></div>';
-  }
-  function render(){
-    const views={overview,tasks,requests,materials,purchases,costs,reports,settings};
-    if(!can(ui.view))ui.view=roles[ui.role].start;
-    const pageTitle=nav.find(n=>n[0]===ui.view)?.[1]||"Overview";
-    root.innerHTML='<div class="app-shell"><aside class="sidebar"><div class="logo"><div class="logo-icon">S</div><div><b>SiteFlow</b><small>CONSTRUCTION · DEMO</small></div></div>'+
-      '<a class="back-link" href="/demos/construction">← Back to JoelTechGeek</a><div class="nav-caption">PROJECT WORKSPACE</div><nav class="nav-group" aria-label="Construction demo navigation">'+
-      nav.filter(n=>can(n[0])).map(([id,label,icon])=>'<button class="nav-item '+(ui.view===id?"active":"")+'" data-nav="'+id+'"><span>'+icon+'</span>'+escape(label)+'</button>').join("")+'</nav>'+
-      '<div class="sidebar-foot"><b>● FICTIONAL WORKSPACE</b><p>No actual site, compliance records, payments or permissions.</p><button data-action="reset">↻ Reset demo</button></div></aside>'+
-      '<div class="workspace"><header class="topbar"><div class="crumb"><a class="mobile-back" href="/demos/construction" aria-label="Back to JoelTechGeek">←</a><span>SiteFlow</span><span class="sep">/</span><b>'+escape(pageTitle)+'</b></div>'+
-      '<div class="top-actions"><span class="concept">Interactive concept</span><label class="sr-only" for="role-select">Simulated team role</label><select class="role-select" id="role-select">'+
-      Object.entries(roles).map(([id,r])=>'<option value="'+id+'" '+(ui.role===id?"selected":"")+'>'+escape(r.label)+'</option>').join("")+
-      '</select><span class="avatar">'+({manager:"NM",supervisor:"PO",storekeeper:"AW",accountant:"SK"}[ui.role])+'</span></div></header>'+
-      '<main class="content">'+views[ui.view]()+'</main></div>'+
-      '<nav class="bottom-nav" aria-label="Mobile navigation">'+nav.filter(n=>can(n[0])).map(([id,label,icon])=>'<button data-nav="'+id+'" class="'+(ui.view===id?"active":"")+'"><span>'+icon+'</span><small>'+escape(label)+'</small></button>').join("")+'</nav></div>'+
-      (ui.notice?'<div class="toast" role="status">'+escape(ui.notice)+' <button data-action="dismiss" aria-label="Dismiss message">×</button></div>':"")+
-      modal();
-  }
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(err){ui.notice="Browser storage unavailable. Demo changes are temporary.";}}
-  const notify=s=>{ui.notice=String(s);render();};
-  const safe=fn=>{try{fn()}catch(err){notify(err?.message||"Unable to complete action.");}};
-  const changeRole=role=>{
-    if(!roles[role])return;
-    ui.role=role;ui.view=roles[role].start;ui.modal=null;ui.notice="Switched to "+roles[role].label+" (simulated).";render();
-  };
-  document.addEventListener("click",event=>{
-    const target=event.target.closest("[data-nav],[data-action]");
-    if(!target||!root.contains(target))return;
-    const view=target.dataset.nav,action=target.dataset.action,id=target.dataset.id;
-    if(view){if(can(view)){ui.view=view;ui.modal=null;ui.notice="";render();}return;}
-    if(action==="dismiss"){ui.notice="";render();return;}
-    if(action==="close"){ui.modal=null;ui.notice="";render();return;}
-    if(action==="role"){changeRole(target.dataset.role);return;}
-    if(action==="reset"){
-      if(!window.confirm("Reset this fictional construction project? All changes in this browser will be lost."))return;
-      data=core.seed();ui.modal=null;ui.deliveryDraft={};ui.view=roles[ui.role].start;save();notify("Fictional project restored.");return;
-    }
-    if(action==="new-request"&&is("supervisor")){ui.modal={type:"request-new"};render();return;}
-    if(action==="review"&&is("manager")){ui.modal={type:"review",id};render();return;}
-    if(action==="decision"&&is("manager")){safe(()=>{
-      const r=core.decideRequest(data,id,target.dataset.decision);save();ui.modal=null;notify("Request "+r.status.toLowerCase()+".");
-    });return;}
-    if(action==="issue"&&is("storekeeper")){ui.modal={type:"issue",id};render();return;}
-    if(action==="new-purchase"&&is("manager")){ui.modal={type:"purchase-new"};render();return;}
-    if(action==="receive"&&is("storekeeper")){
-      const p=purchase(id);if(!p||p.status==="Received"){notify("The order is already fully received.");return;}
-      ui.deliveryDraft={};ui.modal={type:"receive",id};render();return;
-    }
-    if(action==="progress"&&is("supervisor")){ui.modal={type:"progress",id};render();return;}
-    if(action==="new-expense"&&is("accountant")){ui.modal={type:"expense-new"};render();return;}
-    if(action==="request"||action==="task"||action==="purchase"){ui.modal={type:action,id};render();return;}
-  });
-  document.addEventListener("change",event=>{
-    const target=event.target;
-    if(!root.contains(target))return;
-    if(target.id==="role-select"){changeRole(target.value);}
-  });
-  document.addEventListener("input",event=>{
-    const target=event.target;
-    if(!root.contains(target))return;
-    if(target.name?.startsWith("receive-"))ui.deliveryDraft[target.name.slice(8)]=target.value;
-  });
-  document.addEventListener("submit",event=>{
-    const form=event.target,kind=form.dataset?.form;
-    if(!kind||!root.contains(form))return;
-    event.preventDefault();
-    safe(()=>{
-      const fields=Object.fromEntries(new FormData(form).entries());
-      let message="";
-      if(kind==="request"&&is("supervisor")){
-        const r=core.requestMaterial(data,fields.taskId,fields.materialId,fields.qty,fields.note);
-        message="Material request "+r.id+" submitted for manager approval.";
-      }else if(kind==="issue"&&is("storekeeper")){
-        const r=core.issueMaterial(data,form.dataset.id,fields.qty);
-        message=r.issuedQty+" / "+r.qty+" units issued. "+r.status+".";
-      }else if(kind==="progress"&&is("supervisor")){
-        const update=core.updateProgress(data,form.dataset.id,fields.percent,fields.note);
-        message="Progress recorded: "+update.to+"%.";
-      }else if(kind==="purchase"&&is("manager")){
-        const po=core.createPurchase(data,fields.supplier,[{materialId:fields.materialId,qty:fields.qty,unitCost:fields.unitCost}]);
-        message="Draft order "+po.id+" created; stock unchanged until receipt.";
-      }else if(kind==="receive"&&is("storekeeper")){
-        const p=purchase(form.dataset.id);if(!p)throw new Error("Purchase order not found.");
-        const delivery=p.lines.filter(l=>l.receivedQty<l.qty).map(l=>({materialId:l.materialId,qty:fields["receive-"+l.materialId]===""?"0":fields["receive-"+l.materialId]??"0"}));
-        const units=delivery.reduce((n,l)=>n+(Number(l.qty)||0),0);
-        const po=core.receivePurchase(data,p.id,delivery);
-        ui.deliveryDraft={};message=units+" units received. "+po.status+".";
-      }else if(kind==="expense"&&is("accountant")){
-        const expense=core.addExpense(data,fields.category,fields.description,fields.amount);
-        message="Site expense "+expense.id+" recorded; project costs updated.";
-      }else return;
-      save();ui.modal=null;notify(message);
-    });
-  });
-  document.addEventListener("keydown",event=>{
-    if(event.key==="Escape"&&ui.modal){ui.modal=null;render();}
-  });
-  render();
+"use strict";
+const root=document.getElementById("app"),KEY="siteflow-milliol-v2";
+const esc=v=>String(v??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
+const kes=n=>"KES "+Number(n||0).toLocaleString("en-KE",{maximumFractionDigits:2});
+const num=n=>Number(n||0).toLocaleString("en-KE",{maximumFractionDigits:2});
+const find=(items,id)=>items.find(x=>x.id===id);
+let data;try{data=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+if(!core.valid(data))data=core.seed();
+const users={manager:"Nia (Project Manager)",supervisor:"Peter (Supervisor)",stockkeeper:"Asha (Stockkeeper)",accountant:"Samuel (Accountant)"};
+const tabs={
+ manager:[["home","Home","▦"],["review","Review","◎"],["finance","Finance","◇"]],
+ supervisor:[["work","Work","▤"],["reports","Reports","▣"]],
+ stockkeeper:[["todo","To do","☑"],["stock","Stock","▥"],["history","History","◷"]],
+ accountant:[["todo","To do","☑"],["invoices","Invoices","▣"],["payments","Payments","◇"]]
+};
+const ui={role:"manager",tab:"home",screen:null,kind:null,id:null,modal:null,drawer:false,stockQueue:"requests",acctQueue:"create",toast:""};
+const task=id=>find(data.tasks,id),mat=id=>find(data.materials,id),req=id=>find(data.requests,id),po=id=>find(data.purchases,id),inv=id=>find(data.invoices,id);
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){ui.toast="Browser storage unavailable"}};
+const badge=s=>`<span class="badge badge-${esc(String(s).toLowerCase().replace(/\s+/g,"-"))}">${esc(s)}</span>`;
+const btn=(s,a,id="",cls="")=>`<button type="button" class="btn ${cls}" data-action="${a}" ${id?`data-id="${esc(id)}"`:""}>${s}</button>`;
+const info=(k,v)=>`<div class="info-row"><span>${esc(k)}</span><strong>${esc(v??"—")}</strong></div>`;
+const panel=(title,body)=>`<section class="panel"><h2>${esc(title)}</h2>${body}</section>`;
+const heading=(s,extra="")=>`<div class="page-head"><h1>${esc(s)}</h1>${extra}</div>`;
+const empty=(s,desc)=>`<div class="empty"><b>${esc(s)}</b><p>${esc(desc)}</p></div>`;
+const card=(name,detail,status,kind,id,right="")=>`<button class="item-card" data-open="${kind}" data-id="${esc(id)}"><div class="item-main"><b>${esc(name)}</b><small>${esc(detail)}</small></div><div class="item-meta">${status?badge(status):""}${right?`<strong>${esc(right)}</strong>`:""}</div><span class="chevron">›</span></button>`;
+const listTasks=(filter=()=>true)=>data.tasks.filter(filter).map(w=>card(w.name,`${w.category} · ${w.mode} · ${num(w.progress)}% complete`,w.status,"work",w.id)).join("");
+const listRequests=(filter=()=>true)=>data.requests.filter(filter).map(r=>card(mat(r.materialId)?.name||"Material",`${r.id} · ${num(r.qty)} ${mat(r.materialId)?.unit||"units"} · ${task(r.taskId)?.name||"Work"}`,r.status,"request",r.id)).join("");
+const listPO=(filter=()=>true)=>data.purchases.filter(filter).map(p=>card(`${p.id} · ${p.supplier}`,`${num(p.receivedQty)}/${num(p.qty)} received`,p.status,"po",p.id,kes(p.qty*p.unitPrice))).join("");
+const listInvoices=(filter=()=>true)=>data.invoices.filter(filter).map(i=>card(`${i.id} · ${i.supplier}`,`Outstanding ${kes(i.total-i.paid)}`,i.status,"invoice",i.id,kes(i.total))).join("");
+const listReports=(filter=()=>true)=>data.reports.filter(filter).map(r=>card(r.title,`${r.id} · ${r.detail}`,r.status,"report",r.id)).join("");
+const reviewEntries=()=>[
+ ...data.tasks.filter(x=>x.status==="Awaiting approval").map(x=>["work",x.id,x.name,"Work item · Supervisor",x.status]),
+ ...data.progress.filter(x=>x.status==="Submitted").map(x=>["progress",x.id,task(x.taskId)?.name||"Progress",`Progress to ${num(x.percent)}% · sample evidence`,x.status]),
+ ...data.requests.filter(x=>x.status==="Submitted").map(x=>["request",x.id,mat(x.materialId)?.name||"Material","Material request · Stockkeeper",x.status]),
+ ...data.purchases.filter(x=>x.status==="Submitted").map(x=>["po",x.id,x.supplier,`PO · ${kes(x.qty*x.unitPrice)}`,x.status]),
+ ...data.reports.filter(x=>x.status==="Submitted").map(x=>["report",x.id,x.title,"Site report · Supervisor",x.status])
+];
+const roleDest=()=>ui.role==="manager"?[["work","Work","▤"],["materials","Materials","▥"],["stock","Stock","▣"],["reports","Reports","▧"],["activity","Activity","◷"]]:
+ ui.role==="accountant"?[["purchases","Purchase Orders","▧"],["work","Work","▤"]]:[];
+function home(){
+ const m=core.metrics(data),metric=(label,value,sub)=>`<div class="metric"><span>${label}</span><strong>${value}</strong><small>${sub}</small></div>`;
+ return heading("Project overview")+`<div class="project-banner"><small>ACTIVE PROJECT · FICTIONAL</small><h2>${esc(data.project.name)}</h2><p>${esc(data.project.location)}</p></div>`+
+ `<div class="metrics">${metric("Awaiting review",m.pendingReview,"Submitted work & requests")}${metric("Active work",m.openWork,"In progress")}${metric("Deliveries",m.deliveries,"Expected")}${metric("Supplier balance",kes(m.payable),"Outstanding")}</div>`+
+ `<div class="section-title"><h2>Needs attention</h2>${btn("Open review","review-page","","text")}</div>`+
+ (reviewEntries().slice(0,4).map(([kind,id,name,sub,status])=>card(name,sub,status,kind,id)).join("")||empty("All caught up","Nothing needs approval."))+
+ panel("Recent activity",data.activity.slice(0,4).map(x=>`<div class="activity"><b>${esc(x.title)}</b><small>${esc(x.description)}</small></div>`).join(""));
+}
+function review(){return heading("Review")+`<p class="hint">Approve or return submitted work, progress, material requests, purchase orders, and reports.</p>`+
+ (reviewEntries().map(([kind,id,name,sub,status])=>card(name,sub,status,kind,id)).join("")||empty("No pending reviews","The queue is clear."));}
+function finance(){const m=core.metrics(data);return heading("Project finance")+
+ `<div class="finance-hero"><small>SUPPLIER PAYABLES OUTSTANDING</small><strong>${kes(m.payable)}</strong><span>Read-only for Project Manager</span></div>`+
+ panel("Payables",listInvoices()||empty("No payables","An issued PO creates a payable."));}
+function work(){return heading("Work",ui.role==="supervisor"?btn("＋ New Work","new-work","","primary"):"")+
+ `<p class="hint">Supervisor creates work; Project Manager approval starts execution.</p>`+
+ (listTasks()||empty("No work items","Create a new work item."));}
+function reports(){return heading("Reports",ui.role==="supervisor"?btn("＋ New Report","new-report","","primary"):"")+
+ `<p class="hint">Supervisor submits reports for Project Manager review.</p>`+
+ (listReports()||empty("No reports","Submit a site report."));}
+function stockTodo(){
+ const requests=data.requests.filter(r=>["Submitted","Needs correction","Approved","Partially issued"].includes(r.status));
+ const deliveries=data.purchases.filter(p=>["Issued","Partially received"].includes(p.status));
+ return heading("To do",btn("＋ Material Request","new-request","","primary"))+
+ `<div class="segment"><button data-stock-queue="requests" class="${ui.stockQueue==="requests"?"chosen":""}">Material Requests (${requests.length})</button><button data-stock-queue="deliveries" class="${ui.stockQueue==="deliveries"?"chosen":""}">Expected Deliveries (${deliveries.length})</button></div>`+
+ (ui.stockQueue==="requests"?(listRequests(r=>requests.includes(r))||empty("No material tasks","Create a material request.")):
+ (listPO(p=>deliveries.includes(p))||empty("No expected deliveries","Awaiting sent purchase orders.")));
+}
+function stock(){
+ return heading("Stock",ui.role==="stockkeeper"?btn("＋ Return","new-return","","soft"):"")+
+ `<p class="hint">Receipts, approved issues and returns change on-hand quantities.</p>`+
+ data.materials.map(m=>`<article class="stock-card"><div><b>${esc(m.name)}</b><small>${esc(m.id)}</small></div><div><strong>${num(m.stock)} ${esc(m.unit)}</strong>${m.stock<=m.reorder?'<span class="low">Low stock</span>':""}</div></article>`).join("");
+}
+function history(){return heading("Stock history")+`<p class="hint">Record of stock movements.</p>`+
+ (data.movements.map(m=>card(`${m.kind} · ${mat(m.materialId)?.name||"Material"}`,`${m.reference} · ${m.qty>0?"+":""}${num(m.qty)} ${mat(m.materialId)?.unit||"units"}`,null,"movement",m.id)).join("")||empty("No movement history","Record a stock movement."));}
+function accountantTodo(){
+ const toCreate=data.requests.filter(r=>["Approved","Partially issued"].includes(r.status)&&core.shortage(data,r.id)>0);
+ const toSend=data.purchases.filter(x=>x.status==="Approved");
+ const toPay=data.invoices.filter(x=>x.total>x.paid);
+ return heading("To do")+`<div class="segment three">${[["create","Create PO",toCreate.length],["send","Send",toSend.length],["pay","Pay",toPay.length]].map(([key,label,n])=>`<button data-account-queue="${key}" class="${ui.acctQueue===key?"chosen":""}">${label} (${n})</button>`).join("")}</div>`+
+ (ui.acctQueue==="create"?listRequests(r=>toCreate.includes(r))||empty("No shortages","Approved material shortages appear here."):
+ ui.acctQueue==="send"?listPO(x=>toSend.includes(x))||empty("No approved POs","Project Manager approvals appear here."):
+ listInvoices(x=>toPay.includes(x))||empty("No payables","All supplier payables are paid."));
+}
+function invoices(){return heading("Invoices")+`<p class="hint">Sending an approved PO creates its supplier payable.</p>`+(listInvoices()||empty("No invoices","Send an approved PO."));}
+function payments(){return heading("Payments")+`<p class="hint">Fictional bank transfers recorded by Accountant.</p>`+
+ (data.payments.map(p=>card(p.id+" · "+kes(p.amount),`${p.method} · ${p.invoiceId}`,"Recorded","invoice",p.invoiceId)).join("")||empty("No payments","Record payment against an invoice."));}
+function purchases(){return heading("Purchase Orders")+`<p class="hint">Accountant creates orders from approved shortages; Project Manager approves.</p>`+(listPO()||empty("No POs","Approved shortages appear in To do."));}
+function materials(){return heading("Materials")+panel("Material requests",listRequests()||empty("No requests","Requests appear here."))+
+ panel("Purchase orders",listPO()||empty("No purchase orders","Purchase orders appear here."));}
+function activity(){return heading("Project activity")+data.activity.map(a=>`<div class="activity-card"><b>${esc(a.title)}</b><p>${esc(a.description)}</p><small>${esc(core.roleNames[a.role]||"System")}</small></div>`).join("");}
+function detail(){
+ const {kind,id,role}=ui;
+ let result="",buttons=[];
+ if(kind==="work"){
+  const w=task(id);if(!w)return empty("Not found","Work was removed.");
+  result=heading(w.name)+panel("Work item",info("Reference",w.id)+info("Status",w.status)+info("Category",w.category)+info("Execution",w.mode)+info("Deliverable",w.description)+info("Planned",num(w.planned)+" "+w.unit)+info("Approved progress",num(w.progress)+"%"));
+  const progress=data.progress.filter(p=>p.taskId===id);
+  result+=panel("Progress",`<div class="progress-bar"><span style="width:${w.progress}%"></span></div>`+
+   (progress.map(p=>card(num(p.percent)+"% completion",p.note,p.status,"progress",p.id)).join("")||`<p class="hint">No progress updates yet.</p>`));
+  if(role==="manager"&&w.status==="Awaiting approval")buttons=[btn("Approve & start","approve-work",id,"primary"),btn("Return for correction","return-work",id,"soft")];
+  if(role==="supervisor"&&w.status==="In progress"&&w.progress<100)buttons=[btn("Submit progress","new-progress",id,"primary")];
+  if(role==="supervisor"&&w.status==="Needs correction")buttons=[btn("Resubmit work","resubmit-work",id,"primary")];
+ }else if(kind==="progress"){
+  const p=find(data.progress,id),w=p&&task(p.taskId);if(!p)return empty("Not found","Progress unavailable.");
+  result=heading("Progress update")+panel("Progress submission",info("Work",w?.name)+info("Submitted completion",num(p.percent)+"%")+info("Currently approved",num(w?.progress)+"%")+info("Notes",p.note)+info("Status",p.status))+
+   panel("Sample evidence",`<div class="evidence"><span>▣</span><div><b>Site photo (sample)</b><small>${esc(p.evidence)}</small></div></div>`);
+  if(role==="manager"&&p.status==="Submitted")buttons=[btn("Approve progress","approve-progress",id,"primary"),btn("Return for correction","return-progress",id,"soft")];
+ }else if(kind==="request"){
+  const r=req(id);if(!r)return empty("Not found","Request unavailable.");
+  const m=mat(r.materialId);
+  result=heading("Material request")+panel("Request details",info("Reference",r.id)+info("Work",task(r.taskId)?.name)+info("Material",m?.name)+info("Requested",num(r.qty)+" "+m?.unit)+info("Issued",num(r.issuedQty)+" "+m?.unit)+info("Purpose",r.purpose)+info("Status",r.status))+
+   panel("Stock & shortage",info("On hand",num(m?.stock)+" "+m?.unit)+info("Still to issue",num(r.qty-r.issuedQty)+" "+m?.unit)+info("Uncovered shortage",num(core.shortage(data,id))+" "+m?.unit));
+  const linked=data.purchases.filter(p=>p.requestId===id);if(linked.length)result+=panel("Purchase orders",listPO(p=>linked.includes(p)));
+  if(role==="manager"&&r.status==="Submitted")buttons=[btn("Approve request","approve-request",id,"primary"),btn("Return for correction","return-request",id,"soft")];
+  if(role==="stockkeeper"&&["Approved","Partially issued"].includes(r.status)&&r.qty>r.issuedQty)buttons=[btn("Issue materials","new-issue",id,"primary")];
+  if(role==="stockkeeper"&&r.status==="Needs correction")buttons=[btn("Resubmit request","resubmit-request",id,"primary")];
+  if(role==="accountant"&&["Approved","Partially issued"].includes(r.status)&&core.shortage(data,id)>0)buttons=[btn("Create purchase order","new-po",id,"primary")];
+ }else if(kind==="po"){
+  const p=po(id);if(!p)return empty("Not found","Order unavailable.");const m=mat(p.materialId);
+  result=heading("Purchase order")+panel("Order details",info("Reference",p.id)+info("Supplier",p.supplier)+info("Material",m?.name)+info("Ordered",num(p.qty)+" "+m?.unit)+info("Received",num(p.receivedQty)+" "+m?.unit)+info("Unit price",kes(p.unitPrice))+info("Total",kes(p.qty*p.unitPrice))+info("Status",p.status)+info("Material request",p.requestId));
+  if(p.invoiceId)result+=panel("Supplier payable",info("Invoice",p.invoiceId)+info("Status",inv(p.invoiceId)?.status)+info("Balance",kes(inv(p.invoiceId)?.total-inv(p.invoiceId)?.paid)));
+  if(role==="manager"&&p.status==="Submitted")buttons=[btn("Approve PO","approve-po",id,"primary"),btn("Return PO","return-po",id,"soft")];
+  if(role==="accountant"&&p.status==="Approved")buttons=[btn("Send purchase order","send-po",id,"primary")];
+  if(role==="stockkeeper"&&["Issued","Partially received"].includes(p.status))buttons=[btn("Receive delivery","new-receive",id,"primary")];
+ }else if(kind==="invoice"){
+  const i=inv(id);if(!i)return empty("Not found","Payable unavailable.");
+  result=heading("Supplier payable")+panel("Invoice details",info("Reference",i.id)+info("Supplier",i.supplier)+info("Purchase order",i.poId)+info("Total",kes(i.total))+info("Paid",kes(i.paid))+info("Outstanding",kes(i.total-i.paid))+info("Status",i.status))+
+   panel("Payment history",data.payments.filter(p=>p.invoiceId===id).map(p=>`<div class="activity"><b>${kes(p.amount)}</b><small>${esc(p.id)} · ${esc(p.method)}</small></div>`).join("")||`<p class="hint">No payments recorded.</p>`);
+  if(role==="accountant"&&i.paid<i.total)buttons=[btn("Record payment","new-payment",id,"primary")];
+ }else if(kind==="report"){
+  const r=find(data.reports,id);if(!r)return empty("Not found","Report unavailable.");
+  result=heading(r.title)+panel("Site report",info("Reference",r.id)+info("Status",r.status)+`<p class="report-body">${esc(r.detail)}</p>`);
+  if(role==="manager"&&r.status==="Submitted")buttons=[btn("Approve report","approve-report",id,"primary"),btn("Return for correction","return-report",id,"soft")];
+ }else if(kind==="movement"){
+  const m=find(data.movements,id);if(!m)return empty("Not found","Movement unavailable.");
+  result=heading("Stock movement")+panel("Movement",info("Type",m.kind)+info("Material",mat(m.materialId)?.name)+info("Quantity",num(m.qty)+ " "+(mat(m.materialId)?.unit||"units"))+info("Reference",m.reference));
+ }
+ return result+(buttons.length?panel("Available actions",`<div class="button-stack">${buttons.join("")}</div>`):"");
+}
+const select=(label,name,pairs)=>`<label>${esc(label)}<select name="${name}" required>${pairs.map(([value,caption])=>`<option value="${esc(value)}">${esc(caption)}</option>`).join("")}</select></label>`;
+const field=(label,name,type,value,extra="")=>`<label>${esc(label)}<input name="${name}" type="${type}" value="${esc(value)}" ${extra} required/></label>`;
+const textarea=(label,name)=>`<label>${esc(label)}<textarea rows="3" name="${name}" required></textarea></label>`;
+function form(){
+ if(!ui.modal)return "";
+ const {type,id}=ui.modal;let body="",label="",submit="Save";
+ if(type==="work"){label="New work item";submit="Submit work item";body=field("Work name","name","text","Ground floor finishing",'maxlength="110"')+select("Category","category",["Structure","Masonry","Services","Finishes"].map(x=>[x,x]))+
+   select("Execution","mode",[["Labour","Labour"],["Subcontract","Subcontract"]])+field("Planned quantity","planned","number",100,'min="0.01" step="0.01"')+
+   select("Unit","unit",["m²","m³","pieces","%"].map(x=>[x,x]))+textarea("Deliverable","description");}
+ if(type==="progress"){label="Submit progress";submit="Submit for review";const w=task(id);
+  body=`<div class="form-context">${esc(w?.name)} · Approved ${num(w?.progress)}%</div>`+
+   field("Overall completion (%)","percent","number",Math.min(100,(w?.progress||0)+15),'min="0.01" max="100" step="0.01"')+textarea("Progress notes","note")+
+   `<p class="form-context">▣ Fictional site photo will be shown after submission.</p>`;}
+ if(type==="request"){label="Material request";submit="Submit request";body=select("Approved work item","taskId",data.tasks.filter(x=>["In progress","Completed"].includes(x.status)).map(x=>[x.id,x.name]))+
+   select("Material","materialId",data.materials.map(x=>[x.id,x.name+" · "+x.unit]))+field("Quantity","qty","number",12,'min="0.01" step="0.01"')+textarea("Purpose","purpose");}
+ if(type==="issue"){label="Issue approved materials";submit="Issue";const r=req(id),m=mat(r?.materialId);
+  body=`<p class="form-context">${esc(m?.name)} · ${num(r?.qty-r?.issuedQty)} remaining · ${num(m?.stock)} in stock</p>`+field("Issue quantity","qty","number",Math.min(r.qty-r.issuedQty,m.stock),'min="0.01" step="0.01"');}
+ if(type==="po"){label="Create purchase order";submit="Submit for approval";const r=req(id),m=mat(r?.materialId);
+  body=`<p class="form-context">${esc(m?.name)} · ${num(core.shortage(data,id))} ${esc(m?.unit)} shortage</p>`+
+   field("Supplier","supplier","text","Peakline Building Supplies (fictional)",'maxlength="100"')+
+   field("Order quantity","qty","number",core.shortage(data,id),'min="0.01" step="0.01"')+
+   field("Unit price (KES)","unitPrice","number",m?.cost||500,'min="0.01" step="0.01"');}
+ if(type==="receive"){label="Receive delivery";submit="Confirm received";const p=po(id),m=mat(p?.materialId);
+  body=`<p class="form-context">${esc(p?.id)} · ${esc(m?.name)} · ${num(p?.qty-p?.receivedQty)} remaining</p>`+
+   field("Accepted quantity","qty","number",p.qty-p.receivedQty,'min="0.01" step="0.01"');}
+ if(type==="return"){label="Return materials";submit="Record return";body=select("Material","materialId",data.materials.map(x=>[x.id,x.name+" · "+x.unit]))+
+   field("Quantity","qty","number",2,'min="0.01" step="0.01"')+field("Reason","reason","text","Unused material returned",'maxlength="140"');}
+ if(type==="payment"){label="Record supplier payment";submit="Record payment";const i=inv(id);
+  body=`<p class="form-context">${esc(i?.id)} · Outstanding ${kes(i.total-i.paid)}</p>`+
+   field("Payment (KES)","amount","number",i.total-i.paid,'min="0.01" step="0.01"')+`<p class="form-context">No real bank transfer is made.</p>`;}
+ if(type==="report"){label="New site report";submit="Submit report";body=field("Title","title","text","Daily site report",'maxlength="120"')+textarea("Site observations","detail");}
+ return `<div class="modal-overlay"><button class="modal-backdrop" data-action="close-modal" aria-label="Close form"></button>`+
+  `<section class="modal" role="dialog" aria-modal="true" aria-label="${esc(label)}"><header><h2>${esc(label)}</h2>${btn("×","close-modal","","icon")}</header>`+
+  `<div class="modal-inner"><form id="construction-form" data-form="${type}" data-id="${esc(id||"")}"><div class="fields">${body}</div><button type="submit" class="btn primary wide">${submit}</button></form></div></section></div>`;
+}
+function drawer(){
+ if(!ui.drawer)return "";
+ return `<div class="drawer-wrap"><button class="drawer-backdrop" data-action="close-drawer" aria-label="Close drawer"></button><aside class="drawer"><div class="drawer-head"><b>${esc(data.project.name)}</b><small>${esc(users[ui.role])}</small></div>`+
+  roleDest().map(([id,title,icon])=>`<button data-screen="${id}"><span>${icon}</span>${title}<i>›</i></button>`).join("")+
+  `<button data-action="reset"><span>↻</span>Reset sample data<i>›</i></button><a href="/demos/construction">← Overview</a></aside></div>`;
+}
+function header(){
+ const nested=!!ui.screen;
+ const title=nested?(ui.screen==="detail"?"Details":ui.screen==="purchases"?"Purchase Orders":ui.screen[0].toUpperCase()+ui.screen.slice(1)):
+  tabs[ui.role].find(x=>x[0]===ui.tab)?.[1]||"SiteFlow";
+ return `<header class="app-header"><button class="header-back" data-action="${nested?"back":"drawer"}" aria-label="${nested?"Back":"Open menu"}">${nested?"‹":"☰"}</button>`+
+  `<div class="header-title"><b>${esc(title)}</b><small>${esc(data.project.name)}</small></div>`+
+  `<select id="role-select" aria-label="Choose demo user">${Object.entries(users).map(([k,name])=>`<option value="${k}" ${ui.role===k?"selected":""}>${esc(name)}</option>`).join("")}</select></header>`;
+}
+function bottom(){return ui.screen?"":`<nav class="bottom-nav">${tabs[ui.role].map(([key,title,icon])=>`<button data-tab="${key}" class="${ui.tab===key?"selected":""}"><span>${icon}</span><small>${title}</small></button>`).join("")}</nav>`;}
+function page(){
+ if(ui.screen==="detail")return detail();
+ if(ui.screen)return ({work,materials,stock,reports,activity,purchases}[ui.screen]||home)();
+ if(ui.role==="manager")return ({home,review,finance}[ui.tab]||home)();
+ if(ui.role==="supervisor")return ({work,reports}[ui.tab]||work)();
+ if(ui.role==="stockkeeper")return ({todo:stockTodo,stock,history}[ui.tab]||stockTodo)();
+ return ({todo:accountantTodo,invoices,payments}[ui.tab]||accountantTodo)();
+}
+function render(){
+ root.innerHTML=`<div class="stage"><aside class="stage-intro"><small>MOBILE CONSTRUCTION DEMO</small><h2>SiteFlow Construction</h2>`+
+  `<p>A connected fictional project with the four site roles and their real operational handoffs.</p><a href="/demos/construction">← Demo overview</a></aside>`+
+  `<div class="phone"><div class="phone-status"><span>9:41</span><span>▰ ▱ ▰</span></div>${header()}<main class="phone-main"><div class="screen">${page()}</div></main>${bottom()}<div class="gesture"><span></span></div>${drawer()}</div>`+
+  `<aside class="stage-guide"><b>Switch roles</b><p>Nia, Peter, Asha and Samuel share the same fictional project records.</p>${btn("Reset sample data","reset","","soft")}<small>No real uploads, stock or payments.</small></aside></div>`+
+  form()+(ui.toast?`<div role="status" class="toast">${esc(ui.toast)}${btn("×","dismiss","","icon")}</div>`:"");
+}
+const change=(action,message)=>{try{action();save();ui.toast=message||"Updated.";ui.modal=null;}catch(err){ui.toast=err?.message||"Unable to perform this action.";}render()};
+const open=(kind,id)=>{ui.screen="detail";ui.kind=kind;ui.id=id;ui.drawer=false;ui.modal=null;ui.toast="";render()};
+const openForm=(type,id)=>{ui.modal={type,id};ui.drawer=false;ui.toast="";render()};
+const back=()=>{if(ui.modal)ui.modal=null;else{ui.screen=null;ui.kind=null;ui.id=null;}ui.toast="";render()};
+const commands={
+ "approve-work":id=>core.reviewWork(data,ui.role,id,"Approve"),
+ "return-work":id=>core.reviewWork(data,ui.role,id,"Return"),
+ "resubmit-work":id=>core.resubmitWork(data,ui.role,id),
+ "approve-progress":id=>core.reviewProgress(data,ui.role,id,"Approve"),
+ "return-progress":id=>core.reviewProgress(data,ui.role,id,"Return"),
+ "approve-request":id=>core.reviewRequest(data,ui.role,id,"Approve"),
+ "return-request":id=>core.reviewRequest(data,ui.role,id,"Return"),
+ "resubmit-request":id=>core.resubmitRequest(data,ui.role,id),
+ "approve-po":id=>core.reviewPO(data,ui.role,id,"Approve"),
+ "return-po":id=>core.reviewPO(data,ui.role,id,"Return"),
+ "send-po":id=>core.sendPO(data,ui.role,id),
+ "approve-report":id=>core.reviewReport(data,ui.role,id,"Approve"),
+ "return-report":id=>core.reviewReport(data,ui.role,id,"Return")
+};
+const formRoles={work:"supervisor",progress:"supervisor",request:"stockkeeper",issue:"stockkeeper",po:"accountant",receive:"stockkeeper",return:"stockkeeper",payment:"accountant",report:"supervisor"};
+document.addEventListener("change",event=>{
+ if(event.target.id!=="role-select")return;
+ const role=event.target.value;if(!users[role])return;
+ ui.role=role;ui.tab=tabs[role][0][0];ui.screen=null;ui.modal=null;ui.drawer=false;ui.kind=null;ui.id=null;ui.toast="";render();
+});
+document.addEventListener("click",event=>{
+ const el=event.target.closest("[data-action],[data-tab],[data-open],[data-screen],[data-stock-queue],[data-account-queue]");
+ if(!el||!root.contains(el))return;
+ const {action,id}=el.dataset;
+ if(el.dataset.tab){if(tabs[ui.role].some(x=>x[0]===el.dataset.tab)){ui.tab=el.dataset.tab;ui.screen=null;render();}return;}
+ if(el.dataset.open){open(el.dataset.open,id);return;}
+ if(el.dataset.screen){if(roleDest().some(x=>x[0]===el.dataset.screen)){ui.screen=el.dataset.screen;ui.drawer=false;render();}return;}
+ if(el.dataset.stockQueue){ui.stockQueue=el.dataset.stockQueue;render();return;}
+ if(el.dataset.accountQueue){ui.acctQueue=el.dataset.accountQueue;render();return;}
+ if(action==="drawer"){if(roleDest().length){ui.drawer=!ui.drawer;render();}return;}
+ if(action==="close-drawer"){ui.drawer=false;render();return;}
+ if(action==="back"){back();return;}
+ if(action==="close-modal"){ui.modal=null;ui.toast="";render();return;}
+ if(action==="dismiss"){ui.toast="";render();return;}
+ if(action==="review-page"){ui.tab="review";ui.screen=null;render();return;}
+ if(action==="reset"){if(!window.confirm("Reset the fictional construction workspace?"))return;data=core.seed();save();ui.tab=tabs[ui.role][0][0];ui.screen=null;ui.drawer=false;ui.modal=null;ui.toast="Sample project restored.";render();return;}
+ const forms={"new-work":["work","supervisor"],"new-progress":["progress","supervisor"],"new-request":["request","stockkeeper"],
+  "new-issue":["issue","stockkeeper"],"new-po":["po","accountant"],"new-receive":["receive","stockkeeper"],
+  "new-return":["return","stockkeeper"],"new-payment":["payment","accountant"],"new-report":["report","supervisor"]};
+ if(forms[action]&&ui.role===forms[action][1]){openForm(forms[action][0],id);return;}
+ if(commands[action]){change(()=>commands[action](id),"Record updated.");return;}
+});
+document.addEventListener("submit",event=>{
+ if(event.target.id!=="construction-form"||!root.contains(event.target))return;
+ event.preventDefault();
+ const {form:kind,id}=event.target.dataset;
+ if(!ui.modal||ui.modal.type!==kind||ui.modal.id!==(id||undefined)||formRoles[kind]!==ui.role)return;
+ const values=Object.fromEntries(new FormData(event.target).entries());
+ change(()=>{
+  let result;
+  if(kind==="work")result=core.createWork(data,ui.role,values);
+  if(kind==="progress")result=core.submitProgress(data,ui.role,id,values.percent,values.note);
+  if(kind==="request")result=core.requestMaterial(data,ui.role,values.taskId,values.materialId,values.qty,values.purpose);
+  if(kind==="po")result=core.createPO(data,ui.role,id,values.supplier,values.qty,values.unitPrice);
+  if(kind==="report")result=core.submitReport(data,ui.role,values.title,values.detail);
+  if(kind==="issue")result=core.issueMaterial(data,ui.role,id,values.qty);
+  if(kind==="receive")result=core.receivePO(data,ui.role,id,values.qty);
+  if(kind==="return")result=core.returnStock(data,ui.role,values.materialId,values.qty,values.reason);
+  if(kind==="payment")result=core.recordPayment(data,ui.role,id,values.amount);
+  if(["work","request","po","report"].includes(kind)){ui.screen="detail";ui.kind=kind;ui.id=result.id;}
+ },"Saved in fictional workspace.");
+});
+document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(ui.modal){ui.modal=null;render();}else if(ui.drawer){ui.drawer=false;render();}else if(ui.screen)back();}});
+render();
 })(constructionCore);
