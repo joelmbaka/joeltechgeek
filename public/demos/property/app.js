@@ -8,7 +8,7 @@ const tenantTabs=[["tenantRent","My rent","▤"],["tenantPayments","Payments","�
 const tabs=()=>ui.role==="manager"?managerTabs:tenantTabs;
 const menus=[["Collections & records",[["payments","Payments","◇"],["expenses","Expenses","▣"],["accounting","Accounting","▤"]]],["Operations",[["history","Invoice history","◷"]]]];
 const names={rent:"Rent overview",leases:"Leases",tenants:"Tenants",portfolio:"Properties",invoice:"Invoice",property:"Property details",unit:"Unit details",lease:"Lease details",tenant:"Tenant details",payments:"Payments",receipt:"Receipt",expenses:"Expenses",accounting:"Accounting",history:"Settled Invoices",tenantRent:"My rent",tenantPayments:"My payments",tenantLease:"My lease"};
-const ui={role:"manager",tenantId:"T-101",tab:"rent",screen:null,id:null,history:[],drawer:false,modal:null,notice:"",search:"",status:"all",month:"all",property:"all",tenant:"all",method:"all",expenseProperty:"all",accountProperty:"P-101"};
+const ui={role:"manager",tenantId:"T-101",tab:"rent",screen:null,id:null,history:[],drawer:false,modal:null,checkoutRequestId:null,notice:"",search:"",status:"all",month:"all",property:"all",tenant:"all",method:"all",expenseProperty:"all",accountProperty:"P-101"};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){ui.notice="Changes could not be saved."}};
 const authorized=(screen,id)=>{
  if(!names[screen])return false;
@@ -53,6 +53,14 @@ document.addEventListener("click",event=>{
  if(action==="open-payments"){open("payments");return;}
  if(action==="go-lease"){open("lease",id);return;}
  if(action==="go-invoice"){open("invoice",id);return;}
+ if(action==="open-tenant-lease"){open("lease",id);return;}
+ if(action==="pay-now"){
+  if(ui.role!=="tenant")return;
+  const i=data.invoices.find(i=>i.id===id&&i.tenantId===ui.tenantId);
+  if(!i||core.balance(i)<=0)return;
+  ui.checkoutRequestId="demo-checkout-"+data.seq+"-"+i.id;
+  ui.modal={type:"checkout",id:i.id};ui.notice="";render();return;
+ }
  if(action==="new-payment"){
   if(ui.role==="manager"&&data.invoices.some(i=>i.id===id&&core.balance(i)>0)){ui.modal={type:"payment",id};ui.notice="";render();}
   return;
@@ -74,7 +82,7 @@ document.addEventListener("change",event=>{
  if(id==="role-select"){
   if(value!=="manager"&&value!=="tenant")return;
   ui.role=value;ui.tab=value==="manager"?"rent":"tenantRent";
-  ui.screen=null;ui.id=null;ui.history=[];ui.drawer=false;ui.modal=null;ui.notice="";ui.search="";
+  ui.screen=null;ui.id=null;ui.history=[];ui.drawer=false;ui.modal=null;ui.checkoutRequestId=null;ui.notice="";ui.search="";
   render();return;
  }
  if(id==="status-filter"&&ui.role==="manager")ui.status=value;
@@ -95,17 +103,24 @@ document.addEventListener("input",event=>{
 document.addEventListener("submit",event=>{
  const f=event.target;if(f.id!=="property-form"||!root.contains(f))return;
  event.preventDefault();const {type,id}=f.dataset;
- if(ui.role!=="manager"||!ui.modal||ui.modal.type!==type||String(ui.modal.id||"")!==id)return;
+ if(!ui.modal||ui.modal.type!==type||String(ui.modal.id||"")!==id)return;
+ if((ui.role==="tenant"&&type!=="checkout")||(ui.role==="manager"&&type==="checkout"))return;
  const vals=Object.fromEntries(new FormData(f).entries());
  perform(()=>{
   let output;
   if(type==="payment")output=core.settle(data,id,vals);
+  else if(type==="checkout")output=core.payNow(data,ui.tenantId,id,{...vals,requestId:ui.checkoutRequestId});
   else if(type==="lease")output=core.createLease(data,vals);
   else if(type==="expense")output=core.addExpense(data,vals);
   else throw new Error("Unknown form.");
-  if(type==="payment"||type==="lease"){ui.history.push([ui.screen,ui.id]);ui.screen=type==="payment"?"receipt":"lease";ui.id=type==="payment"?output.id:output.lease.id;}
+  if(type==="payment"||type==="checkout"||type==="lease"){
+   ui.history.push([ui.screen,ui.id]);
+   ui.screen=type==="lease"?"lease":"receipt";
+   ui.id=type==="lease"?output.lease.id:output.id;
+   ui.checkoutRequestId=null;
+  }
  });
 });
-document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(ui.modal){ui.modal=null;render()}else if(ui.drawer){ui.drawer=false;render()}else if(ui.screen)back();}});
+document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(ui.modal){ui.modal=null;ui.checkoutRequestId=null;render()}else if(ui.drawer){ui.drawer=false;render()}else if(ui.screen)back();}});
 render();
 })(rentalCore,rentalViews);

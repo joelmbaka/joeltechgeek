@@ -214,3 +214,13 @@ h1,h2,h3,p{margin:0}
 .tenant-stats small{color:var(--muted);font-size:10px;font-weight:800}
 .tenant-stats b{color:var(--palm-green-dark);font-size:20px}
 @media(max-width:360px){.role-select{width:138px;font-size:9px}.app-title b{font-size:12px}.app-title small{font-size:9px}}
+
+/* Tenant invoice quick checkout and immutable demo tenant assignment. */
+.tenant-invoice-entry{margin-bottom:15px}
+.tenant-invoice-entry .invoice-card{margin-bottom:6px}
+.btn.tenant-pay-shortcut{width:100%;min-height:40px;margin:0}
+.fixed-tenant{display:flex;flex-direction:column;gap:4px;border:1px solid #bce1cf;
+ background:#e8f7ed;padding:13px 14px;border-radius:11px}
+.fixed-tenant small{color:#537969;font-size:10px;font-weight:850}
+.fixed-tenant strong{color:var(--palm-green-dark);font-size:14px}
+.fixed-tenant span{font-size:11px;color:#66877a}
