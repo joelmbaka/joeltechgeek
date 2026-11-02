@@ -4,7 +4,7 @@ Source page: `/careers/agents`. Next.js route: `POST /api/sales-agent-applicatio
 
 ## Deployment prerequisites
 
-1. Run `supabase/sales-agent-applications.sql` against the **portfolio** PostgreSQL database referenced by `DATABASE_URL`. Do not apply it to RentPayor's database. Database changes are deliberately **not** executed automatically.
+1. Run `migrations/sales-agent-applications.sql` against the **portfolio** PostgreSQL database referenced by `DATABASE_URL`. Do not apply it to RentPayor's database. Database changes are deliberately **not** executed automatically.
 2. Set the server-only `DATABASE_URL` in Vercel (already used by the private job CRM if configured).
 3. Set the existing server-only `RESEND_API_KEY` and a domain-verified `RESEND_FROM` sender in Vercel. Do not use the expired joelmbaka.com sender domain. You may override the internal recipient using `AGENT_APPLICATION_NOTIFY_TO`; otherwise the current contact inbox is used.
 4. Recommended: configure a separate random server-only `AGENT_APPLICATION_HASH_SECRET` for HMAC rate-limit identifiers; until set, the server uses the existing database connection secret as the HMAC key. Never use a NEXT_PUBLIC_ variable for these secrets.
@@ -14,7 +14,7 @@ No additional Python service is required. Each new application is saved to Postg
 
 Owner email delivery is recorded in `notification_status`, `notification_provider_id`, `notification_error`. Applicant email delivery is recorded separately in `applicant_notification_status`, `applicant_notification_provider_id`, `applicant_notification_error`. Failures do **not** discard applications; one failed email does not block the other. `sent` indicates Resend accepted the request, **not** guaranteed inbox delivery. Duplicate emails are not sent again. Each applicant remains `status = 'new'` until reviewed.
 
-**Existing database:** Run `supabase/2026-10-22-agent-applicant-notification.sql` once on the Portfolio database before deploying the new code. It defaults historical applicants to `not_sent` without sending old applicants any message. The receipt email applies to new registrations only. Fresh installs from `supabase/sales-agent-applications.sql` already have these columns.
+**Existing database:** Run `migrations/2026-10-22-agent-applicant-notification.sql` once on the Portfolio database before deploying the new code. It defaults historical applicants to `not_sent` without sending old applicants any message. The receipt email applies to new registrations only. Fresh installs from `migrations/sales-agent-applications.sql` already have these columns.
 
 ## Useful verification queries
 

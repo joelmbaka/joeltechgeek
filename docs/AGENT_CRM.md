@@ -82,7 +82,7 @@ ON CONFLICT DO NOTHING;
 - For local development: `http://localhost:3002/api/auth/callback/google`.
 - Only the registered Google account can create a session; sessions last up to 30 days with normal Auth.js rotation.
 - If a user signs in using an unregistered email, Auth.js returns to `/crm?error=AccessDenied`.
-- The existing public website Supabase code is outside this CRM change and was deliberately left alone.
+- Legacy Supabase authentication UI has been retired. The agent CRM uses Auth.js (Google) and the Portfolio Neon database; historical sales-agent SQL lives under migrations/.
 - Recheck with `npm ci`, `npx tsc --noEmit`, scoped ESLint, and `npm run build` before deployment.
 
 ## Industry dropdown
