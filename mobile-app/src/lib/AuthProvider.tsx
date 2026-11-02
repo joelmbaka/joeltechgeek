@@ -2,12 +2,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { getAgent, restoreSession, signOutSession, startGoogleSignIn, subscribeSession } from './session';
-import { cancelAgentReminders, notificationLeadId, reconcileReminders } from './notifications';
+import { cancelAgentReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
 import type { Agent } from './types';
 
 type AuthContextValue = {
   ready: boolean; agent: Agent | null; login: () => Promise<void>; logout: () => Promise<void>;
-  retry: () => Promise<void>; error: string | null;
+  error: string | null;
 };
 const Context = createContext<AuthContextValue | null>(null);
 
@@ -29,7 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     if (!agent) return;
-    void reconcileReminders(agent).catch(() => {});
+    void requestReminderPermissions().then((enabled) => {
+      if (enabled) return reconcileReminders(agent);
+    }).catch(() => {});
     const tapped = Notifications.addNotificationResponseReceivedListener((event) => {
       const data = event.notification.request.content.data;
       if (data?.crm_agent_id !== agent.id) return;
@@ -52,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const login = async () => { setError(null); try { await startGoogleSignIn(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Google sign-in failed.'); } };
-  return <Context.Provider value={{ ready, agent, error, login, logout, retry: restore }}>
+  return <Context.Provider value={{ ready, agent, error, login, logout }}>
     {children}
   </Context.Provider>;
 }

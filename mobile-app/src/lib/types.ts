@@ -1,4 +1,4 @@
-export type Agent = { id: string; name: string; email: string };
+export type Agent = { id: string; name: string; email: string; phone?: string | null };
 export type Lead = {
   id: string; company_name: string; industry: string; country: string;
   city: string | null; website: string | null; contact_name: string | null;
