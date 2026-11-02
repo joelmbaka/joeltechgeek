@@ -3,9 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from 'next-themes';
-import { Navbar } from '../components/Navbar';
-import { NavigationLoader } from '../components/NavigationLoader';
-import { Footer } from '../components/Footer';
+import { SiteChrome } from '../components/SiteChrome';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
@@ -93,12 +91,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <NavigationLoader />
-            <div className="flex-1">{children}</div>
-            <Footer />
-          </div>
+          <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>
         <Analytics />
         <SpeedInsights />
