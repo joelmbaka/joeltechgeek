@@ -7,6 +7,7 @@ const TOKEN_LIFETIME_SECONDS = 15 * 60;
 
 export const randomToken = () => randomBytes(32).toString('base64url');
 export const digestToken = (value: string) => createHash('sha256').update(value).digest('hex');
+export const pkceChallenge = (value: string) => createHash('sha256').update(value).digest('base64url');
 
 function signingKey(): string {
   const secret = process.env.AUTH_SECRET;
