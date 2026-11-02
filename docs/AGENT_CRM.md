@@ -4,7 +4,7 @@
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).
 - Mobile-first web workspace. No admin UI, separate call log, or industry tables. Agents can add leads using a modal.
 - Google-only sign-in using self-hosted Auth.js v5 (NextAuth) inside Next.js; no Supabase involvement in CRM.
-- Portfolio Neon PostgreSQL holds the registered agent allowlist and assigned leads.
+- JoelTechGeek Neon PostgreSQL holds the registered agent allowlist and assigned leads.
 - The legacy /crm job-hunting UI and /api/crm job endpoints are removed. Existing job data tables are intentionally NOT dropped by this change.
 
 ## Before deployment
@@ -34,7 +34,7 @@
 
 ## AI-assisted lead assignment (no admin UI)
 Never bulk-load an agent's leads before verifying their registration and contact sources.
-Use the Neon connector with the Portfolio project and an explicit agent email.
+Use the Neon connector with the JoelTechGeek project and an explicit agent email.
 Example parameterized SQL pattern (replace values with researched leads, not fabricated records):
 
 WITH agent AS (
@@ -76,7 +76,7 @@ ON CONFLICT DO NOTHING;
 - `AUTH_GOOGLE_ID`: Google's OAuth Web client ID.
 - `AUTH_GOOGLE_SECRET`: Google OAuth Web client secret (server-only).
 - `AUTH_SECRET`: `openssl rand -base64 32` (server-only; stable across deployments).
-- `DATABASE_URL`: Portfolio Neon connection string (server-only).
+- `DATABASE_URL`: JoelTechGeek Neon connection string (server-only).
 - Optional `AUTH_URL`: `https://joeltechgeek.com` when the deployment does not infer the public URL correctly.
 - Google callback: `https://joeltechgeek.com/api/auth/callback/google`.
 - For local development: `http://localhost:3002/api/auth/callback/google`.
