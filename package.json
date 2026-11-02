@@ -16,7 +16,8 @@
     "test:school-demo": "node --test tests/school-demo.test.cjs",
     "test:cargo-demo": "node --test tests/cargo-demo.test.cjs",
     "test:security-demo": "node --test tests/security-demo.test.cjs",
-    "test:fire-safety-demo": "node --test tests/fire-safety-demo.test.cjs"
+    "test:fire-safety-demo": "node --test tests/fire-safety-demo.test.cjs",
+    "test:play-review": "node --test tests/play-review-gate.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
