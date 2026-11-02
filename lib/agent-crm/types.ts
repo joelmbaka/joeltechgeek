@@ -87,7 +87,10 @@ export type Lead = {
   last_outcome: string | null; // Includes legacy outcome labels in historical leads.
   last_notes: string | null;
   next_action: string | null;
-  next_action_at: string | null; // YYYY-MM-DD in Africa/Nairobi
+  next_action_at: string | null; // YYYY-MM-DD, optional time
+  next_action_time: string | null; // HH:MM:SS when set
+  next_action_timezone: string | null; // IANA timezone
+  next_action_due_at: string | null; // ISO UTC instant for mobile scheduling
   last_contacted_at: string | null;
   do_not_contact: boolean;
   updated_at: string;
@@ -95,12 +98,14 @@ export type Lead = {
 
 export type LeadUpdate = {
   id: string;
-  event_type: 'outreach' | 'action_completed';
+  event_type: 'outreach' | 'action_completed' | 'followup_updated';
   outcome: string | null;
   action: string | null;
   notes: string | null;
   next_action: string | null;
   next_action_at: string | null;
+  next_action_time: string | null;
+  next_action_timezone: string | null;
   created_at: string;
 };
 

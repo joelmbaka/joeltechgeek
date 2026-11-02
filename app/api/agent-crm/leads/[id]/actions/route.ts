@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import type { Lead } from '@/lib/agent-crm/types';
+import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,22 +42,15 @@ export async function POST(request: Request, { params }: Params) {
 
   const notes = body.notes ?? '';
   const nextAction = body.next_action ?? '';
-  const nextDate = body.next_action_at ?? null;
+  const parsed = parseFollowupSchedule(body);
+  if (!parsed.ok) return fail(parsed.error, 400);
+  const schedule = parsed.value;
   if (typeof notes !== 'string' || notes.length > 2500 ||
       typeof nextAction !== 'string' || nextAction.length > 300) {
     return fail('Check the notes and next action.', 400);
   }
-  if (nextDate !== null && nextDate !== '' && (
-    typeof nextDate !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(nextDate) ||
-    Number.isNaN(Date.parse(nextDate)) ||
-    new Date(nextDate).toISOString().slice(0, 10) !== nextDate
-  )) {
-    return fail('Choose a valid follow-up date.', 400);
-  }
   const action = nextAction.trim() || null;
-  const date = typeof nextDate === 'string' && nextDate ? nextDate : null;
-  if (date && !action) return fail('A follow-up date needs a next action.', 400);
+  if (schedule.next_action_at && !action) return fail('A follow-up date needs a next action.', 400);
 
   let client: PoolClient | undefined;
   try {
@@ -84,15 +78,22 @@ export async function POST(request: Request, { params }: Params) {
     // This records completion of a task, not a new telephone call.
     await client.query(
       `INSERT INTO public.crm_lead_events
-         (lead_id, agent_id, event_type, action, notes, next_action, next_action_at)
-       VALUES ($1, $2, 'action_completed', $3, $4, $5, $6::date)`,
-      [id, access.agent.id, lead.next_action, notes.trim() || null, action, date],
+         (lead_id, agent_id, event_type, action, notes, next_action, next_action_at,
+        next_action_time, next_action_timezone, next_action_due_at)
+       VALUES ($1, $2, 'action_completed', $3, $4, $5, $6::date,
+         $7::time, $8, ${followupDueAtSQL(6, 7, 8)})`,
+      [id, access.agent.id, lead.next_action, notes.trim() || null, action,
+        schedule.next_action_at, schedule.next_action_time, schedule.next_action_timezone],
     );
     await client.query(
       `UPDATE public.crm_leads
-       SET next_action = $3, next_action_at = $4::date, updated_at = now()
+       SET next_action = $3, next_action_at = $4::date,
+           next_action_time = $5::time, next_action_timezone = $6,
+           next_action_due_at = ${followupDueAtSQL(4, 5, 6)},
+           updated_at = now()
        WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, action, date],
+      [id, access.agent.id, action, schedule.next_action_at,
+        schedule.next_action_time, schedule.next_action_timezone],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',

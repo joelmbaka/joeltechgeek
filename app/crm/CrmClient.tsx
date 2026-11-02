@@ -27,6 +27,7 @@ type FormValues = {
   notes: string;
   next_action: string;
   next_action_at: string;
+  next_action_time: string;
   stage: string;
   do_not_contact: boolean;
 };
@@ -40,11 +41,14 @@ const emptyStats: LeadStats = {
 };
 const priorityRank: Record<Lead['priority'], number> = { high: 0, normal: 1, low: 2 };
 const label = (str: string) => str.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-function today() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(new Date());
+function todayInZone(timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const part = (kind: string) => parts.find((value) => value.type === kind)?.value || '';
+  return part('year') + '-' + part('month') + '-' + part('day');
 }
+function today() { return todayInZone('Africa/Nairobi'); }
 function dateLabel(str: string | null | undefined) {
   if (!str) return '';
   const date = new Date(str.slice(0, 10) + 'T12:00:00+03:00');
@@ -65,8 +69,25 @@ function isToCall(lead: Lead) {
       (!lead.next_action_at && ['number_unavailable','no_answer','busy','switched_off','wrong_number'].includes(lead.last_outcome || '')));
 }
 function isDue(lead: Lead) {
-  return Boolean(!lead.do_not_contact && !['won', 'lost'].includes(lead.stage)
-    && lead.next_action_at && lead.next_action_at <= today());
+  if (lead.do_not_contact || ['won', 'lost'].includes(lead.stage) || !lead.next_action_at)
+    return false;
+  if (lead.next_action_due_at) return Date.parse(lead.next_action_due_at) <= Date.now();
+  const zone = lead.next_action_timezone || 'Africa/Nairobi';
+  try {
+    return lead.next_action_at <= todayInZone(zone);
+  } catch { return lead.next_action_at <= today(); }
+}
+function followupLabel(date: string | null | undefined, time?: string | null, zone?: string | null) {
+  if (!date) return 'No date scheduled';
+  if (!time) return dateLabel(date) + ' · Time not set';
+  const parts = time.slice(0, 5).split(':').map(Number);
+  const clock = new Date(2026, 0, 1, parts[0], parts[1]).toLocaleTimeString('en-KE', {
+    hour: 'numeric', minute: '2-digit',
+  });
+  return dateLabel(date) + ' at ' + clock + (zone ? ' (' + zone + ')' : '');
+}
+function browserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
 }
 function isInterested(lead: Lead) {
   return ['interested','meeting','proposal','negotiation'].includes(lead.stage);
@@ -143,7 +164,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
         <p className={'mt-2 flex items-center gap-1 text-xs font-medium ' +
           (isDue(lead) ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500')}>
           <CalendarDays className="h-3.5 w-3.5" />
-          {isDue(lead) ? 'Due: ' : 'Follow-up: '}{dateLabel(lead.next_action_at)}
+          {isDue(lead) ? 'Due: ' : 'Follow-up: '}{followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
         </p>
       )}
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
@@ -172,15 +193,28 @@ function LeadDialog({ lead, onClose, onSaved }: {
 }) {
   const [form, setForm] = useState<FormValues>({
     outcome: '', notes: '', next_action: lead.next_action || '',
-    next_action_at: lead.next_action_at || '', stage: '', do_not_contact: false,
+    next_action_at: lead.next_action_at || '',
+    next_action_time: lead.next_action_time?.slice(0, 5) || '',
+    stage: '', do_not_contact: false,
   });
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [planFromCall, setPlanFromCall] = useState(false);
+
+  const [editingFollowup, setEditingFollowup] = useState(false);
+  const [followupAction, setFollowupAction] = useState(lead.next_action || '');
+  const [followupDate, setFollowupDate] = useState(lead.next_action_at || '');
+  const [followupTime, setFollowupTime] = useState(lead.next_action_time?.slice(0, 5) || '');
+  const [savingFollowup, setSavingFollowup] = useState(false);
+  const [followupError, setFollowupError] = useState('');
+
+  const [showComplete, setShowComplete] = useState(false);
   const [completedNotes, setCompletedNotes] = useState('');
   const [completedNextAction, setCompletedNextAction] = useState('');
   const [completedNextDate, setCompletedNextDate] = useState('');
+  const [completedNextTime, setCompletedNextTime] = useState('');
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
 
@@ -193,20 +227,35 @@ function LeadDialog({ lead, onClose, onSaved }: {
     return () => { active = false; };
   }, [lead.id]);
   useEffect(() => {
-    function escape(event: KeyboardEvent) { if (event.key === 'Escape') onClose(); }
+    function escape(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !(saving || savingFollowup || completing)) onClose();
+    }
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
-  }, [onClose]);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  }, [onClose, saving, savingFollowup, completing]);
+
+  async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.outcome || saving) return;
+    if (planFromCall && form.next_action_time && !form.next_action_at) {
+      setError('Choose a date before selecting a time.'); return;
+    }
+    if (planFromCall && form.next_action_at && !form.next_action.trim() && !form.do_not_contact) {
+      setError('Enter a next action for this date.'); return;
+    }
     setSaving(true); setError('');
     try {
       await api('/api/agent-crm/leads/' + lead.id, 'PATCH', {
         outcome: form.outcome,
         notes: form.notes,
-        next_action: form.do_not_contact ? '' : form.next_action,
-        next_action_at: form.do_not_contact ? null : form.next_action_at || null,
+        next_action: form.do_not_contact ? '' : planFromCall ? form.next_action : lead.next_action || '',
+        next_action_at: form.do_not_contact ? null
+          : planFromCall ? form.next_action_at || null : lead.next_action_at || null,
+        next_action_time: form.do_not_contact ? null
+          : planFromCall ? form.next_action_time || null : lead.next_action_time?.slice(0, 5) || null,
+        next_action_timezone: form.do_not_contact ? null
+          : planFromCall && form.next_action_at ? browserTimezone()
+            : lead.next_action_at ? lead.next_action_timezone || browserTimezone() : null,
         ...(form.stage ? { stage: form.stage } : {}),
         do_not_contact: form.do_not_contact,
       });
@@ -215,30 +264,67 @@ function LeadDialog({ lead, onClose, onSaved }: {
     } catch (err) { setError(errText(err)); }
     finally { setSaving(false); }
   }
+
+  async function saveFollowup(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (savingFollowup) return;
+    if (followupDate && !followupAction.trim()) {
+      setFollowupError('Enter an action to schedule this follow-up.'); return;
+    }
+    if (followupTime && !followupDate) {
+      setFollowupError('Choose a follow-up date before entering a time.'); return;
+    }
+    setSavingFollowup(true); setFollowupError('');
+    try {
+      await api('/api/agent-crm/leads/' + lead.id + '/followup', 'PATCH', {
+        next_action: followupAction,
+        next_action_at: followupDate || null,
+        next_action_time: followupTime || null,
+        next_action_timezone: followupDate ? browserTimezone() : null,
+      });
+      await onSaved();
+      onClose();
+    } catch (err) { setFollowupError(errText(err)); }
+    finally { setSavingFollowup(false); }
+  }
+
   async function completeAction(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!lead.next_action || completing) return;
+    if (completedNextDate && !completedNextAction.trim()) {
+      setCompleteError('Enter the next action for that follow-up date.'); return;
+    }
+    if (completedNextTime && !completedNextDate) {
+      setCompleteError('Choose a date before selecting a time.'); return;
+    }
     setCompleting(true); setCompleteError('');
     try {
       await api('/api/agent-crm/leads/' + lead.id + '/actions', 'POST', {
         notes: completedNotes,
         next_action: completedNextAction,
         next_action_at: completedNextDate || null,
+        next_action_time: completedNextTime || null,
+        next_action_timezone: completedNextDate ? browserTimezone() : null,
       });
       await onSaved();
       onClose();
     } catch (err) { setCompleteError(errText(err)); }
     finally { setCompleting(false); }
   }
+
   const input = 'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
+  const lastCompleted = history.find((item) => item.event_type === 'action_completed');
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 sm:items-center sm:p-5"
-      role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 sm:items-center sm:p-5"
+      role="presentation" onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !(saving || savingFollowup || completing)) onClose();
+      }}>
       <section role="dialog" aria-modal="true" aria-labelledby="lead-title"
         className="max-h-[96dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl dark:bg-slate-950 sm:max-h-[90dvh] sm:rounded-2xl sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase text-emerald-700">{lead.industry}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{lead.industry}</p>
             <h2 id="lead-title" className="mt-1 text-xl font-bold">{lead.company_name}</h2>
             <p className="mt-1 text-xs text-slate-500">{lead.contact_name || 'Contact not identified'}
               {lead.phone ? ' · ' + lead.phone : ''}</p>
@@ -246,127 +332,257 @@ function LeadDialog({ lead, onClose, onSaved }: {
           <button type="button" onClick={onClose} aria-label="Close lead"
             className="rounded-xl border border-slate-200 p-2 dark:border-slate-700"><X className="h-5 w-5" /></button>
         </div>
-        {lead.problem_summary && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 dark:bg-slate-900 dark:text-slate-300">{lead.problem_summary}</p>}
-        {lead.qualification_reason && <p className="mt-2 text-xs text-slate-500">Why qualified: {lead.qualification_reason}</p>}
-        {lead.next_action && !lead.do_not_contact && (
-          <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-800/50 dark:bg-emerald-950/30">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-900 dark:text-emerald-200">
-              <Check className="h-4 w-4" /> Current next action
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">{lead.next_action}</p>
-            {lead.next_action_at && (
-              <p className="mt-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                Follow up: {dateLabel(lead.next_action_at)}
-              </p>
-            )}
-            <form onSubmit={completeAction} className="mt-4 space-y-3 border-t border-emerald-200 pt-4 dark:border-emerald-800/50">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Complete this task without recording another call. You can set the next action and follow-up date.
-              </p>
-              <label className="block text-xs font-semibold">
-                Completion notes
-                <textarea rows={2} maxLength={2500} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                  placeholder="e.g. Demo sent via WhatsApp"
-                  value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} />
-              </label>
-              <label className="block text-xs font-semibold">
-                Next action (optional)
-                <input maxLength={300} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                  value={completedNextAction} onChange={(e) => setCompletedNextAction(e.target.value)}
-                  placeholder="Follow up on the demo, call about the email..." />
-              </label>
-              <label className="block text-xs font-semibold">
-                Next follow-up date (optional)
-                <input type="date" className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                  value={completedNextDate} onChange={(e) => setCompletedNextDate(e.target.value)} />
-              </label>
-              {completeError && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{completeError}</p>}
-              <button type="submit" disabled={completing || saving || Boolean(completedNextDate && !completedNextAction.trim())}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50 dark:bg-emerald-700 dark:hover:bg-emerald-600">
-                <Check className="h-4 w-4" /> {completing ? 'Saving...' : 'Mark action completed'}
-              </button>
-            </form>
-          </section>
+
+        {lead.problem_summary && (
+          <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 dark:bg-slate-900 dark:text-slate-300">{lead.problem_summary}</p>
         )}
+        {lead.qualification_reason && (
+          <p className="mt-2 text-xs text-slate-500">Why qualified: {lead.qualification_reason}</p>
+        )}
+        {!historyLoading && lastCompleted && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/40">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+            <div>
+              <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Completed: {lastCompleted.action || 'Follow-up action'}
+              </p>
+              <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
+                {timeLabel(lastCompleted.created_at)}
+                {lastCompleted.notes ? ' · ' + lastCompleted.notes : ''}
+              </p>
+            </div>
+          </div>
+        )}
+
         {lead.do_not_contact ? (
           <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-200">
             Do Not Contact: this lead is now read-only.
           </p>
         ) : (
-          <form onSubmit={submit} className="mt-5 space-y-4">
-            <label className="block text-sm font-semibold">
-              Call outcome <span className="text-rose-600">*</span>
-              <select required className={input} value={form.outcome}
-                onChange={(e) => setForm((x) => ({...x, outcome:e.target.value}))}>
-                <option value="">Choose outcome</option>
-                {CALL_OUTCOMES.map((value) =>
-                  <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>)}
-              </select>
-            </label>
-            <label className="block text-sm font-semibold">
-              Conversation notes
-              <textarea className={input + ' min-h-24 resize-y'} rows={3}
-                maxLength={2500} placeholder="What did the prospect say?"
-                value={form.notes} onChange={(e) => setForm((x) => ({...x,notes:e.target.value}))} />
-            </label>
-            <label className="block text-sm font-semibold">
-              Next action
-              <input className={input} maxLength={300} disabled={form.do_not_contact}
-                placeholder="Call back, send demo, request a meeting..."
-                value={form.next_action}
-                onChange={(e) => setForm((x) => ({...x,next_action:e.target.value}))} />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-semibold">
-                Follow-up date
-                <input type="date" className={input} disabled={form.do_not_contact}
-                  value={form.next_action_at}
-                  onChange={(e) => setForm((x) => ({...x,next_action_at:e.target.value}))} />
-              </label>
-              <label className="block text-sm font-semibold">
-                Lead stage <span className="font-normal text-slate-500">(optional)</span>
-                <select className={input} disabled={form.do_not_contact} value={form.stage}
-                  onChange={(e) => setForm((x) => ({...x,stage:e.target.value}))}>
-                  <option value="">Automatic from outcome</option>
-                  {stages.map((stage) => <option key={stage} value={stage}>{label(stage)}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
-              <input type="checkbox" className="mt-1 h-4 w-4 accent-rose-700"
-                checked={form.do_not_contact}
-                onChange={(e) => setForm((x) => ({...x,do_not_contact:e.target.checked}))} />
-              <span><strong>Do not contact again</strong>
-                <span className="block text-xs text-slate-500">Use if the prospect opts out. Future calls will be blocked.</span>
-              </span>
-            </label>
-            {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-            <button type="submit" disabled={!form.outcome || saving}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-              <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save call outcome'}
-            </button>
-          </form>
-        )}
-        <div className="mt-7 border-t border-slate-200 pt-5 dark:border-slate-800">
-          <h3 className="text-sm font-semibold">Activity history</h3>
-          {historyLoading ? <p className="mt-2 text-sm text-slate-500">Loading history...</p>
-            : history.length === 0 ? <p className="mt-2 text-sm text-slate-500">No previous updates.</p>
-            : <div className="mt-3 space-y-2">
-                {history.map((h) => (
-                  <div key={h.id} className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-900">
-                    <div className="flex items-center justify-between gap-3">
-                      <strong>{h.event_type === 'action_completed'
-  ? 'Action completed: ' + (h.action || 'Task')
-  : h.outcome ? callOutcomeLabel(h.outcome) : 'Outreach'}</strong>
-                      <span className="text-slate-500">{timeLabel(h.created_at)}</span>
-                    </div>
-                    {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
-                    {h.next_action && <p className="mt-1 text-slate-500">Next: {h.next_action}
-                      {h.next_action_at ? ' · ' + dateLabel(h.next_action_at) : ''}</p>}
+          <>
+            {/* Scheduling is not another phone call. */}
+            <section className="mt-6 rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-800/50 dark:bg-sky-950/20">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-sky-700 dark:text-sky-300">
+                    Follow-up schedule
+                  </p>
+                  <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-white">
+                    {lead.next_action || 'No action scheduled'}
+                  </h3>
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-sky-900 dark:text-sky-200">
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
+                  </p>
+                </div>
+                <button type="button" onClick={() => {
+                    setEditingFollowup((value) => !value);
+                    setShowComplete(false);
+                    setFollowupError('');
+                  }} aria-expanded={editingFollowup}
+                  className="min-h-10 rounded-xl border border-sky-300 bg-white px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                  {editingFollowup ? 'Cancel edit' : 'Edit follow-up'}
+                </button>
+              </div>
+              {editingFollowup && (
+                <form onSubmit={saveFollowup} className="mt-4 space-y-3 border-t border-sky-200 pt-4 dark:border-sky-800">
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Update the follow-up without logging a call or marking the action completed.
+                  </p>
+                  <label className="block text-sm font-semibold">
+                    Next action
+                    <input required={Boolean(followupDate)} className={input} maxLength={300}
+                      value={followupAction} onChange={(e) => setFollowupAction(e.target.value)}
+                      placeholder="Call to discuss the demo" />
+                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="block text-sm font-semibold">
+                      Follow-up date
+                      <input type="date" className={input} value={followupDate}
+                        onChange={(e) => { setFollowupDate(e.target.value); if (!e.target.value) setFollowupTime(''); }} />
+                    </label>
+                    <label className="block text-sm font-semibold">
+                      Time (optional)
+                      <input type="time" className={input} disabled={!followupDate}
+                        value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
+                    </label>
                   </div>
-                ))}
-              </div>}
-        </div>
+                  {followupTime && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}</p>}
+                  {followupError && <p role="alert" className="text-sm text-rose-700">{followupError}</p>}
+                  <button type="submit" disabled={savingFollowup || Boolean(followupDate && !followupAction.trim())}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
+                    <Check className="h-4 w-4" /> {savingFollowup ? 'Saving...' : 'Save follow-up'}
+                  </button>
+                </form>
+              )}
+              {lead.next_action && !editingFollowup && (
+                <div className="mt-4 border-t border-sky-200 pt-3 dark:border-sky-800">
+                  <button type="button" aria-expanded={showComplete}
+                    onClick={() => { setShowComplete((value) => !value); setCompleteError(''); }}
+                    className="text-xs font-semibold text-sky-800 underline-offset-4 hover:underline dark:text-sky-200">
+                    {showComplete ? 'Hide completion form' : 'Mark this action completed'}
+                  </button>
+                  {showComplete && (
+                    <form onSubmit={completeAction} className="mt-3 space-y-3 rounded-xl border border-sky-200 bg-white/90 p-3 dark:border-sky-800 dark:bg-slate-900">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        Record what you finished. This does not create a new call outcome.
+                      </p>
+                      <label className="block text-sm font-semibold">
+                        Completion notes
+                        <textarea rows={2} maxLength={2500} className={input}
+                          placeholder="What did you finish?"
+                          value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} />
+                      </label>
+                      <label className="block text-sm font-semibold">
+                        Next action (optional)
+                        <input className={input} maxLength={300}
+                          value={completedNextAction} onChange={(e) => setCompletedNextAction(e.target.value)}
+                          placeholder="Call to get feedback" />
+                      </label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-semibold">
+                          Next follow-up date
+                          <input type="date" className={input} value={completedNextDate}
+                            onChange={(e) => {
+                              setCompletedNextDate(e.target.value);
+                              if (!e.target.value) setCompletedNextTime('');
+                            }} />
+                        </label>
+                        <label className="block text-sm font-semibold">
+                          Time (optional)
+                          <input type="time" className={input} disabled={!completedNextDate}
+                            value={completedNextTime} onChange={(e) => setCompletedNextTime(e.target.value)} />
+                        </label>
+                      </div>
+                      {completeError && <p role="alert" className="text-sm text-rose-700">{completeError}</p>}
+                      <button type="submit" disabled={completing || Boolean(completedNextDate && !completedNextAction.trim())}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50">
+                        <Check className="h-4 w-4" />
+                        {completing ? 'Saving...' : 'Confirm action completed'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Logging outreach is independent from editing/completing reminders. */}
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/30">
+              <h3 className="text-base font-bold">Log a new call</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                Select what happened during your latest call. Use the schedule section above to edit an existing follow-up.
+              </p>
+              <form onSubmit={submitCall} className="mt-4 space-y-4">
+                <label className="block text-sm font-semibold">
+                  Call outcome <span className="text-rose-600">*</span>
+                  <select required className={input} value={form.outcome}
+                    onChange={(e) => setForm((x) => ({...x, outcome: e.target.value}))}>
+                    <option value="">Choose outcome</option>
+                    {CALL_OUTCOMES.map((value) => (
+                      <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm font-semibold">
+                  Conversation notes
+                  <textarea className={input + ' min-h-24 resize-y'} rows={3}
+                    maxLength={2500} placeholder="What did the prospect say?"
+                    value={form.notes}
+                    onChange={(e) => setForm((x) => ({...x, notes: e.target.value}))} />
+                </label>
+                <button type="button" aria-expanded={planFromCall}
+                  onClick={() => setPlanFromCall((value) => !value)}
+                  className="text-xs font-semibold text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300">
+                  {planFromCall ? 'Hide follow-up planning' : 'Plan a follow-up from this call (optional)'}
+                </button>
+                {planFromCall && (
+                  <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+                    <label className="block text-sm font-semibold">
+                      Next action
+                      <input className={input} maxLength={300} disabled={form.do_not_contact}
+                        value={form.next_action}
+                        onChange={(e) => setForm((x) => ({...x, next_action: e.target.value}))} />
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block text-sm font-semibold">
+                        Follow-up date
+                        <input type="date" className={input} disabled={form.do_not_contact}
+                          value={form.next_action_at}
+                          onChange={(e) => setForm((x) => ({
+                            ...x, next_action_at: e.target.value,
+                            next_action_time: e.target.value ? x.next_action_time : '',
+                          }))} />
+                      </label>
+                      <label className="block text-sm font-semibold">
+                        Time (optional)
+                        <input type="time" className={input}
+                          disabled={form.do_not_contact || !form.next_action_at}
+                          value={form.next_action_time}
+                          onChange={(e) => setForm((x) => ({...x, next_action_time: e.target.value}))} />
+                      </label>
+                    </div>
+                  </div>
+                )}
+                <label className="block text-sm font-semibold">
+                  Lead stage <span className="font-normal text-slate-500">(optional)</span>
+                  <select className={input} disabled={form.do_not_contact} value={form.stage}
+                    onChange={(e) => setForm((x) => ({...x, stage: e.target.value}))}>
+                    <option value="">Automatic from outcome</option>
+                    {stages.map((stage) => <option key={stage} value={stage}>{label(stage)}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+                  <input type="checkbox" className="mt-1 h-4 w-4 accent-rose-700"
+                    checked={form.do_not_contact}
+                    onChange={(e) => setForm((x) => ({...x, do_not_contact: e.target.checked}))} />
+                  <span><strong>Do not contact again</strong>
+                    <span className="block text-xs text-slate-500">
+                      Only use for opt-outs. Future outreach will be blocked.
+                    </span>
+                  </span>
+                </label>
+                {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+                <button type="submit" disabled={!form.outcome || saving}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
+                  <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save call outcome'}
+                </button>
+              </form>
+            </section>
+          </>
+        )}
+
+        <section className="mt-7 border-t border-slate-200 pt-5 dark:border-slate-800">
+          <h3 className="text-sm font-semibold">Activity history</h3>
+          {historyLoading ? (
+            <p className="mt-2 text-sm text-slate-500">Loading history...</p>
+          ) : history.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No previous updates.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {history.map((h) => (
+                <div key={h.id} className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-900">
+                  <div className="flex items-center justify-between gap-3">
+                    <strong>
+                      {h.event_type === 'action_completed'
+                        ? 'Completed: ' + (h.action || 'Task')
+                        : h.event_type === 'followup_updated'
+                          ? 'Follow-up changed'
+                          : h.outcome ? callOutcomeLabel(h.outcome) : 'Outreach'}
+                    </strong>
+                    <span className="text-slate-500">{timeLabel(h.created_at)}</span>
+                  </div>
+                  {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
+                  {h.next_action && (
+                    <p className="mt-2 text-slate-600 dark:text-slate-300">
+                      Next: {h.next_action}
+                      {h.next_action_at ? ' · ' + followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone) : ''}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </section>
     </div>
   );
@@ -454,8 +670,12 @@ export function CrmClient() {
     });
     if (sortBy === 'recommended') return matches; // Existing server ordering.
     const byCompany = (a: Lead, b: Lead) => a.company_name.localeCompare(b.company_name);
-    const byFollowup = (a: Lead, b: Lead) =>
-      (a.next_action_at ?? '9999-12-31').localeCompare(b.next_action_at ?? '9999-12-31');
+    const byFollowup = (a: Lead, b: Lead) => {
+      const byDate = (a.next_action_at ?? '9999-12-31')
+        .localeCompare(b.next_action_at ?? '9999-12-31');
+      return byDate ||
+        (a.next_action_time ?? '99:99').localeCompare(b.next_action_time ?? '99:99');
+    };
     matches.sort((a, b) => {
       switch (sortBy) {
         case 'follow_up': return byFollowup(a, b) || byCompany(a, b);

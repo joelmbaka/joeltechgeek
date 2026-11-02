@@ -103,3 +103,15 @@ ON CONFLICT DO NOTHING;
 - Every read and write remains scoped to the authenticated agent via `agent_id`. Leads marked Do Not Contact cannot be called or have outstanding actions marked completed.
 - BlazeShield's WhatsApp demo was confirmed sent by Joel on November 2, 2026. Its current outcome is Demo requested; sending the link was entered as a separate action completion event. No follow-up date was assumed.
 - Test both dropdowns, historical outcome labels, no-answer retry queues, initial outreach logging, action completion logging, agent isolation, do-not-contact restrictions, and missing/mismatched Origin handling.
+
+## Follow-up scheduling: date and optional time (November 2026)
+- Add Lead, Log Call, Complete Action, and the standalone Edit Follow-up form allow an optional time for a selected follow-up date.
+- Date-only follow-ups stay valid. Do **not** invent times for legacy or partially scheduled reminders.
+- For a dated follow-up, send the browser's IANA timezone. When a time is entered, persist `next_action_due_at` as a UTC `timestamptz` computed by PostgreSQL. A date-only follow-up has `next_action_due_at = NULL`, but retains its timezone for correct due-day handling.
+- `migrations/2026-11-02-agent-crm-followup-time.sql` creates three optional columns on `crm_leads` and `crm_lead_events`, plus an append-only `crm_followup_changes` table.
+- `PATCH /api/agent-crm/leads/[id]/followup` modifies the assigned agent's follow-up without logging a telephone call or changing the most recent call outcome; it writes an audit event with before/after values.
+- The lead modal shows: a dedicated follow-up schedule card, a collapsed action-completion form for finished tasks, and a separate new-call form. Call forms have optional, collapsed follow-up planning. A recent completed action appears at the top to clarify whether a demo has already been sent.
+- Agent ownership, same-origin write checks, and Do Not Contact protections remain enforced on each API.
+- Validate: add lead date-only; add lead with time; change date without a call outcome; time without date rejected; complete task and schedule the next task; preserve call history; verify timezone and due_at; no duplicate or cross-agent updates; opt-out blocked.
+- BlazeShield's WhatsApp demo send was previously recorded as action completed; its follow-up was set to Thursday **2026-11-05** with no invented time.
+- The Expo mobile app is a separate project and is untouched by this CRM-only change. Local/push notifications are not implemented in this change.

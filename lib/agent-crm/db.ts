@@ -25,5 +25,7 @@ export const LEAD_COLUMNS = String.raw`id, company_name, industry, country, city
   contact_name, contact_role, phone, email, existing_system,
   problem_summary, qualification_reason, source_url, priority,
   stage, COALESCE(last_outcome_v2, last_outcome) AS last_outcome, last_notes, next_action,
-  next_action_at::text AS next_action_at, last_contacted_at,
+  next_action_at::text AS next_action_at,
+  next_action_time::text AS next_action_time, next_action_timezone,
+  next_action_due_at, last_contacted_at,
   do_not_contact, updated_at`;

@@ -5,6 +5,7 @@ import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { isCrmIndustry } from '@/lib/agent-crm/industries';
+import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,9 +20,9 @@ export async function GET() {
       db.query<Lead>(
         'SELECT ' + LEAD_COLUMNS +
         ' FROM public.crm_leads WHERE agent_id = $1 ' +
-        "ORDER BY CASE WHEN next_action_at IS NOT NULL AND next_action_at <= ((now() AT TIME ZONE 'Africa/Nairobi')::date) THEN 0 " +
+        "ORDER BY CASE WHEN next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) THEN 0 " +
         'WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, ' +
-        'next_action_at ASC NULLS LAST, updated_at DESC LIMIT 1000',
+        'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC LIMIT 1000',
         [access.agent.id],
       ),
       db.query<LeadStats>(
@@ -31,7 +32,7 @@ export async function GET() {
                AND stage NOT IN ('won','lost')
            )::int AS to_call,
            count(*) FILTER (
-             WHERE next_action_at <= ((now() AT TIME ZONE 'Africa/Nairobi')::date) AND NOT do_not_contact
+             WHERE next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) AND NOT do_not_contact
                AND stage NOT IN ('won','lost')
            )::int AS followups_due,
            count(*) FILTER (
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
     phone: 40, email: 254, existing_system: 100,
     problem_summary: 2500, qualification_reason: 2500,
     source_url: 1000, priority: 12, stage: 24,
-    outcome: 32, notes: 2500, next_action: 300, next_action_at: 10,
+    outcome: 32, notes: 2500, next_action: 300, next_action_at: 10, next_action_time: 5, next_action_timezone: 64,
   } as const;
   const values: Record<keyof typeof limits, string> = {} as Record<keyof typeof limits, string>;
   for (const [name, limit] of Object.entries(limits)) {
@@ -144,14 +145,11 @@ export async function POST(request: Request) {
     values[key] = normalized;
   }
 
-  const dueDate = values.next_action_at || null;
-  if (dueDate && (
-    !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) ||
-    Number.isNaN(Date.parse(dueDate)) ||
-    new Date(dueDate).toISOString().slice(0, 10) !== dueDate
-  )) {
-    return badInput('Invalid follow-up date.');
-  }
+  const parsedSchedule = parseFollowupSchedule(values);
+  if (!parsedSchedule.ok) return badInput(parsedSchedule.error);
+  const schedule = parsedSchedule.value;
+  const dueDate = schedule.next_action_at;
+  if (dueDate && !values.next_action) return badInput('Enter a next action for this date.');
   const stage = outcome
     ? stageForOutcome(stageValue as LeadStage, outcome as CallOutcome)
     : stageValue;
@@ -167,7 +165,7 @@ export async function POST(request: Request) {
       'contact_name', 'contact_role', 'phone', 'email', 'existing_system',
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
-      'last_contacted_at',
+      'next_action_time', 'next_action_timezone', 'next_action_due_at', 'last_contacted_at',
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
@@ -178,12 +176,54 @@ export async function POST(request: Request) {
       nullIfEmpty(values.existing_system), nullIfEmpty(values.problem_summary),
       nullIfEmpty(values.qualification_reason), nullIfEmpty(values.source_url),
       priority, stage, outcome, nullIfEmpty(values.notes),
-      nullIfEmpty(values.next_action), dueDate, outcome ? new Date() : null,
+      nullIfEmpty(values.next_action), dueDate,
+      schedule.next_action_time, schedule.next_action_timezone, outcome ? new Date() : null,
     ];
 
+    const markers = params.map((_, index) => '
+    const id = inserted.rows[0].id;
+
+    if (outcome) {
+      await client.query(
+        `INSERT INTO public.crm_lead_events
+          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
+           next_action_time, next_action_timezone, next_action_due_at)
+          VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date, $7::time, $8,
+            ${followupDueAtSQL(6, 7, 8)})`,
+        [id, access.agent.id, outcome, nullIfEmpty(values.notes),
+          nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone],
+      );
+    }
+    const read = await client.query<Lead>(
+      'SELECT ' + LEAD_COLUMNS +
+      ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
+      [id, access.agent.id],
+    );
+    await client.query('COMMIT');
+
+    return NextResponse.json(
+      { ok: true, lead: read.rows[0] },
+      { status: 201, headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  } catch (error) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch { /* connection unavailable */ }
+    }
+    if ((error as { code?: string }).code === '23505') {
+      return badInput('A lead with this company and industry already exists in your CRM.', 409);
+    }
+    return crmError(error);
+  } finally {
+    client?.release();
+  }
+}
+ + (index + 1));
+    // Parameter 23 is last_contacted_at. The UTC due instant is computed
+    // from the date/time/timezone in parameters 20-22.
+    markers.splice(22, 0, followupDueAtSQL(20, 21, 22));
     const inserted = await client.query<{ id: string }>(
       'INSERT INTO public.crm_leads (' + columns.join(', ') + ') VALUES (' +
-      params.map((_, index) => '$' + (index + 1)).join(', ') + ') RETURNING id::text AS id',
+      markers.join(', ') + ') RETURNING id::text AS id',
       params,
     );
     const id = inserted.rows[0].id;

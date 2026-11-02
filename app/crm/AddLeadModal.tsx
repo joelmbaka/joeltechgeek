@@ -25,6 +25,7 @@ type FormState = {
   notes: string;
   next_action: string;
   next_action_at: string;
+  next_action_time: string;
 };
 
 const defaults: FormState = {
@@ -32,7 +33,7 @@ const defaults: FormState = {
   contact_name: '', contact_role: '', phone: '', email: '', website: '',
   existing_system: '', problem_summary: '', qualification_reason: '',
   source_url: '', priority: 'normal', stage: 'new', outcome: '',
-  notes: '', next_action: '', next_action_at: '',
+  notes: '', next_action: '', next_action_at: '', next_action_time: '',
 };
 
 const title = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());
@@ -69,6 +70,14 @@ export function AddLeadModal({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    if (form.next_action_at && !form.next_action.trim()) {
+      setError('Enter a next action for the follow-up date.');
+      return;
+    }
+    if (form.next_action_time && !form.next_action_at) {
+      setError('Choose a follow-up date before selecting a time.');
+      return;
+    }
     setSaving(true);
     setError('');
 
@@ -81,6 +90,10 @@ export function AddLeadModal({
           ...form,
           outcome: form.outcome || null,
           next_action_at: form.next_action_at || null,
+          next_action_time: form.next_action_time || null,
+          next_action_timezone: form.next_action_at
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi'
+            : null,
         }),
       });
       const data: { ok?: boolean; error?: string } = await response.json().catch(() => ({}));
@@ -245,7 +258,16 @@ export function AddLeadModal({
                 <label className={labelClass}>
                   Follow-up date
                   <input type="date" className={fieldClass} value={form.next_action_at}
-                    onChange={(event) => change('next_action_at', event.target.value)} />
+                    onChange={(event) => {
+                      change('next_action_at', event.target.value);
+                      if (!event.target.value) change('next_action_time', '');
+                    }} />
+                </label>
+                <label className={labelClass + ' sm:col-span-2'}>
+                  Follow-up time <span className="font-normal text-slate-500">(optional; your timezone)</span>
+                  <input type="time" className={fieldClass} disabled={!form.next_action_at}
+                    value={form.next_action_time}
+                    onChange={(event) => change('next_action_time', event.target.value)} />
                 </label>
               </div>
               <div className="mt-4 grid gap-4">
