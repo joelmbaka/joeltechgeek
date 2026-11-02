@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getCrmPool } from './db';
 import type { Agent } from './types';
+import { getActiveMobileAgent } from './mobile-auth';
 
 export type AgentAuth = { agent: Agent } | { response: NextResponse };
 
@@ -14,8 +15,21 @@ function deny(message: string, status: number): AgentAuth {
   };
 }
 
-export async function requireCrmAgent(): Promise<AgentAuth> {
+export function validCrmWriteOrigin(request: Request): boolean {
+  // Bearer tokens are not sent automatically by the browser. Authentication
+  // independently rejects invalid tokens, while cookies require same-origin.
+  if (request.headers.has('authorization')) return true;
+  const origin = request.headers.get('origin');
+  return origin !== null && origin === new URL(request.url).origin;
+}
+export async function requireCrmAgent(request?: Request): Promise<AgentAuth> {
   try {
+    const authorization = request?.headers.get('authorization');
+    if (authorization !== null && authorization !== undefined) {
+      if (!authorization.startsWith('Bearer ')) return deny('Invalid mobile access token.', 401);
+      const agent = await getActiveMobileAgent(authorization.slice(7));
+      return agent ? { agent } : deny('Mobile session expired or access revoked.', 401);
+    }
     const session = await auth();
     // Fail closed on absent or malformed sessions, including Auth.js error objects.
     const email = session?.user?.email?.trim().toLowerCase();
