@@ -18,6 +18,19 @@
 8. Test build: npm ci && npx tsc --noEmit && npx eslint . && npm run build.
 9. Deploy manually only after review; do not automatically merge the development branch.
 
+## Temporary Google Play review access (server-controlled)
+
+- The Android sign-in screen checks `GET /api/agent-crm/mobile/review` and shows **Review access** only when enabled.
+- Tapping the button calls `POST /api/agent-crm/mobile/review`; no Google login, OTP, browser cookie or client secret.
+- This is NOT Joel's real account. It is a synthetic **Joel (Play Review)** agent with fictional leads, normal mobile token sessions, and the same editable CRM screens. No production agent's leads are exposed.
+- Review agent email: `play-review@joeltechgeek.invalid` (not a real inbox, cannot sign in via Google).
+- Apply `migrations/2026-11-02-agent-crm-play-review-demo.sql` to JoelTechGeek Portfolio Neon `neondb`. It creates only the demo agent and sample leads; existing real accounts are unchanged.
+- Set **both** Vercel server environment variables `CRM_PLAY_REVIEW_ENABLED=true` and `CRM_PLAY_REVIEW_UNTIL=2027-01-01T00:00:00Z` (choose a sufficiently distant UTC date covering review). Both are required, otherwise review is hidden/denied.
+- The review option is controlled by the server and instantly disabled by setting `CRM_PLAY_REVIEW_ENABLED=false` and redeploying; all existing review bearer tokens and refresh tokens are also rejected on the next API request.
+- While enabled, anyone with the app can enter the synthetic workspace. This is intentional only for sample data; never point the endpoint at the real Joel agent.
+- In Play Console > App content > Sign-in details, explain: "Tap Review access on the sign-in screen; no username or password is needed. The workspace contains sample data." Keep access enabled through review and any necessary resubmission.
+- Once approved, switch off the server setting and optionally remove the UI/endpoints in a later release. Do not delete production contacts or the real Joel account.
+
 ## Eligibility and data protection
 - Auth.js validates the Google OAuth/OIDC identity and creates encrypted HTTP-only JWT cookies (30-day max age).
 - Google profile must have `email_verified = true` and be in the registration allowlist at sign-in time.
