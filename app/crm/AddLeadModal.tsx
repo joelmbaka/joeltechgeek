@@ -145,7 +145,7 @@ export function AddLeadModal({
                 Add new lead
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                This lead will be assigned to your account.
+                Every agent can add leads. This one will appear in your workspace.
               </p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export function AddLeadModal({
                 Industry <span className="text-rose-600">*</span>
                 <select required className={fieldClass} value={form.industry}
                   onChange={(event) => change('industry', event.target.value)}>
-                  <option value="">Choose an industry</option>
+                  <option value="">Choose from all industries</option>
                   {CRM_INDUSTRIES.map((industry) => (
                     <option key={industry} value={industry}>{industry}</option>
                   ))}

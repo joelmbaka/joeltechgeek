@@ -8,10 +8,12 @@ import {
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import type { Agent, Lead, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
+import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { AddLeadModal } from './AddLeadModal';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
 type Queue = 'all' | 'to_call' | 'due' | 'interested';
+type LeadSort = 'recommended' | 'follow_up' | 'priority' | 'company' | 'industry' | 'recent';
 type Response = {
   ok: boolean;
   agent: Agent;
@@ -43,6 +45,7 @@ const stages: LeadStage[] = [
 const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
+const priorityRank: Record<Lead['priority'], number> = { high: 0, normal: 1, low: 2 };
 const label = (str: string) => str.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 function today() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -323,6 +326,7 @@ export function CrmClient() {
   const [adding, setAdding] = useState(false);
   const [queue, setQueue] = useState<Queue>('all');
   const [industry, setIndustry] = useState('all');
+  const [sortBy, setSortBy] = useState<LeadSort>('recommended');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -371,16 +375,46 @@ export function CrmClient() {
   }
   const leads = data?.leads || [];
   const stats = data?.stats || emptyStats;
-  const industries = useMemo(() => Array.from(new Set(leads.map((x) => x.industry))).sort(), [leads]);
-  const filtered = useMemo(() => leads.filter((lead) => {
-    if (industry !== 'all' && lead.industry !== industry) return false;
-    if (queue === 'to_call' && !isToCall(lead)) return false;
-    if (queue === 'due' && !isDue(lead)) return false;
-    if (queue === 'interested' && !isInterested(lead)) return false;
-    const term = query.trim().toLowerCase();
-    return !term || [lead.company_name, lead.contact_name, lead.city,
-      lead.phone, lead.industry, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
-  }), [leads,industry,queue,query]);
+  // Show all supported industries, including those not yet represented in this
+  // agent's leads. Preserve labels from older manually seeded records too.
+  const industries = useMemo(
+    () => Array.from(new Set([...CRM_INDUSTRIES, ...leads.map((lead) => lead.industry)]))
+      .sort((a, b) => a.localeCompare(b)),
+    [leads],
+  );
+  const industryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const lead of leads) counts.set(lead.industry, (counts.get(lead.industry) ?? 0) + 1);
+    return counts;
+  }, [leads]);
+  const filtered = useMemo(() => {
+    const matches = leads.filter((lead) => {
+      if (industry !== 'all' && lead.industry !== industry) return false;
+      if (queue === 'to_call' && !isToCall(lead)) return false;
+      if (queue === 'due' && !isDue(lead)) return false;
+      if (queue === 'interested' && !isInterested(lead)) return false;
+      const term = query.trim().toLowerCase();
+      return !term || [lead.company_name, lead.contact_name, lead.city,
+        lead.phone, lead.industry, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
+    });
+    if (sortBy === 'recommended') return matches; // Existing server ordering.
+    const byCompany = (a: Lead, b: Lead) => a.company_name.localeCompare(b.company_name);
+    const byFollowup = (a: Lead, b: Lead) =>
+      (a.next_action_at ?? '9999-12-31').localeCompare(b.next_action_at ?? '9999-12-31');
+    matches.sort((a, b) => {
+      switch (sortBy) {
+        case 'follow_up': return byFollowup(a, b) || byCompany(a, b);
+        case 'priority':
+          return priorityRank[a.priority] - priorityRank[b.priority] ||
+            byFollowup(a, b) || byCompany(a, b);
+        case 'company': return byCompany(a, b);
+        case 'industry': return a.industry.localeCompare(b.industry) || byCompany(a, b);
+        case 'recent': return b.updated_at.localeCompare(a.updated_at) || byCompany(a, b);
+        default: return 0;
+      }
+    });
+    return matches;
+  }, [leads, industry, queue, query, sortBy]);
   const counters: Array<{key:Queue; title:string; value:number}> = [
     {key:'all',title:'Total leads',value:stats.total},
     {key:'to_call',title:'To call',value:stats.to_call},
@@ -514,8 +548,8 @@ export function CrmClient() {
               <h3 className="text-sm font-bold text-[#0A2836] dark:text-white">Lead directory</h3>
               <span className="text-xs text-slate-500 dark:text-slate-400">{leads.length} assigned</span>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <label className="relative flex-1">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <label className="relative min-w-0 flex-1">
                 <span className="sr-only">Search leads</span>
                 <Search className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                 <input value={query} onChange={(e) => setQuery(e.target.value)}
@@ -523,9 +557,20 @@ export function CrmClient() {
                   className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] pl-10 pr-3 text-sm text-[#0A2836] outline-none placeholder:text-slate-400 focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40" />
               </label>
               <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Filter by industry"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 sm:w-56">
+                className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 lg:w-52">
                 <option value="all">All industries</option>
-                {industries.map((name) => <option key={name} value={name}>{name}</option>)}
+                {industries.map((name) => (
+                  <option key={name} value={name}>{name} ({industryCounts.get(name) ?? 0})</option>
+                ))}
+              </select>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as LeadSort)} aria-label="Sort leads"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 lg:w-52">
+                <option value="recommended">Sort: Recommended</option>
+                <option value="follow_up">Follow-up: Earliest first</option>
+                <option value="priority">Priority: Highest first</option>
+                <option value="recent">Recently updated</option>
+                <option value="industry">Industry: A–Z</option>
+                <option value="company">Company: A–Z</option>
               </select>
             </div>
           </div>
@@ -536,8 +581,8 @@ export function CrmClient() {
           )}
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
             <span>{filtered.length} lead{filtered.length === 1 ? '' : 's'} shown{queue !== 'all' ? ' · Filtered queue' : ''}</span>
-            {(queue !== 'all' || industry !== 'all' || query) && (
-              <button type="button" onClick={() => { setQueue('all'); setIndustry('all'); setQuery(''); }}
+            {(queue !== 'all' || industry !== 'all' || query || sortBy !== 'recommended') && (
+              <button type="button" onClick={() => { setQueue('all'); setIndustry('all'); setQuery(''); setSortBy('recommended'); }}
                 className="font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Clear filters</button>
             )}
           </div>

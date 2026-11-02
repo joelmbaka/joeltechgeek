@@ -88,4 +88,8 @@ ON CONFLICT DO NOTHING;
 ## Industry dropdown
 - `lib/agent-crm/industries.ts` defines the shared choices used by both the Add Lead modal and the POST API.
 - Categories derive from the 38 niches in the separate JoelTechGeek Services CRM, with Fire Safety and newer outreach verticals added.
-- The industry filter displays only categories present in the agent's currently assigned leads.
+- The industry filter shows every supported category, with a count of the signed-in agent's matching leads, plus any historical industry labels.
+
+## Agent lead controls
+- The Add Lead modal and POST endpoint are available to every authenticated registered agent, not only the owner. New lead ownership is derived from that agent's verified session.
+- The dashboard allows industry filtering across all supported categories and sorting by recommended order, next follow-up, priority, recent activity, industry or company.
