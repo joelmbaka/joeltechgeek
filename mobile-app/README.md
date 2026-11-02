@@ -1,68 +1,41 @@
-# JoelTechGeek Agent CRM — Mobile
+# JoelTechGeek CRM Android
 
-React Native / Expo app for registered JoelTechGeek sales agents.
+Android sign-in follows Milliol: Continue with Google opens a temporary Google OAuth browser session. It never signs into the JoelTechGeek website or uses web Auth.js cookies. After choosing an account, the app receives a one-time authorization code via its deep link and exchanges that for an independent mobile session.
 
-The app is online-only: opening the dashboard, changing page/filter, or opening
-a lead fetches current data from the Next.js backend. No local lead database,
-TanStack Query, or background polling is used.
+## Google Cloud
 
-## Android development (USB-connected device)
+Open the existing JoelTechGeek CRM Web OAuth client and add the exact authorized redirect URI:
 
-1. Enable Android developer options and USB debugging.
-2. Make sure `adb devices` shows the phone as `device`.
-3. From this folder, install the checked-in dependencies and run validation:
+    https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback
 
-   ```bash
-   npm install
-   npx expo install react-native-nitro-google-signin react-native-nitro-modules
-   npx tsc --noEmit
-   npx expo install --check
-   npx expo lint
-   ```
+Keep the existing website Auth.js callback URI; they coexist. The OAuth credentials remain on the Next.js server. No Android OAuth client, SHA-1 registration, Firebase file, iOS reversed scheme, or EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is required.
 
-4. With Android SDK/JDK configured, build and install the development app:
+## Production preparation
 
-   ```bash
-   npx expo run:android --device
-   ```
+1. Apply the additive migration in migrations/2026-11-02-agent-crm-google-oauth-states.sql to the JoelTechGeek Portfolio Neon production neondb.
+2. Deploy the Next.js changes from mobile; /api/agent-crm/mobile/oauth/start and /oauth/callback become available.
+3. Keep AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET, DATABASE_URL on the server, not in Expo.
 
-5. The default API base is `https://joeltechgeek.com`. If necessary, supply
-   `EXPO_PUBLIC_API_BASE_URL` when running Expo. This is a **public** URL;
-   never put Neon credentials, AUTH_SECRET, or Google client secrets in Expo.
+## Run on connected Android
 
-Google login is native: Android Credential Manager shows a Google account
-selector, then sends a Google ID token directly to
-`POST /api/agent-crm/mobile/google`. No website pages or browser cookies are
-involved. The backend must be deployed and mobile-auth migration applied.
+    git switch mobile
+    git pull origin mobile
+    cd mobile-app
+    npm ci
+    npx tsc --noEmit
+    npx expo lint
+    npx expo install --check
+    adb devices
+    npx expo run:android --device
 
-Before signing in, set the **public** `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` to the
-Web OAuth client ID already used by server-side `AUTH_GOOGLE_ID`, and register
-the Android OAuth client for `com.joeltechgeek.app` and your signing SHA-1.
-Do not put `AUTH_GOOGLE_SECRET` or `AUTH_SECRET` in the mobile app.
+The public API URL defaults to https://joeltechgeek.com. Only set EXPO_PUBLIC_API_BASE_URL if using a different backend. The Android app scheme is joeltechgeek.
 
-**Android-only native build:** Do not register the Nitro Google Sign-In Expo
-config plugin yet. Its config check unconditionally requires an iOS reversed
-client-ID scheme or Firebase configuration even when prebuilding Android. The
-Android module is automatically linked by React Native, and the app explicitly
-passes `webClientId` in `GoogleOneTapSignIn.configure()`, so neither an iOS
-client ID nor `google-services.json` is needed for this Android configuration.
-Add the plugin with a real `iosUrlScheme` when implementing iOS Google sign-in.
-Do not fabricate a scheme or add Firebase just to satisfy this check.
+## Acceptance
 
-The public Web client ID can be copied from Google Cloud Console > APIs &
-Services > Credentials > OAuth 2.0 Client IDs (type: Web application). It must
-match the server's production `AUTH_GOOGLE_ID`. Add it locally to
-`mobile-app/.env.local`, for example:
+1. Continue with Google opens a Google sign-in Custom Tab and prompts account selection.
+2. Google returns through the backend callback, then joeltechgeek:///auth-callback with a short-lived one-time code, not access tokens.
+3. Android exchanges that code over HTTPS to access only leads owned by the registered agent.
+4. Sessions restore across restarts via SecureStore; sign-out revokes the mobile refresh session.
+5. Unregistered or access-disabled agents are denied.
 
-```env
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
-```
-
-Never commit `.env.local`. The app can compile without this setting, but
-Google sign-in will intentionally show a configuration error until it is set.
-Run `npx expo install react-native-nitro-google-signin react-native-nitro-modules`
-once to regenerate the mobile lockfile; this module requires a native rebuild.
-`npx expo run:android --device` will NOT work in Expo Go.
-
-For the complete architecture, security and acceptance checklist see
-[README-CRM.md](README-CRM.md).
+See README-CRM.md for details.

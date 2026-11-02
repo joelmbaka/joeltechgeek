@@ -6,40 +6,15 @@ NetInfo, push-token registration, or background polling.
 
 ## Deployment order
 
-1. Apply migrations/2026-11-02-agent-crm-mobile.sql to the existing **Portfolio**
-   Neon database, after reviewing the schema. Never apply it to the separate
-   JoelTechGeek Services CRM.
-2. Deploy the Next.js changes to joeltechgeek.com. Confirm AUTH_GOOGLE_ID,
-   AUTH_GOOGLE_SECRET, AUTH_SECRET (32+ chars), DATABASE_URL are server-side.
-   The mobile uses no NextAuth callback or website sign-in flow.
-3. In mobile-app: run
-   `npx expo install react-native-nitro-google-signin react-native-nitro-modules`,
-   which regenerates the `package-lock.json` for the new native dependencies.
-   Run `npx tsc --noEmit`, `npx expo lint`, `npx expo install --check`.
-   Remove unused old browser auth dependencies as part of the lockfile refresh.
-4. Initialize EAS for Android and iOS if not already configured. Build/test
-   Android only for now. Expo scheme: joeltechgeek.
-5. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID before **Google sign-in** to the public Google **Web** OAuth
-   client ID corresponding to the server AUTH_GOOGLE_ID (same Google Cloud
-   project). Create/register an Android OAuth client for package
-   com.joeltechgeek.app and the USB debug APK signing SHA-1. You can optionally
-   set EXPO_PUBLIC_API_BASE_URL (public; default joeltechgeek.com).
-   Do not add Google secrets, AUTH_SECRET, or DATABASE_URL to the mobile app.
-   For Android-only prebuild, the react-native-nitro-google-signin Expo plugin
-   is intentionally omitted: its without-Firebase validation unconditionally
-   demands an iOS URL scheme. Android is autolinked and uses explicit
-   `GoogleOneTapSignIn.configure({ webClientId })` instead. Re-add the plugin
-   with a real iOS URL scheme when building iOS. No Firebase files required.
-   The native build can run without the public ID, but sign-in cannot.
+1. Previous mobile authentication tables are already deployed. Apply the new additive migration migrations/2026-11-02-agent-crm-google-oauth-states.sql to Portfolio Neon.
+2. Register https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback as an Authorized redirect URI on the existing Google Web OAuth client.
+3. Deploy backend Google OAuth start/callback/exchange endpoints from the mobile branch.
+4. Run npm ci, npx tsc --noEmit, npx expo lint, npx expo install --check and npx expo run:android --device.
+5. No Android OAuth client, Android SHA-1, Firebase file, public Google OAuth client ID, native Google plugin or iOS reversed scheme is needed. Web client ID and secret remain server-side.
 
 ## Architecture
 
-Android native Google Credential Manager account selection -> Google ID token
-verified by the Next.js API against Google's public signing keys, issuer, audience
-and verified email -> allowed sales-agent row lookup -> 15-minute bearer access
-token in RAM and rotating 30-day refresh token in SecureStore. No browser
-Auth.js session, redirect, callback route or PKCE handoff is involved. Website
-Auth.js sign-in remains independent.
+Milliol-style Google OAuth: Expo opens an authentication browser session directly to a server-controlled start endpoint, which redirects to Google's account chooser (prompt=select_account). Google redirects to the backend HTTPS callback. The backend atomically consumes a one-time state, exchanges the authorization code with Google's token endpoint using its secret and PKCE, verifies the signed ID token including nonce, checks the agent allowlist, and returns a 2-minute PKCE-bound code through joeltechgeek:///auth-callback. The Android app exchanges it over HTTPS for 15-minute access and rotating 30-day refresh tokens. The Auth.js web session is independent and never reused.
 
 Leads are never saved to device storage. Opening a list, individual lead, or
 foregrounding the app fetches fresh data. Search is debounced 300ms, performed
@@ -64,4 +39,4 @@ cannot learn about a follow-up cancelled on the web until it reconnects.
   a live server request is made before presenting lead data.
 - Time-only without date is rejected; date-only generates no alarm.
 - Server failure displays Retry without deleting the refresh token.
-- npm lockfile is regenerated locally before EAS build.
+- npm lockfile is committed and matched to the mobile package manifest.

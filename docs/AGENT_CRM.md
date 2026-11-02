@@ -3,7 +3,7 @@
 ## Scope
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).
 - Mobile-first web workspace. No admin UI, separate call log, or industry tables. Agents can add leads using a modal.
-- Web CRM: Google-only Auth.js v5 sessions. Android CRM: native Google Credential Manager identity token sent directly to Next.js API for signature/audience verification, then independent Neon-backed mobile bearer sessions. Android never uses Auth.js cookies or website sign-in.
+- Web CRM: Google-only Auth.js v5 cookie sessions. Android CRM: Milliol-style temporary Google OAuth browser flow, Next.js-owned Google callback, then a one-time app handoff and independent Neon mobile session. No website login or shared Auth.js cookies.
 - JoelTechGeek Neon PostgreSQL holds the registered agent allowlist and assigned leads.
 - The legacy /crm job-hunting UI and /api/crm job endpoints are removed. Existing job data tables are intentionally NOT dropped by this change.
 
@@ -114,4 +114,4 @@ ON CONFLICT DO NOTHING;
 - Agent ownership, same-origin write checks, and Do Not Contact protections remain enforced on each API.
 - Validate: add lead date-only; add lead with time; change date without a call outcome; time without date rejected; complete task and schedule the next task; preserve call history; verify timezone and due_at; no duplicate or cross-agent updates; opt-out blocked.
 - BlazeShield's WhatsApp demo send was previously recorded as action completed; its follow-up was set to Thursday **2026-11-05** with no invented time.
-- The Expo mobile app is a separate project and is untouched by this CRM-only change. Local/push notifications are not implemented in this change.
+- The Expo mobile app is a separate project; it implements timed local follow-up notifications and its own OAuth session.
