@@ -10,7 +10,7 @@ export function Typewriter({ words, className }: { words: string[], className?: 
 
   useEffect(() => {
     const currentWord = words[currentWordIndex];
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     if (phase === 'typing') {
       if (currentText.length < currentWord.length) {
@@ -29,7 +29,9 @@ export function Typewriter({ words, className }: { words: string[], className?: 
       setCurrentWordIndex((prev) => (prev + 1) % words.length);
     }
 
-    return () => clearTimeout(timeout);
+    return () => {
+      if (timeout !== undefined) clearTimeout(timeout);
+    };
   }, [currentText, phase, currentWordIndex, words]);
 
   return (

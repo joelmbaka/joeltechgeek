@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BriefcaseBusiness, CalendarDays, Check, ChevronRight,
-  ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, ShieldCheck, X,
+  ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, X,
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel } from '@/lib/agent-crm/types';
@@ -565,7 +565,7 @@ export function CrmClient() {
             </div>
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                {data?.agent.name || 'Agent'}'s workspace
+                {data?.agent.name || 'Agent'}&apos;s workspace
               </span>
               <button type="button" onClick={() => setAdding(true)}
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
