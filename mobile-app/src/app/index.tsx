@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Busy, Button, styles } from '@/components/ui';
@@ -35,7 +35,6 @@ export default function HomeScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const requestVersion = useRef(0);
-  const resetSearchOnReturn = useRef(false);
 
   useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
 
@@ -66,15 +65,6 @@ export default function HomeScreen() {
       });
   }, [agent?.id, offset, debounced, queue, industry, sort]);
 
-  // The back button should restore the normal list rather than keeping a
-  // previously searched query. Keep the agent's chosen filters intact.
-  useFocusEffect(useCallback(() => {
-    if (resetSearchOnReturn.current) {
-      resetSearchOnReturn.current = false;
-      setSearch('');
-      setOffset(0);
-    }
-  }, []));
   useFreshOnFocus(fetchPage, [fetchPage]);
 
   const refresh = () => {
@@ -82,7 +72,10 @@ export default function HomeScreen() {
     fetchPage(new AbortController().signal);
   };
   const openLead = (id: string) => {
-    resetSearchOnReturn.current = true;
+    // Clear while leaving the list. When Android back-navigation refocuses
+    // this screen, the next fetch uses the unfiltered query immediately.
+    setSearch('');
+    setOffset(0);
     router.push({ pathname: '/leads/[id]', params: { id } });
   };
 
