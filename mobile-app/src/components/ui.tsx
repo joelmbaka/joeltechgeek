@@ -58,17 +58,6 @@ export function Field({ label, value, onChangeText, placeholder, multiline = fal
       autoCapitalize={autoCapitalize} autoCorrect={false}/>
   </View>;
 }
-export function ChoiceRow<T extends string>({ options, selected, onChange }: {
-  options: readonly (readonly [T, string])[]; selected: T; onChange: (value: T) => void;
-}) {
-  return <View style={styles.row}>{options.map(([value, label]) =>
-    <Pressable key={value} onPress={() => onChange(value)}
-      style={{ padding: 10, borderRadius: 9, borderWidth: 1,
-        borderColor: selected === value ? COLORS.primary : COLORS.border,
-        backgroundColor: selected === value ? '#E6F5EF' : COLORS.white }}>
-      <Text style={{ fontWeight: selected === value ? '700' : '500', color: COLORS.ink }}>{label}</Text>
-    </Pressable>)}</View>;
-}
 export function Busy({ label = 'Loading from server…' }: { label?: string }) {
   return <View style={{ padding: 24, alignItems: 'center', gap: 10 }}>
     <ActivityIndicator color={COLORS.primary}/><Text style={styles.subtitle}>{label}</Text>
