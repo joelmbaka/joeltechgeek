@@ -2,7 +2,7 @@
 
 ## Scope
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).
-- Mobile-first web workspace. No admin UI, manual company creation, separate call log, or industry tables.
+- Mobile-first web workspace. No admin UI, separate call log, or industry tables. Agents can add leads using a modal.
 - Google-only sign-in using self-hosted Auth.js v5 (NextAuth) inside Next.js; no Supabase involvement in CRM.
 - Portfolio Neon PostgreSQL holds the registered agent allowlist and assigned leads.
 - The legacy /crm job-hunting UI and /api/crm job endpoints are removed. Existing job data tables are intentionally NOT dropped by this change.
@@ -60,16 +60,17 @@ ON CONFLICT DO NOTHING;
 - For real leads: include source_url, role and verified direct contact where available.
 - Avoid duplicate assignment by the unique index on agent, normalized company, industry.
 - Do not seed from the example above without replacing every placeholder.
-- The authenticated agent cannot modify agent_id, company details, other agents' leads or lead ownership.
+- The authenticated agent cannot modify agent_id or other agents' leads. New leads can only be created under the signed-in agent.
 - Use crm_access_enabled=false to pause a registration's CRM access without deleting them.
 
 ## Workflow
 1. Agent signs in with registered Google address.
-2. /api/agent-crm/leads returns only their leads and calculated overview.
-3. Agent selects a lead, logs the outcome and conversation notes, sets next action/date.
-4. PATCH /api/agent-crm/leads/[id] authenticates with an HTTP-only session cookie, stores current fields, and appends an update record.
-5. GET on the same URL shows recent history.
-6. Industry filters are derived from assigned leads; no setup steps for adding another industry.
+2. GET /api/agent-crm/leads returns only their leads and calculated overview.
+3. Add Lead opens a modal with a required industry dropdown and optional contact details and call outcome. POST /api/agent-crm/leads assigns the record to the current agent, checks duplicates, and records an initial call when an outcome is provided.
+4. Agent selects a lead, logs the outcome and conversation notes, sets next action/date.
+5. PATCH /api/agent-crm/leads/[id] authenticates with an HTTP-only session cookie, stores current fields, and appends an update record.
+6. GET on the same URL shows recent history.
+7. Industry filters are derived from assigned leads; no setup steps for adding another industry.
 
 ## Auth setup and checks
 - `AUTH_GOOGLE_ID`: Google's OAuth Web client ID.
@@ -83,3 +84,8 @@ ON CONFLICT DO NOTHING;
 - If a user signs in using an unregistered email, Auth.js returns to `/crm?error=AccessDenied`.
 - The existing public website Supabase code is outside this CRM change and was deliberately left alone.
 - Recheck with `npm ci`, `npx tsc --noEmit`, scoped ESLint, and `npm run build` before deployment.
+
+## Industry dropdown
+- `lib/agent-crm/industries.ts` defines the shared choices used by both the Add Lead modal and the POST API.
+- Categories derive from the 38 niches in the separate JoelTechGeek Services CRM, with Fire Safety and newer outreach verticals added.
+- The industry filter displays only categories present in the agent's currently assigned leads.
