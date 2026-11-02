@@ -18,8 +18,8 @@ function response(error: string, status: number) {
   );
 }
 
-export async function GET(request: Request, { params }: Params) {
-  const access = await requireCrmAgent(request);
+export async function GET(_request: Request, { params }: Params) {
+  const access = await requireCrmAgent();
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);
@@ -57,7 +57,12 @@ function nextStage(previous: LeadStage, outcome: CallOutcome): LeadStage {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  const access = await requireCrmAgent(request);
+  // Defense in depth for same-site cookie authorization.
+  const origin = request.headers.get('origin');
+  if (!origin || origin !== new URL(request.url).origin) {
+    return response('Invalid request origin.', 403);
+  }
+  const access = await requireCrmAgent();
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);

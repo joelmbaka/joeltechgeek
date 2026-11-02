@@ -5,7 +5,7 @@ import {
   BriefcaseBusiness, CalendarDays, Check, ChevronRight,
   ExternalLink, LogOut, Phone, RefreshCw, Search, ShieldCheck, X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import type { Agent, Lead, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
@@ -84,15 +84,12 @@ function errText(value: unknown) {
   return value instanceof Error ? value.message : 'Something went wrong. Please retry.';
 }
 async function api<T>(path: string, method = 'GET', payload?: unknown): Promise<T> {
-  const { data } = await supabase.auth.getSession();
-  if (!data.session?.access_token) throw new Error('Please sign in with Google again.');
+  // Auth.js uses an encrypted, HTTP-only cookie. Never expose session tokens to JS.
   const res = await fetch(path, {
     method,
-    headers: {
-      Authorization: 'Bearer ' + data.session.access_token,
-      ...(payload !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    },
-    ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}),
+    headers: payload === undefined ? undefined : { 'Content-Type': 'application/json' },
+    ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+    credentials: 'same-origin',
     cache: 'no-store',
   });
   const body = await res.json().catch(() => null);
@@ -329,44 +326,45 @@ export function CrmClient() {
   const refresh = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true); else setView('loading');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
-        setData(null); setView('signed-out'); return;
-      }
       const response = await api<Response>('/api/agent-crm/leads');
       setData(response); setView('ready'); setError('');
     } catch (err) {
       const status = (err as Error & {status?: number}).status;
-      setError(errText(err));
-      setView(status === 403 ? 'denied' : status === 401 ? 'signed-out' : 'error');
+      setData(null);
+      if (status === 403) setView('denied');
+      else if (status === 401) {
+        const accessDenied = new URLSearchParams(window.location.search).get('error') === 'AccessDenied';
+        setView(accessDenied ? 'denied' : 'signed-out');
+        if (accessDenied) setError('Only registered sales agents can access this CRM.');
+        else setError('');
+      } else {
+        setError(errText(err));
+        setView('error');
+      }
     } finally { setRefreshing(false); }
   }, []);
+
   useEffect(() => {
     void refresh();
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        setSelected(null); setData(null); setView('signed-out');
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        queueMicrotask(() => { void refresh(); });
-      }
-    });
-    return () => listener.subscription.unsubscribe();
   }, [refresh]);
+
   async function signIn() {
     setGoogleLoading(true); setError('');
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin + '/crm', queryParams: { prompt: 'select_account' } },
-      });
-      if (authError) throw authError;
+      await authSignIn('google', { redirectTo: '/crm' }, { prompt: 'select_account' });
     } catch (err) {
       setError(errText(err)); setGoogleLoading(false);
     }
   }
+
   async function signOut() {
-    await supabase.auth.signOut();
-    setSelected(null); setData(null); setView('signed-out');
+    setSelected(null); setData(null);
+    try {
+      await authSignOut({ redirectTo: '/crm' });
+    } catch (err) {
+      setError(errText(err));
+      setView('error');
+    }
   }
   const leads = data?.leads || [];
   const stats = data?.stats || emptyStats;

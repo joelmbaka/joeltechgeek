@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { auth } from '@/auth';
 import { getCrmPool } from './db';
 import type { Agent } from './types';
 
@@ -14,38 +14,24 @@ function deny(message: string, status: number): AgentAuth {
   };
 }
 
-export async function requireCrmAgent(request: Request): Promise<AgentAuth> {
-  const bearer = /^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization') || '');
-  if (!bearer) return deny('Please sign in with Google.', 401);
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return deny('CRM sign-in is not configured.', 503);
-
+export async function requireCrmAgent(): Promise<AgentAuth> {
   try {
-    // Do not trust a client-supplied email or decode a JWT without verification.
-    const supabase = createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await supabase.auth.getUser(bearer[1]);
-    const user = data.user;
-    if (error || !user?.email || !user.email_confirmed_at) {
-      return deny('Your session has expired. Please sign in again.', 401);
+    const session = await auth();
+    // Fail closed on absent or malformed sessions, including Auth.js error objects.
+    const email = session?.user?.email?.trim().toLowerCase();
+    if (typeof email !== 'string' || !email) {
+      return deny('Please sign in with Google.', 401);
     }
-    const providers = user.app_metadata?.providers as string[] | undefined;
-    const googleLinked = user.app_metadata?.provider === 'google' ||
-      providers?.includes('google') ||
-      user.identities?.some((identity) => identity.provider === 'google');
-    if (!googleLinked) return deny('Please use Google sign-in for this CRM.', 403);
 
-    const email = user.email.trim().toLowerCase();
-    const db = getCrmPool();
-    const result = await db.query<{ id: string; full_name: string; email: string }>(
+    // Recheck registration on *every* API request; disabling access takes
+    // effect without waiting for the cookie to expire.
+    const result = await getCrmPool().query<{
+      id: string; full_name: string; email: string
+    }>(
       `SELECT id::text AS id, full_name, email
          FROM public.sales_agent_applications
          WHERE lower(email) = $1
-           AND crm_access_enabled = true
+           AND crm_access_enabled IS TRUE
            AND status <> 'declined'
          LIMIT 1`,
       [email],

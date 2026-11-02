@@ -30,7 +30,8 @@
     "react": "^19.0.0",
     "react-calendly": "^4.4.0",
     "react-dom": "^19.0.0",
-    "resend": "^6.0.1"
+    "resend": "^6.0.1",
+    "next-auth": "5.0.0-beta.32"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

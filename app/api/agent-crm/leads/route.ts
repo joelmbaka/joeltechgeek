@@ -6,8 +6,8 @@ import type { Lead, LeadStats } from '@/lib/agent-crm/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-  const access = await requireCrmAgent(request);
+export async function GET() {
+  const access = await requireCrmAgent();
   if ('response' in access) return access.response;
 
   try {
