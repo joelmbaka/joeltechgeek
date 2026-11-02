@@ -35,10 +35,31 @@ selector, then sends a Google ID token directly to
 `POST /api/agent-crm/mobile/google`. No website pages or browser cookies are
 involved. The backend must be deployed and mobile-auth migration applied.
 
-Before building, set the **public** `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` to the
+Before signing in, set the **public** `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` to the
 Web OAuth client ID already used by server-side `AUTH_GOOGLE_ID`, and register
 the Android OAuth client for `com.joeltechgeek.app` and your signing SHA-1.
 Do not put `AUTH_GOOGLE_SECRET` or `AUTH_SECRET` in the mobile app.
+
+**Android-only native build:** Do not register the Nitro Google Sign-In Expo
+config plugin yet. Its config check unconditionally requires an iOS reversed
+client-ID scheme or Firebase configuration even when prebuilding Android. The
+Android module is automatically linked by React Native, and the app explicitly
+passes `webClientId` in `GoogleOneTapSignIn.configure()`, so neither an iOS
+client ID nor `google-services.json` is needed for this Android configuration.
+Add the plugin with a real `iosUrlScheme` when implementing iOS Google sign-in.
+Do not fabricate a scheme or add Firebase just to satisfy this check.
+
+The public Web client ID can be copied from Google Cloud Console > APIs &
+Services > Credentials > OAuth 2.0 Client IDs (type: Web application). It must
+match the server's production `AUTH_GOOGLE_ID`. Add it locally to
+`mobile-app/.env.local`, for example:
+
+```env
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+```
+
+Never commit `.env.local`. The app can compile without this setting, but
+Google sign-in will intentionally show a configuration error until it is set.
 Run `npx expo install react-native-nitro-google-signin react-native-nitro-modules`
 once to regenerate the mobile lockfile; this module requires a native rebuild.
 `npx expo run:android --device` will NOT work in Expo Go.

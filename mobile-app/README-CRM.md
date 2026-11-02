@@ -19,12 +19,18 @@ NetInfo, push-token registration, or background polling.
    Remove unused old browser auth dependencies as part of the lockfile refresh.
 4. Initialize EAS for Android and iOS if not already configured. Build/test
    Android only for now. Expo scheme: joeltechgeek.
-5. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to the public Google **Web** OAuth
+5. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID before **Google sign-in** to the public Google **Web** OAuth
    client ID corresponding to the server AUTH_GOOGLE_ID (same Google Cloud
    project). Create/register an Android OAuth client for package
    com.joeltechgeek.app and the USB debug APK signing SHA-1. You can optionally
    set EXPO_PUBLIC_API_BASE_URL (public; default joeltechgeek.com).
    Do not add Google secrets, AUTH_SECRET, or DATABASE_URL to the mobile app.
+   For Android-only prebuild, the react-native-nitro-google-signin Expo plugin
+   is intentionally omitted: its without-Firebase validation unconditionally
+   demands an iOS URL scheme. Android is autolinked and uses explicit
+   `GoogleOneTapSignIn.configure({ webClientId })` instead. Re-add the plugin
+   with a real iOS URL scheme when building iOS. No Firebase files required.
+   The native build can run without the public ID, but sign-in cannot.
 
 ## Architecture
 
