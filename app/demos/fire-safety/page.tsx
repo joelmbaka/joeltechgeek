@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, BriefcaseBusiness, MonitorPlay, RotateCcw, Shiel
 
 export const metadata: Metadata = {
   title: 'Fire Safety Operations Interactive Demo | Joeltech Geek Systems',
-  description: 'Try a browser-only fire safety service management concept: customers, equipment, jobs, technician inspections, Grace's operations review, sample certificates and reminders.',
+  description: "Try a browser-only fire safety service management concept: customers, equipment, jobs, technician inspections, Grace's operations review, sample certificates and reminders.",
   alternates: { canonical: '/demos/fire-safety' },
   openGraph: { type: 'website', url: '/demos/fire-safety', title: 'Fire Safety Operations Demo | Joeltech Geek Systems', description: 'Explore a fictional interactive fire safety servicing concept without signing in.' },
 };
@@ -20,7 +20,7 @@ export default function FireSafetyDemoPage() {
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Interactive software concept</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Fire Safety Ops</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a fire safety servicing workflow, from customer equipment and scheduled jobs to technician inspections, Grace's approval, sample certificates, and maintenance reminders.</p>
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a fire safety servicing workflow, from customer equipment and scheduled jobs to technician inspections, Grace&apos;s approval, sample certificates, and maintenance reminders.</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a href="/demos/fire-safety/demo.html" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
               <MonitorPlay className="h-5 w-5" aria-hidden /> Launch interactive demo <ArrowRight className="h-4 w-4" aria-hidden />

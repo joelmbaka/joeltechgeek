@@ -32,7 +32,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Fire safety · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Fire Safety Ops</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a service job from customer equipment registration through Kevin's inspection, Grace's approval, and a sample certificate.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a service job from customer equipment registration through Kevin&apos;s inspection, Grace&apos;s approval, and a sample certificate.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No sign-in</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Browser-local data</span>
