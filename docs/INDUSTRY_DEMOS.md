@@ -306,3 +306,20 @@ No actual records, diagnoses, medical advice, clinical decision support, laborat
 
 - 23 independent tests in tests/clinic-demo.test.cjs: seed, role restrictions, visit opening, triage, consultation, lab, imaging, pharmacy, simulated coverage, billing, discharge gating, UI navigation, shared records and browser-local persistence.
 - Run npm run test:clinic-demo, npm run build and browser visual QA before production deployment. Browser and full Next.js build remain unverified on this connector-only pass.
+
+
+## Security Guard Operations mobile app demo (November 2, 2026)
+
+- Gallery: /demos; indexable page: /demos/security; interactive noindex page: /demos/security/demo.html.
+- Runtime files: public/demos/security/core.js, views.js, app.js, styles.css, demo.html.
+- Test command: npm run test:security-demo.
+- Scope: fictional private security firm, **mobile-style app only**, independently navigable (no guided tour), JoelTechGeek Beach Sunset colors, responsive on desktop and true mobile widths. It does not depend on a live company, guard or security client.
+- Three identities in one role dropdown: Kevin (Security Guard), Beatrice (Site Supervisor), Grace (Operations Manager).
+- Four fictional Kenya client sites and five guards (one standby). Westlands site assigned to Kevin with a scheduled shift. Karen guard on duty. Industrial Area has a missed patrol and an open unsecured-gate incident. Kilimani has a late guard who can be replaced by the available standby.
+- Guard tabs: Home, Patrol, Incidents, Handover. Simulated within/outside/low-accuracy location readings with a geofence check; sequential checkpoint verification; optional simulated photo camera for a verified checkpoint or an open incident; structured incident category, severity and narrative; immediate emergency SOS without mandatory photo; notes, outstanding incidents and shift checkout.
+- Supervisor tabs: Overview, Sites, Alerts, Activity. Incident lifecycle: Open → Acknowledged → Responding (response notes required) → Resolved. Shared occurrence-book entries and evidence.
+- Manager tabs: Dashboard, Posts, Incidents, Reports. Site coverage, late posts, open incidents, patrol compliance, evidence counts and illustrative client proof-of-service. Reassign an unstarted shift to a standby guard; never double-book an active guard.
+- Safety logic: SOS available even before normal shift check-in; repeat SOS while unresolved is idempotent; unresolved emergency blocks checkout until a supervisor resolves it. Ordinary unresolved incidents remain visible after handover. Patrol requires verified attendance; checkpoints are sequential. Evidence is visibly **simulated**, carries sample timestamps and provenance, and is optional after SOS. No real photo or device GPS is accessed.
+- Persistence: browser localStorage key jtech-security-demo-v1, reset control. No server database, GPS permissions, camera permissions, maps, push notifications, real security dispatch, claims of real personnel, or real security operations.
+- Real-world future requirements: audited role authentication, on-duty location consent, minimization and retention, reliable SOS escalation, offline sync, genuine camera evidence handling, and server-side tamper-resistant logs. This demo does not supply these.
+- Verification: tests/security-demo.test.cjs validates core constraints, simulated state transitions, shared role views, XSS escaping, persistence and breakpoints. Run full Next build and actual browser/mobile visual QA separately before merging or deploying.
