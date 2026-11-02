@@ -32,11 +32,11 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Fire safety · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Fire Safety Ops</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a service job from customer equipment registration through a technician inspection, manager approval, and sample certificate.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow a service job from customer equipment registration through Kevin's inspection, Grace's approval, and a sample certificate.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No sign-in</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Browser-local data</span>
-                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">3 simulated roles</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">2 simulated roles</span>
               </div>
               <Link href="/demos/fire-safety" className="mt-8 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
                 Explore fire safety demo <ArrowRight className="h-5 w-5" aria-hidden />

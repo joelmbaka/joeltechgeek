@@ -15,7 +15,8 @@
     "test:property-demo": "node --test tests/property-demo.test.cjs",
     "test:school-demo": "node --test tests/school-demo.test.cjs",
     "test:cargo-demo": "node --test tests/cargo-demo.test.cjs",
-    "test:security-demo": "node --test tests/security-demo.test.cjs"
+    "test:security-demo": "node --test tests/security-demo.test.cjs",
+    "test:fire-safety-demo": "node --test tests/fire-safety-demo.test.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
