@@ -32,18 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void reconcileReminders(agent).catch(() => {});
     const tapped = Notifications.addNotificationResponseReceivedListener((event) => {
       const data = event.notification.request.content.data;
-      if (data.crm_agent_id !== agent.id) return;
+      if (data?.crm_agent_id !== agent.id) return;
       const id = notificationLeadId(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
     });
     void Notifications.getLastNotificationResponseAsync().then((last) => {
-      if (last?.notification.request.content.data.crm_agent_id !== agent.id) return;
-      const id = notificationLeadId(last.notification.request.content.data);
+      const data = last?.notification.request.content.data;
+      if (data?.crm_agent_id !== agent.id) return;
+      const id = notificationLeadId(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
       void Notifications.clearLastNotificationResponseAsync().catch(() => {});
     }).catch(() => {});
     return () => tapped.remove();
-  }, [agent?.id, router]);
+  }, [agent, router]);
   const logout = async () => {
     if (agent) await cancelAgentReminders(agent.id).catch(() => {});
     await signOutSession();

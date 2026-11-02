@@ -60,7 +60,7 @@ export default function LeadScreen() {
       })
       .catch((e: unknown) => { if (!signal.aborted && version === requestVersion.current) setError(e instanceof Error ? e.message : 'Unable to load lead'); })
       .finally(() => { if (!signal.aborted && version === requestVersion.current) setLoading(false); });
-  }, [agent?.id, id, editingContact]);
+  }, [agent, id, editingContact]);
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
   const schedule = () => ({

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { Busy, Button, ChoiceRow, Page, styles } from '@/components/ui';
 import { COLORS } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
@@ -52,12 +52,12 @@ export default function HomeScreen() {
         if (!signal.aborted && version === requestVersion.current) setMessage(e instanceof Error ? e.message : 'Cannot load leads.');
       })
       .finally(() => { if (!signal.aborted && version === requestVersion.current) { setLoading(false); setRefreshing(false); } });
-  }, [agent?.id, offset, debounced, queue, industry, sort]);
+  }, [agent, offset, debounced, queue, industry, sort]);
   useFreshOnFocus(fetchPage, [fetchPage]);
   // Sync alarms on navigation focus, not on every debounced search/page request.
   useFocusEffect(useCallback(() => {
     if (agent) void reconcileReminders(agent).catch(() => {});
-  }, [agent?.id]));
+  }, [agent]));
 
   const manuallyRefresh = () => {
     const controller = new AbortController();

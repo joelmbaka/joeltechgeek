@@ -31,7 +31,7 @@ export default function AddLead() {
     void apiFetch<{ ok: true; industries: string[] }>('/api/agent-crm/mobile/meta', { signal })
       .then((result) => { if (!signal.aborted) setIndustries(result.industries); })
       .catch((e: unknown) => { if (!signal.aborted) setError(e instanceof Error ? e.message : 'Unable to load industries'); });
-  }, [agent?.id]);
+  }, [agent]);
   useFreshOnFocus(loadIndustries, [loadIndustries]);
   const save = async () => {
     if (!company.trim() || !industry) { setError('Company and industry are required.'); return; }
