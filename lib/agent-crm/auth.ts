@@ -1,4 +1,3 @@
-import 'server-only';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCrmPool } from './db';
