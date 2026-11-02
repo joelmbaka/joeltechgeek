@@ -180,7 +180,15 @@ export async function POST(request: Request) {
       schedule.next_action_time, schedule.next_action_timezone, outcome ? new Date() : null,
     ];
 
-    const markers = params.map((_, index) => '
+    const markers = params.map((_, index) => '$' + (index + 1));
+    // The derived UTC due time occupies column 23, between timezone
+    // and last_contacted_at. Parameters 20-22 carry date/time/timezone.
+    markers.splice(22, 0, followupDueAtSQL(20, 21, 22));
+    const inserted = await client.query<{ id: string }>(
+      'INSERT INTO public.crm_leads (' + columns.join(', ') + ') VALUES (' +
+      markers.join(', ') + ') RETURNING id::text AS id',
+      params,
+    );
     const id = inserted.rows[0].id;
 
     if (outcome) {
