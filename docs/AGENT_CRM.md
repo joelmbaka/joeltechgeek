@@ -11,7 +11,7 @@
 1. Review and apply migrations/2026-11-02-agent-crm.sql to **Portfolio** Neon, never the separate JoelTechGeek Services CRM.
 2. Confirm Vercel server-side DATABASE_URL targets Portfolio.
 3. Set Vercel server-only `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET` (32+ random bytes), and `DATABASE_URL`. Do NOT use NEXT_PUBLIC_ for secrets.
-4. In Google Cloud Console, create a Web OAuth client. Register callback `https://joeltechgeek.com/api/auth/callback/google` (and `http://localhost:3000/api/auth/callback/google` for local). Add origin `https://joeltechgeek.com` (and `http://localhost:3000`). No Supabase callback is used.
+4. In Google Cloud Console, create a Web OAuth client. Register callback `https://joeltechgeek.com/api/auth/callback/google` (and `http://localhost:3002/api/auth/callback/google` for local). Add origin `https://joeltechgeek.com` (and `http://localhost:3002`). No Supabase callback is used.
 5. Check /crm signed out, Google callback, registered account access, unregistered account denial and session restoration.
 6. Verify agent A cannot query or PATCH agent B's lead ID. Test missing/invalid tokens and Do Not Contact.
 7. Verify public navigation/footer still behave normally and /crm stays absent from sitemap and navigation.
@@ -79,7 +79,7 @@ ON CONFLICT DO NOTHING;
 - `DATABASE_URL`: Portfolio Neon connection string (server-only).
 - Optional `AUTH_URL`: `https://joeltechgeek.com` when the deployment does not infer the public URL correctly.
 - Google callback: `https://joeltechgeek.com/api/auth/callback/google`.
-- For local development: `http://localhost:3000/api/auth/callback/google`.
+- For local development: `http://localhost:3002/api/auth/callback/google`.
 - Only the registered Google account can create a session; sessions last up to 30 days with normal Auth.js rotation.
 - If a user signs in using an unregistered email, Auth.js returns to `/crm?error=AccessDenied`.
 - The existing public website Supabase code is outside this CRM change and was deliberately left alone.
