@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import type { PoolClient } from 'pg';
 import { getCrmPool } from './db';
 import type { Agent } from './types';
+import { PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled } from './play-review';
 
 const TOKEN_LIFETIME_SECONDS = 15 * 60;
 
@@ -56,8 +57,9 @@ export async function getActiveMobileAgent(token: string): Promise<Agent | null>
        WHERE s.id = $1::uuid AND s.agent_id = $2::uuid
          AND s.revoked_at IS NULL AND s.expires_at > now()
          AND a.crm_access_enabled IS TRUE AND a.status <> 'declined'
+         AND (lower(a.email) <> $3 OR $4::boolean)
        LIMIT 1`,
-    [identity.sid, identity.agentId],
+    [identity.sid, identity.agentId, PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled()],
   );
   return row.rows[0] || null;
 }
@@ -66,8 +68,9 @@ export async function getActiveAgentById(id: string, client: PoolClient): Promis
     `SELECT id::text, full_name AS name, email, phone
        FROM public.sales_agent_applications
        WHERE id = $1::uuid AND crm_access_enabled IS TRUE AND status <> 'declined'
+         AND (lower(email) <> $2 OR $3::boolean)
        LIMIT 1`,
-    [id],
+    [id, PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled()],
   );
   return found.rows[0] || null;
 }
