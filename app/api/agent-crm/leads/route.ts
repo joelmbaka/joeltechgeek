@@ -78,8 +78,8 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         'FROM public.crm_leads WHERE agent_id = $1',
         [agentId],
       ),
-      db.query<{ industry: string }>(
-        'SELECT DISTINCT industry FROM public.crm_leads WHERE agent_id = $1 ORDER BY industry',
+      db.query<{ industry: string; count: number }>(
+        'SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 GROUP BY industry ORDER BY industry',
         [agentId],
       ),
     ]);
@@ -87,6 +87,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
       ok: true, leads: leads.rows.slice(0, limit),
       has_more: leads.rows.length > limit, limit, offset,
       stats: summary.rows[0], industries: industryRows.rows.map((row) => row.industry),
+      industry_counts: Object.fromEntries(industryRows.rows.map((row) => [row.industry, row.count])),
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) { return crmError(error); }
 }

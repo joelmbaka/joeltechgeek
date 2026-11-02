@@ -24,7 +24,7 @@ export type Stats = {
   interested: number; meetings: number; won: number;
 };
 export type LeadList = { ok: true; leads: Lead[]; has_more: boolean;
-  limit: number; offset: number; stats: Stats; industries: string[] };
+  limit: number; offset: number; stats: Stats; industries: string[]; industry_counts?: Record<string, number> };
 export type LeadDetails = { ok: true; lead: Lead; history: LeadEvent[] };
 export const OUTCOMES = [
   ['number_unavailable','Number unavailable'], ['switched_off','Switched off'],
