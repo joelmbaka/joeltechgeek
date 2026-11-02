@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '@/lib/config';
 
 export const styles = StyleSheet.create({
@@ -23,9 +24,16 @@ export const styles = StyleSheet.create({
   secondaryText: { color: COLORS.ink, fontWeight: '700' },
 });
 export function Page({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
-  return scroll ? <ScrollView style={styles.screen} contentContainerStyle={styles.content}
-    keyboardShouldPersistTaps="handled">{children}</ScrollView> :
-    <View style={styles.screen}>{children}</View>;
+  return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {scroll ? <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled">{children}</ScrollView> :
+        <View style={styles.screen}>{children}</View>}
+    </KeyboardAvoidingView>
+  </SafeAreaView>;
 }
 export function Button({ children, onPress, disabled = false, secondary = false }: {
   children: ReactNode; onPress: () => void; disabled?: boolean; secondary?: boolean;
