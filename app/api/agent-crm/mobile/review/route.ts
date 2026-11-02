@@ -29,11 +29,11 @@ export async function POST() {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     const match = await client.query<Agent>(
-      \`SELECT id::text AS id, full_name AS name, email, phone
+      `SELECT id::text AS id, full_name AS name, email, phone
          FROM public.sales_agent_applications
          WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
            AND status = 'approved'
-         LIMIT 1\`,
+         LIMIT 1`,
       [PLAY_REVIEW_AGENT_EMAIL],
     );
     const agent = match.rows[0];
