@@ -3,7 +3,7 @@
 ## Scope
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).
 - Mobile-first web workspace. No admin UI, separate call log, or industry tables. Agents can add leads using a modal.
-- Google-only sign-in using self-hosted Auth.js v5 (NextAuth) inside Next.js; no Supabase involvement in CRM.
+- Web CRM: Google-only Auth.js v5 sessions. Android CRM: native Google Credential Manager identity token sent directly to Next.js API for signature/audience verification, then independent Neon-backed mobile bearer sessions. Android never uses Auth.js cookies or website sign-in.
 - JoelTechGeek Neon PostgreSQL holds the registered agent allowlist and assigned leads.
 - The legacy /crm job-hunting UI and /api/crm job endpoints are removed. Existing job data tables are intentionally NOT dropped by this change.
 

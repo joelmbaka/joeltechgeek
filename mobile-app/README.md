@@ -13,7 +13,7 @@ TanStack Query, or background polling is used.
 3. From this folder, install the checked-in dependencies and run validation:
 
    ```bash
-   npm ci
+   npm install
    npx tsc --noEmit
    npx expo install --check
    npx expo lint
@@ -29,9 +29,18 @@ TanStack Query, or background polling is used.
    `EXPO_PUBLIC_API_BASE_URL` when running Expo. This is a **public** URL;
    never put Neon credentials, AUTH_SECRET, or Google client secrets in Expo.
 
-Google sign-in uses the production Auth.js website, then returns to the app
-via the `joeltechgeek` deep-link scheme. The backend must have been deployed
-and the mobile-auth migration applied to Portfolio Neon.
+Google login is native: Android Credential Manager shows a Google account
+selector, then sends a Google ID token directly to
+`POST /api/agent-crm/mobile/google`. No website pages or browser cookies are
+involved. The backend must be deployed and mobile-auth migration applied.
+
+Before building, set the **public** `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` to the
+Web OAuth client ID already used by server-side `AUTH_GOOGLE_ID`, and register
+the Android OAuth client for `com.joeltechgeek.app` and your signing SHA-1.
+Do not put `AUTH_GOOGLE_SECRET` or `AUTH_SECRET` in the mobile app.
+Run `npx expo install react-native-nitro-google-signin react-native-nitro-modules`
+once to regenerate the mobile lockfile; this module requires a native rebuild.
+`npx expo run:android --device` will NOT work in Expo Go.
 
 For the complete architecture, security and acceptance checklist see
 [README-CRM.md](README-CRM.md).

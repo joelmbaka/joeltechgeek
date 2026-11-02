@@ -45,7 +45,8 @@
           "enableRemoteNotifications": false
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "react-native-nitro-google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

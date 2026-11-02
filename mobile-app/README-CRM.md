@@ -11,23 +11,29 @@ NetInfo, push-token registration, or background polling.
    JoelTechGeek Services CRM.
 2. Deploy the Next.js changes to joeltechgeek.com. Confirm AUTH_GOOGLE_ID,
    AUTH_GOOGLE_SECRET, AUTH_SECRET (32+ chars), DATABASE_URL are server-side.
-   The mobile-connect page uses **the existing NextAuth Google callback**, so
-   there is no additional Google OAuth redirect to register.
-3. In mobile-app: run `npx expo install expo-crypto expo-secure-store expo-notifications`
-   to install SDK-compatible versions **and regenerate package-lock.json**.
-   Then `npx tsc --noEmit` and `npx expo install --check`.
+   The mobile uses no NextAuth callback or website sign-in flow.
+3. In mobile-app: run
+   `npx expo install react-native-nitro-google-signin react-native-nitro-modules`,
+   which regenerates the `package-lock.json` for the new native dependencies.
+   Run `npx tsc --noEmit`, `npx expo lint`, `npx expo install --check`.
+   Remove unused old browser auth dependencies as part of the lockfile refresh.
 4. Initialize EAS for Android and iOS if not already configured. Build/test
    Android only for now. Expo scheme: joeltechgeek.
-5. Optionally set EXPO_PUBLIC_API_BASE_URL (public; default joeltechgeek.com).
+5. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to the public Google **Web** OAuth
+   client ID corresponding to the server AUTH_GOOGLE_ID (same Google Cloud
+   project). Create/register an Android OAuth client for package
+   com.joeltechgeek.app and the USB debug APK signing SHA-1. You can optionally
+   set EXPO_PUBLIC_API_BASE_URL (public; default joeltechgeek.com).
    Do not add Google secrets, AUTH_SECRET, or DATABASE_URL to the mobile app.
 
 ## Architecture
 
-Google Auth.js cookie login in the browser -> single-use 2-minute PKCE-bound
-Android handoff code -> mobile exchange -> 15-minute bearer access token in RAM
-+ rotating 30-day refresh token in SecureStore. Mobile requests use bearer auth
-and the server rechecks registered-agent access and agent-scoped lead ownership.
-Browser cookie sign-in and its Origin checks remain unchanged.
+Android native Google Credential Manager account selection -> Google ID token
+verified by the Next.js API against Google's public signing keys, issuer, audience
+and verified email -> allowed sales-agent row lookup -> 15-minute bearer access
+token in RAM and rotating 30-day refresh token in SecureStore. No browser
+Auth.js session, redirect, callback route or PKCE handoff is involved. Website
+Auth.js sign-in remains independent.
 
 Leads are never saved to device storage. Opening a list, individual lead, or
 foregrounding the app fetches fresh data. Search is debounced 300ms, performed

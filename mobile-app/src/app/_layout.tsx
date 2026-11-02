@@ -11,7 +11,6 @@ export default function RootLayout() {
       contentStyle: { backgroundColor: COLORS.background },
     }}>
       <Stack.Screen name="index" options={{ title: 'Agent CRM' }}/>
-      <Stack.Screen name="auth-callback" options={{ title: 'Signing in' }}/>
       <Stack.Screen name="leads/new" options={{ title: 'Add lead' }}/>
       <Stack.Screen name="leads/[id]" options={{ title: 'Lead details' }}/>
     </Stack>
