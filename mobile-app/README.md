@@ -14,6 +14,7 @@ TanStack Query, or background polling is used.
 
    ```bash
    npm install
+   npx expo install react-native-nitro-google-signin react-native-nitro-modules
    npx tsc --noEmit
    npx expo install --check
    npx expo lint
