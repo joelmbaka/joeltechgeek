@@ -43,7 +43,13 @@ export default function HomeScreen() {
       q: debounced, queue, industry, sort,
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + query.toString(), { signal })
-      .then((result) => { if (!signal.aborted) setData(result); })
+      .then((result) => {
+        if (!signal.aborted) {
+          setData(result);
+          // Reconcile Android alarms against the authoritative server feed.
+          void reconcileReminders(agent).catch(() => {});
+        }
+      })
       .catch((e: unknown) => {
         if (!signal.aborted) setMessage(e instanceof Error ? e.message : 'Cannot load leads.');
       })

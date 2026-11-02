@@ -11,6 +11,7 @@ const PKCE_KEY = 'crm.android.oauth.verifier.v1';
 let access: string | null = null;
 let agent: Agent | null = null;
 let refreshing: Promise<Agent | null> | null = null;
+let exchanging: Promise<Agent> | null = null;
 const listeners = new Set<(value: Agent | null) => void>();
 
 export function getAccessToken() { return access; }
@@ -73,6 +74,11 @@ export async function startGoogleSignIn() {
   }
 }
 export async function exchangeMobileCode(code: string): Promise<Agent> {
+  if (exchanging) return exchanging;
+  exchanging = doExchangeMobileCode(code);
+  try { return await exchanging; } finally { exchanging = null; }
+}
+async function doExchangeMobileCode(code: string): Promise<Agent> {
   const verifier = await SecureStore.getItemAsync(PKCE_KEY);
   if (!verifier) throw new Error('Sign-in session expired. Please retry.');
   const response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/exchange', {

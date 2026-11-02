@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (last?.notification.request.content.data.crm_agent_id !== agent.id) return;
       const id = notificationLeadId(last.notification.request.content.data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
+      void Notifications.clearLastNotificationResponseAsync().catch(() => {});
     }).catch(() => {});
     return () => tapped.remove();
   }, [agent?.id, router]);

@@ -63,9 +63,16 @@ export default function LeadScreen() {
       const base = '/api/agent-crm/leads/' + encodeURIComponent(id);
       const path = kind === 'call' ? base : base + (kind === 'complete' ? '/actions' : '/followup');
       const method = kind === 'complete' ? 'POST' : 'PATCH';
+      const unchangedAction = kind === 'complete' &&
+        nextAction.trim() === (lead.next_action || '') &&
+        date.trim() === (lead.next_action_at || '') &&
+        time.trim() === (lead.next_action_time?.slice(0,5) || '');
+      const completionSchedule = unchangedAction ?
+        { next_action: '', next_action_at: null, next_action_time: null,
+          next_action_timezone: timezone } : schedule();
       const payload = kind === 'call'
         ? { outcome, notes, ...schedule(), do_not_contact: optOut }
-        : kind === 'complete' ? { notes: completionNotes, ...schedule() } : schedule();
+        : kind === 'complete' ? { notes: completionNotes, ...completionSchedule } : schedule();
       await apiFetch(path, { method, body: JSON.stringify(payload) });
       dirty.current = false; setOptOut(false);
       // Refetch authoritative server state after every mutation.
