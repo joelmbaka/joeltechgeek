@@ -18,7 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/mentorship`, lastModified: WEBSITE_UPDATED_AT, changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/careers`, lastModified: SALES_AGENTS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${base}/industries`, lastModified: WEBSITE_UPDATED_AT, changeFrequency: 'monthly', priority: 0.76 },
-    { url: `${base}/demos`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.82 },
+    { url: `${base}/demos`, lastModified: new Date('2026-11-02'), changeFrequency: 'monthly', priority: 0.82 },
     { url: `${base}/demos/fire-safety`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/retail`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/construction`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
@@ -27,6 +27,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/demos/education`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/property`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/healthcare`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
+    { url: `${base}/demos/security`, lastModified: new Date('2026-11-02'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/contact`, lastModified: CAREERS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.88 },
   ];
 
