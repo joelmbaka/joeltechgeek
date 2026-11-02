@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Busy, Button, styles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
 import { LeadCardSkeleton } from '@/components/Skeleton';
-import { COLORS } from '@/lib/config';
+import { COLORS, API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
@@ -22,7 +22,7 @@ const SORTS: SelectOption[] = [
 ];
 
 export default function HomeScreen() {
-  const { ready, agent, login, error: authError } = useAuth();
+  const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
@@ -34,9 +34,27 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewAvailable, setReviewAvailable] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const requestVersion = useRef(0);
 
   useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
+
+  // The backend can hide this option immediately after Play review simply by
+  // disabling CRM_PLAY_REVIEW_ENABLED; an old APK never contains credentials.
+  useEffect(() => {
+    if (!ready || agent) { setReviewAvailable(false); return; }
+    const controller = new AbortController();
+    void fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
+      signal: controller.signal, cache: 'no-store',
+    }).then((response) => response.ok ? response.json() : null)
+      .then((body: { enabled?: boolean } | null) => {
+        if (!controller.signal.aborted) setReviewAvailable(body?.enabled === true);
+      }).catch(() => {
+        if (!controller.signal.aborted) setReviewAvailable(false);
+      });
+    return () => controller.abort();
+  }, [ready, agent?.id]);
 
   const fetchPage = useCallback((signal: AbortSignal) => {
     if (!agent) return;
@@ -79,6 +97,12 @@ export default function HomeScreen() {
     router.push({ pathname: '/leads/[id]', params: { id } });
   };
 
+  const openReview = async () => {
+    if (reviewBusy) return;
+    setReviewBusy(true);
+    try { await reviewLogin(); } finally { setReviewBusy(false); }
+  };
+
   if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
     <Busy label="Restoring your session…"/>
   </SafeAreaView>;
@@ -88,6 +112,12 @@ export default function HomeScreen() {
       <Text style={styles.subtitle}>Sign in with your registered Google account.</Text>
       {authError ? <Text style={styles.error}>{authError}</Text> : null}
       <Button onPress={() => void login()}>Continue with Google</Button>
+      {reviewAvailable ? <>
+        <Button secondary disabled={reviewBusy} onPress={() => void openReview()}>
+          {reviewBusy ? 'Opening review workspace…' : 'Review access'}
+        </Button>
+        <Text style={styles.subtitle}>Explore the CRM with fictional sample leads.</Text>
+      </> : null}
     </View>
   </SafeAreaView>;
 
@@ -113,6 +143,8 @@ export default function HomeScreen() {
       contentContainerStyle={{ padding: 15, paddingBottom: 32, gap: 10 }}
       ListHeaderComponent={<View style={{ gap: 12 }}>
         <Text style={[styles.title, { fontSize: 21 }]}>Good day, {agent.name.split(' ')[0]}</Text>
+        {agent.email === 'play-review@joeltechgeek.invalid' ?
+          <Text style={styles.subtitle}>Play review workspace · sample data only</Text> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {([
             ['Leads', stats?.total], ['To call', stats?.to_call],

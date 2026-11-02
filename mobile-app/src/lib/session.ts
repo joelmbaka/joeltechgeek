@@ -125,6 +125,33 @@ export function exchangeGoogleCode(code: string): Promise<Agent> {
   return work;
 }
 
+let reviewSigningIn: Promise<void> | null = null;
+/**
+ * Review access is granted only to the server's separate demo agent. Never
+ * encode Joel's credentials, agent ID or an administrator token in the APK.
+ */
+export async function startPlayReviewSignIn(): Promise<void> {
+  if (reviewSigningIn) return reviewSigningIn;
+  reviewSigningIn = (async () => {
+    let response: Response;
+    try {
+      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch {
+      throw new Error('Cannot reach the CRM. Check your internet connection.');
+    }
+    const body = await response.json().catch(() => ({})) as Partial<Tokens> & { error?: string };
+    if (!response.ok) throw new Error(body.error || 'Review access is unavailable.');
+    if (!body.agent || !body.access_token || !body.refresh_token) {
+      throw new Error('The CRM returned an incomplete review session.');
+    }
+    await saveSession(body as Tokens);
+  })();
+  try { await reviewSigningIn; } finally { reviewSigningIn = null; }
+}
+
 export async function signOutSession(): Promise<void> {
   await refreshing?.catch(() => {});
   const token = await SecureStore.getItemAsync(SESSION_KEY);

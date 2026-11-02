@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
-import { getAgent, restoreSession, signOutSession, startGoogleSignIn, subscribeSession } from './session';
+import { getAgent, restoreSession, signOutSession, startGoogleSignIn, startPlayReviewSignIn, subscribeSession } from './session';
 import { cancelAgentReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
 import type { Agent } from './types';
 
 type AuthContextValue = {
-  ready: boolean; agent: Agent | null; login: () => Promise<void>; logout: () => Promise<void>;
+  ready: boolean; agent: Agent | null; login: () => Promise<void>; reviewLogin: () => Promise<void>; logout: () => Promise<void>;
   error: string | null;
 };
 const Context = createContext<AuthContextValue | null>(null);
@@ -54,7 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const login = async () => { setError(null); try { await startGoogleSignIn(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Google sign-in failed.'); } };
-  return <Context.Provider value={{ ready, agent, error, login, logout }}>
+  const reviewLogin = async () => {
+    setError(null);
+    try { await startPlayReviewSignIn(); }
+    catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Review sign-in failed.');
+    }
+  };
+  return <Context.Provider value={{ ready, agent, error, login, reviewLogin, logout }}>
     {children}
   </Context.Provider>;
 }
