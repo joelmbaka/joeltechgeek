@@ -15,8 +15,8 @@ export async function POST(request: Request) {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     const found = await client.query<{ agent_id: string; challenge: string }>(
-      \`SELECT agent_id::text, challenge FROM public.crm_mobile_auth_codes
-       WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now() FOR UPDATE\`,
+      `SELECT agent_id::text, challenge FROM public.crm_mobile_auth_codes
+       WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now() FOR UPDATE`,
       [digestToken(body.code)],
     );
     if (!found.rows[0] || found.rows[0].challenge !== pkceChallenge(body.verifier)) {

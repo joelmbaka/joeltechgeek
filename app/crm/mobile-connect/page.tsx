@@ -33,9 +33,9 @@ export default async function MobileConnect({ searchParams }: Props) {
   }
 
   const agent = await getCrmPool().query<{ id: string }>(
-    \`SELECT id::text AS id FROM public.sales_agent_applications
+    `SELECT id::text AS id FROM public.sales_agent_applications
        WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
-       AND status <> 'declined' LIMIT 1\`,
+       AND status <> 'declined' LIMIT 1`,
     [email],
   );
   if (!agent.rows[0]) return <main style={wrapper}>
@@ -47,8 +47,8 @@ export default async function MobileConnect({ searchParams }: Props) {
   // This one-time code cannot be redeemed without the app's PKCE verifier.
   const code = randomToken();
   await getCrmPool().query(
-    \`INSERT INTO public.crm_mobile_auth_codes (code_hash, agent_id, challenge, expires_at)
-       VALUES ($1, $2::uuid, $3, now() + interval '2 minutes')\`,
+    `INSERT INTO public.crm_mobile_auth_codes (code_hash, agent_id, challenge, expires_at)
+       VALUES ($1, $2::uuid, $3, now() + interval '2 minutes')`,
     [digestToken(code), agent.rows[0].id, challenge],
   );
   const deepLink = 'joeltechgeek:///auth-callback?code=' + encodeURIComponent(code);

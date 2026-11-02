@@ -14,8 +14,8 @@ export async function POST(request: Request) {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     const found = await client.query<{ id: string; agent_id: string }>(
-      \`SELECT id::text, agent_id::text FROM public.crm_mobile_sessions
-       WHERE refresh_hash = $1 AND revoked_at IS NULL AND expires_at > now() FOR UPDATE\`,
+      `SELECT id::text, agent_id::text FROM public.crm_mobile_sessions
+       WHERE refresh_hash = $1 AND revoked_at IS NULL AND expires_at > now() FOR UPDATE`,
       [digestToken(refreshToken)],
     );
     const session = found.rows[0];
@@ -24,8 +24,8 @@ export async function POST(request: Request) {
     if (!agent) { await client.query('ROLLBACK'); return mobileJson({ error: 'Agent access revoked.' }, 403); }
     const nextToken = randomToken();
     await client.query(
-      \`UPDATE public.crm_mobile_sessions SET refresh_hash = $1, rotated_at = now()
-         WHERE id = $2::uuid\`,
+      `UPDATE public.crm_mobile_sessions SET refresh_hash = $1, rotated_at = now()
+         WHERE id = $2::uuid`,
       [digestToken(nextToken), session.id],
     );
     await client.query('COMMIT');

@@ -52,23 +52,23 @@ export async function getActiveMobileAgent(token: string): Promise<Agent | null>
   const identity = validateAccessToken(token);
   if (!identity) return null;
   const row = await getCrmPool().query<{ id: string; name: string; email: string }>(
-    \`SELECT a.id::text AS id, a.full_name AS name, a.email
+    `SELECT a.id::text AS id, a.full_name AS name, a.email
        FROM public.crm_mobile_sessions s
        JOIN public.sales_agent_applications a ON a.id = s.agent_id
        WHERE s.id = $1::uuid AND s.agent_id = $2::uuid
          AND s.revoked_at IS NULL AND s.expires_at > now()
          AND a.crm_access_enabled IS TRUE AND a.status <> 'declined'
-       LIMIT 1\`,
+       LIMIT 1`,
     [identity.sid, identity.agentId],
   );
   return row.rows[0] || null;
 }
 export async function getActiveAgentById(id: string, client: PoolClient): Promise<Agent | null> {
   const found = await client.query<{ id: string; name: string; email: string }>(
-    \`SELECT id::text, full_name AS name, email
+    `SELECT id::text, full_name AS name, email
        FROM public.sales_agent_applications
        WHERE id = $1::uuid AND crm_access_enabled IS TRUE AND status <> 'declined'
-       LIMIT 1\`,
+       LIMIT 1`,
     [id],
   );
   return found.rows[0] || null;
@@ -76,8 +76,8 @@ export async function getActiveAgentById(id: string, client: PoolClient): Promis
 export async function mintMobileSession(client: PoolClient, agentId: string) {
   const refreshToken = randomToken();
   const result = await client.query<{ id: string }>(
-    \`INSERT INTO public.crm_mobile_sessions (agent_id, refresh_hash, expires_at)
-      VALUES ($1::uuid, $2, now() + interval '30 days') RETURNING id::text AS id\`,
+    `INSERT INTO public.crm_mobile_sessions (agent_id, refresh_hash, expires_at)
+      VALUES ($1::uuid, $2, now() + interval '30 days') RETURNING id::text AS id`,
     [agentId, digestToken(refreshToken)],
   );
   return {
