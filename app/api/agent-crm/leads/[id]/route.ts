@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES } from '@/lib/agent-crm/types';
@@ -96,7 +97,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return response('Please choose a valid follow-up date.', 400);
   }
 
-  let client;
+  let client: PoolClient | undefined;
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
