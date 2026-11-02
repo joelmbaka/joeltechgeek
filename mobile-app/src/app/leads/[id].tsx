@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Linking, Pressable, Text, View } from 'react-native';
-import { Button, Busy, ChoiceRow, Field, Page, styles } from '@/components/ui';
+import { Button, Field, Page, styles } from '@/components/ui';
+import { SelectSheet } from '@/components/SelectSheet';
+import { NativeSchedulePicker } from '@/components/NativeSchedulePicker';
+import { LeadDetailSkeleton } from '@/components/Skeleton';
 import { COLORS } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
@@ -11,6 +14,29 @@ import type { Lead, LeadDetails, LeadEvent } from '@/lib/types';
 import { OUTCOMES, outcomeLabel } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
+const outcomeOptions = OUTCOMES.map(([value, label]) => ({ value, label }));
+
+function labelAndValue(label: string, value: string | null) {
+  if (!value) return null;
+  return <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+    <Text style={[styles.label, { minWidth: 64, marginTop: 2 }]}>{label}:</Text>
+    <Text selectable style={[styles.subtitle, { color: COLORS.ink, flex: 1 }]}>{value}</Text>
+  </View>;
+}
+
+/** wa.me expects international country code, without the leading +. */
+function whatsappNumber(phone: string, country: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return null;
+  if (phone.trim().startsWith('+')) return digits;
+  if (country.toLowerCase() === 'kenya') {
+    if (digits.startsWith('0') && digits.length === 10) return '254' + digits.slice(1);
+    if (digits.startsWith('254') && digits.length === 12) return digits;
+    if (digits.length === 9 && /^[17]/.test(digits)) return '254' + digits;
+  }
+  // Do not silently invent a country code for other markets.
+  return null;
+}
 
 export default function LeadScreen() {
   const router = useRouter();
@@ -21,31 +47,37 @@ export default function LeadScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [outcome, setOutcome] = useState<string>('no_answer');
+  const [outcome, setOutcome] = useState('no_answer');
   const [notes, setNotes] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
   const [optOut, setOptOut] = useState(false);
-  const dirty = useRef(false);
-  const requestVersion = useRef(0);
   const [editingContact, setEditingContact] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactRole, setContactRole] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const dirty = useRef(false);
+  const requestVersion = useRef(0);
+  const editingContactRef = useRef(false);
   const edit = (apply: () => void) => { dirty.current = true; apply(); };
+  const showContactEditor = () => { editingContactRef.current = true; setEditingContact(true); };
+  const hideContactEditor = () => { editingContactRef.current = false; setEditingContact(false); };
 
   const load = useCallback((signal: AbortSignal) => {
     if (!agent || !id) return;
     const version = ++requestVersion.current;
-    setLoading(true); setError(null); setLead(null);
+    setLoading(true);
+    setError(null);
+    setLead(null);
     void apiFetch<LeadDetails>('/api/agent-crm/leads/' + encodeURIComponent(id), { signal })
       .then((data) => {
         if (signal.aborted || version !== requestVersion.current) return;
-        setLead(data.lead); setHistory(data.history);
-        if (!editingContact) {
+        setLead(data.lead);
+        setHistory(data.history);
+        if (!editingContactRef.current) {
           setContactName(data.lead.contact_name || '');
           setContactRole(data.lead.contact_role || '');
           setPhone(data.lead.phone || '');
@@ -54,24 +86,37 @@ export default function LeadScreen() {
         if (!dirty.current) {
           setNextAction(data.lead.next_action || '');
           setDate(data.lead.next_action_at || '');
-          setTime(data.lead.next_action_time?.slice(0,5) || '');
-          setNotes(''); setCompletionNotes('');
+          setTime(data.lead.next_action_time?.slice(0, 5) || '');
+          setNotes('');
+          setCompletionNotes('');
         }
       })
-      .catch((e: unknown) => { if (!signal.aborted && version === requestVersion.current) setError(e instanceof Error ? e.message : 'Unable to load lead'); })
-      .finally(() => { if (!signal.aborted && version === requestVersion.current) setLoading(false); });
-  }, [agent, id, editingContact]);
+      .catch((reason: unknown) => {
+        if (!signal.aborted && version === requestVersion.current) {
+          setError(reason instanceof Error ? reason.message : 'Unable to load lead.');
+        }
+      })
+      .finally(() => {
+        if (!signal.aborted && version === requestVersion.current) setLoading(false);
+      });
+  }, [agent?.id, id]);
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
+
   const schedule = () => ({
-    next_action: nextAction.trim(), next_action_at: date.trim() || null,
+    next_action: nextAction.trim(),
+    next_action_at: date.trim() || null,
     next_action_time: time.trim() || null,
     next_action_timezone: timezone,
   });
-  const save = async (kind: 'call'|'followup'|'complete') => {
+  const save = async (kind: 'call' | 'followup' | 'complete') => {
     if (!lead || !id) return;
-    if (date && !nextAction.trim()) { setError('Choose a next action for the selected date.'); return; }
-    setError(null); setSaving(true);
+    if (date && !nextAction.trim()) {
+      setError('Choose a next action for the selected date.');
+      return;
+    }
+    setError(null);
+    setSaving(true);
     try {
       const base = '/api/agent-crm/leads/' + encodeURIComponent(id);
       const path = kind === 'call' ? base : base + (kind === 'complete' ? '/actions' : '/followup');
@@ -79,65 +124,111 @@ export default function LeadScreen() {
       const unchangedAction = kind === 'complete' &&
         nextAction.trim() === (lead.next_action || '') &&
         date.trim() === (lead.next_action_at || '') &&
-        time.trim() === (lead.next_action_time?.slice(0,5) || '');
-      const completionSchedule = unchangedAction ?
-        { next_action: '', next_action_at: null, next_action_time: null,
-          next_action_timezone: timezone } : schedule();
+        time.trim() === (lead.next_action_time?.slice(0, 5) || '');
+      const completionSchedule = unchangedAction
+        ? { next_action: '', next_action_at: null, next_action_time: null,
+          next_action_timezone: timezone }
+        : schedule();
       const payload = kind === 'call'
         ? { outcome, notes, ...schedule(), do_not_contact: optOut }
-        : kind === 'complete' ? { notes: completionNotes, ...completionSchedule } : schedule();
+        : kind === 'complete'
+          ? { notes: completionNotes, ...completionSchedule }
+          : schedule();
       await apiFetch(path, { method, body: JSON.stringify(payload) });
-      dirty.current = false; setOptOut(false);
-      // Refetch authoritative server state after every mutation.
+      dirty.current = false;
+      setOptOut(false);
       reload();
       if (agent) void reconcileReminders(agent).catch(() => {});
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save update.'); }
-    finally { setSaving(false); }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save update.');
+    } finally { setSaving(false); }
   };
+
   const saveContact = async () => {
     if (!id) return;
-    setSaving(true); setError(null);
+    setError(null);
+    setSaving(true);
     try {
       await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/contact', {
         method: 'PATCH',
-        body: JSON.stringify({ contact_name: contactName, contact_role: contactRole, phone, email }),
+        body: JSON.stringify({
+          contact_name: contactName, contact_role: contactRole, phone, email,
+        }),
       });
-      setEditingContact(false);
+      hideContactEditor();
       reload();
-    } catch (e) { setError(e instanceof Error ? e.message : 'Contact update failed.'); }
-    finally { setSaving(false); }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Contact update failed.');
+    } finally { setSaving(false); }
   };
   const call = () => {
-    if (!lead?.phone) return;
+    if (!lead?.phone || lead.do_not_contact) return;
     const number = lead.phone.replace(/[^\d+]/g, '');
     if (number) void Linking.openURL('tel:' + number);
   };
+  const whatsApp = () => {
+    if (!lead?.phone || lead.do_not_contact) return;
+    const number = whatsappNumber(lead.phone, lead.country);
+    if (!number) {
+      Alert.alert('Phone format', 'Save the contact number with its international country code to use WhatsApp.');
+      return;
+    }
+    void Linking.openURL('https://wa.me/' + number).catch(() => {
+      Alert.alert('WhatsApp unavailable', 'Unable to open WhatsApp for this number.');
+    });
+  };
   if (!agent) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
   return <Page>
-    {loading ? <Busy label="Fetching the latest lead details…"/> : null}
-    {error ? <>
+    <Stack.Screen options={{
+      headerRight: () => lead && !lead.do_not_contact ?
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit contact"
+          onPress={showContactEditor}
+          style={{ minWidth: 42, minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: COLORS.primary, fontWeight: '800', fontSize: 27 }}>✎</Text>
+        </Pressable> : undefined,
+    }}/>
+    {loading ? <LeadDetailSkeleton/> : null}
+    {error ? <View style={styles.card}>
       <Text style={styles.error}>{error}</Text>
-      {!lead ? <Button secondary onPress={reload}>Retry</Button> : null}
-    </> : null}
+      {!lead ? <Button secondary onPress={reload}>Retry loading lead</Button> : null}
+    </View> : null}
     {lead ? <>
       <Text style={styles.title}>{lead.company_name}</Text>
       <Text style={styles.subtitle}>{lead.industry} · {lead.stage.replace(/_/g, ' ')}</Text>
       <View style={styles.card}>
-        <Text style={styles.label}>Primary contact</Text>
-        <Text style={styles.value}>{lead.contact_name || 'No contact specified'}</Text>
-        <Text style={styles.subtitle}>{lead.contact_role || ''}</Text>
-        {lead.phone ? <Button onPress={call}>Call {lead.phone}</Button> : null}
-        {lead.email ? <Pressable onPress={() => void Linking.openURL('mailto:' + lead.email)}>
-          <Text style={{ color: COLORS.primary }}>{lead.email}</Text></Pressable> : null}
-        {lead.website ? <Text style={styles.subtitle}>{lead.website}</Text> : null}
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.value, { fontSize: 17 }]}>
+              {lead.contact_name || 'Contact not specified'}
+            </Text>
+            {lead.contact_role ? <Text style={styles.subtitle}>{lead.contact_role}</Text> : null}
+          </View>
+        </View>
+        {labelAndValue('Phone', lead.phone)}
+        {labelAndValue('Email', lead.email)}
+        {labelAndValue('Website', lead.website)}
         {editingContact ? <>
-          <Field label="Contact name" value={contactName} onChangeText={setContactName}/>
+          <Field label="Name" value={contactName} onChangeText={setContactName}/>
           <Field label="Role" value={contactRole} onChangeText={setContactRole}/>
           <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
           <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address"/>
-          <Button disabled={saving} onPress={() => void saveContact()}>Save primary contact</Button>
-          <Button secondary onPress={() => setEditingContact(false)}>Cancel</Button>
-        </> : !lead.do_not_contact ? <Button secondary onPress={() => setEditingContact(true)}>Edit primary contact</Button> : null}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Button disabled={saving} onPress={() => void saveContact()}>
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button secondary onPress={hideContactEditor}>Cancel</Button>
+            </View>
+          </View>
+        </> : null}
+        {lead.phone && !lead.do_not_contact ? <View style={{
+          flexDirection: 'row', gap: 9, marginTop: 6,
+        }}>
+          <View style={{ flex: 1 }}><Button onPress={call}>Call</Button></View>
+          <View style={{ flex: 1 }}><Button secondary onPress={whatsApp}>WhatsApp</Button></View>
+        </View> : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>Last outcome</Text>
@@ -145,50 +236,65 @@ export default function LeadScreen() {
         <Text style={styles.label}>Next action</Text>
         <Text style={styles.value}>{lead.next_action || 'No action scheduled'}</Text>
         {lead.next_action_at ? <Text style={styles.subtitle}>
-          {lead.next_action_at}{lead.next_action_time ? ' at ' + lead.next_action_time.slice(0,5) : ' (date only)'}
+          {lead.next_action_at}
+          {lead.next_action_time ? ' at ' + lead.next_action_time.slice(0, 5) : ' (date only)'}
         </Text> : null}
         {lead.last_notes ? <Text style={styles.subtitle}>Notes: {lead.last_notes}</Text> : null}
       </View>
       {!lead.do_not_contact ? <>
         <View style={styles.card}>
-          <Text style={styles.title}>Log call outcome</Text>
-          <Text style={styles.subtitle}>Calls use the Android dialer. Record the result manually.</Text>
-          <ChoiceRow options={OUTCOMES} selected={outcome} onChange={(v) => edit(() => setOutcome(v))}/>
-          <Field label="Conversation notes" value={notes} onChangeText={(v) => edit(() => setNotes(v))} multiline/>
+          <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
+          <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
+            onChange={(value) => edit(() => setOutcome(value))}/>
+          <Field label="Conversation notes" value={notes}
+            onChangeText={(value) => edit(() => setNotes(value))} multiline/>
           <Pressable onPress={() => edit(() => setOptOut(!optOut))}
+            accessibilityRole="checkbox" accessibilityState={{ checked: optOut }}
             style={styles.row}>
             <Text style={{ color: optOut ? COLORS.red : COLORS.muted }}>
-              {optOut ? '☑' : '□'} Mark Do Not Contact</Text>
+              {optOut ? '☑' : '□'} Mark Do Not Contact
+            </Text>
           </Pressable>
           <Button disabled={saving} onPress={() => {
-            if (optOut) Alert.alert('Mark Do Not Contact?', 'Future calls and actions will be blocked.', [
-              { text: 'Cancel', style: 'cancel' }, { text: 'Confirm', onPress: () => void save('call') },
-            ]); else void save('call');
+            if (optOut) {
+              Alert.alert('Mark Do Not Contact?', 'Future calls and actions will be blocked.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Confirm', onPress: () => void save('call') },
+              ]);
+            } else void save('call');
           }}>{saving ? 'Saving…' : 'Save call outcome'}</Button>
         </View>
         <View style={styles.card}>
-          <Text style={styles.title}>Follow-up</Text>
+          <Text style={[styles.title, { fontSize: 19 }]}>Follow-up</Text>
           <Field label="Next action" value={nextAction}
-            onChangeText={(v) => edit(() => setNextAction(v))} placeholder="e.g. Call decision maker"/>
-          <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={(v) => edit(() => setDate(v))}
-            placeholder="2026-11-05"/>
-          <Field label="Time (HH:MM, optional)" value={time} onChangeText={(v) => edit(() => setTime(v))}
-            placeholder="14:30"/>
-          <Text style={styles.subtitle}>Dates without a time appear in the due queue but do not create an alarm.</Text>
-          <Button secondary disabled={saving} onPress={() => void save('followup')}>Save follow-up</Button>
+            onChangeText={(value) => edit(() => setNextAction(value))}
+            placeholder="e.g. Call decision maker"/>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <NativeSchedulePicker label="Date" mode="date" value={date}
+              onChange={(value) => edit(() => { setDate(value); if (!value) setTime(''); })}/>
+            <NativeSchedulePicker label="Time (optional)" mode="time" value={time}
+              disabled={!date}
+              onChange={(value) => edit(() => setTime(value))}/>
+          </View>
+          <Text style={styles.subtitle}>
+            Date-only follow-ups appear in the due queue without scheduling an alarm.
+          </Text>
+          <Button secondary disabled={saving} onPress={() => void save('followup')}>
+            Save follow-up
+          </Button>
           {lead.next_action ? <>
-            <Field label="Completion notes" value={completionNotes} multiline
-              onChangeText={(v) => edit(() => setCompletionNotes(v))}/>
+            <Field label="Completion notes" value={completionNotes}
+              multiline onChangeText={(value) => edit(() => setCompletionNotes(value))}/>
             <Button secondary disabled={saving} onPress={() => void save('complete')}>
-              Mark current action completed
+              Mark action completed
             </Button>
           </> : null}
         </View>
       </> : <Text style={styles.error}>This lead is marked Do Not Contact.</Text>}
-      <Text style={styles.title}>Activity history</Text>
+      <Text style={[styles.title, { fontSize: 20 }]}>Activity history</Text>
       {history.length === 0 ? <Text style={styles.subtitle}>No activity recorded.</Text> :
         history.map((event) => <View key={event.id} style={styles.card}>
-          <Text style={styles.value}>{event.event_type.replace(/_/g,' ')}</Text>
+          <Text style={styles.value}>{event.event_type.replace(/_/g, ' ')}</Text>
           <Text style={styles.subtitle}>{new Date(event.created_at).toLocaleString()}</Text>
           {event.outcome ? <Text style={styles.subtitle}>Outcome: {outcomeLabel(event.outcome)}</Text> : null}
           {event.action ? <Text style={styles.subtitle}>Action: {event.action}</Text> : null}
