@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { Busy, Button, ChoiceRow, Page, styles } from '@/components/ui';
 import { COLORS } from '@/lib/config';
@@ -31,10 +31,12 @@ export default function HomeScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reminderNotice, setReminderNotice] = useState('');
+  const requestVersion = useRef(0);
 
   useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
   const fetchPage = useCallback((signal: AbortSignal) => {
     if (!agent) return;
+    const version = ++requestVersion.current;
     setLoading(true);
     setMessage(null);
     setData(null); // Never display stale records as though they were current.
@@ -44,18 +46,18 @@ export default function HomeScreen() {
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + query.toString(), { signal })
       .then((result) => {
-        if (!signal.aborted) {
-          setData(result);
-          // Reconcile Android alarms against the authoritative server feed.
-          void reconcileReminders(agent).catch(() => {});
-        }
+        if (!signal.aborted && version === requestVersion.current) setData(result);
       })
       .catch((e: unknown) => {
-        if (!signal.aborted) setMessage(e instanceof Error ? e.message : 'Cannot load leads.');
+        if (!signal.aborted && version === requestVersion.current) setMessage(e instanceof Error ? e.message : 'Cannot load leads.');
       })
-      .finally(() => { if (!signal.aborted) { setLoading(false); setRefreshing(false); } });
+      .finally(() => { if (!signal.aborted && version === requestVersion.current) { setLoading(false); setRefreshing(false); } });
   }, [agent?.id, offset, debounced, queue, industry, sort]);
   useFreshOnFocus(fetchPage, [fetchPage]);
+  // Sync alarms on navigation focus, not on every debounced search/page request.
+  useFocusEffect(useCallback(() => {
+    if (agent) void reconcileReminders(agent).catch(() => {});
+  }, [agent?.id]));
 
   const manuallyRefresh = () => {
     const controller = new AbortController();

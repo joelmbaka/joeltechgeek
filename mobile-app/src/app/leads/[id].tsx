@@ -29,15 +29,28 @@ export default function LeadScreen() {
   const [completionNotes, setCompletionNotes] = useState('');
   const [optOut, setOptOut] = useState(false);
   const dirty = useRef(false);
+  const requestVersion = useRef(0);
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactRole, setContactRole] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const edit = (apply: () => void) => { dirty.current = true; apply(); };
 
   const load = useCallback((signal: AbortSignal) => {
     if (!agent || !id) return;
+    const version = ++requestVersion.current;
     setLoading(true); setError(null); setLead(null);
     void apiFetch<LeadDetails>('/api/agent-crm/leads/' + encodeURIComponent(id), { signal })
       .then((data) => {
-        if (signal.aborted) return;
+        if (signal.aborted || version !== requestVersion.current) return;
         setLead(data.lead); setHistory(data.history);
+        if (!editingContact) {
+          setContactName(data.lead.contact_name || '');
+          setContactRole(data.lead.contact_role || '');
+          setPhone(data.lead.phone || '');
+          setEmail(data.lead.email || '');
+        }
         if (!dirty.current) {
           setNextAction(data.lead.next_action || '');
           setDate(data.lead.next_action_at || '');
@@ -45,9 +58,9 @@ export default function LeadScreen() {
           setNotes(''); setCompletionNotes('');
         }
       })
-      .catch((e: unknown) => { if (!signal.aborted) setError(e instanceof Error ? e.message : 'Unable to load lead'); })
-      .finally(() => { if (!signal.aborted) setLoading(false); });
-  }, [agent?.id, id]);
+      .catch((e: unknown) => { if (!signal.aborted && version === requestVersion.current) setError(e instanceof Error ? e.message : 'Unable to load lead'); })
+      .finally(() => { if (!signal.aborted && version === requestVersion.current) setLoading(false); });
+  }, [agent?.id, id, editingContact]);
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
   const schedule = () => ({
@@ -81,6 +94,19 @@ export default function LeadScreen() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save update.'); }
     finally { setSaving(false); }
   };
+  const saveContact = async () => {
+    if (!id) return;
+    setSaving(true); setError(null);
+    try {
+      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/contact', {
+        method: 'PATCH',
+        body: JSON.stringify({ contact_name: contactName, contact_role: contactRole, phone, email }),
+      });
+      setEditingContact(false);
+      reload();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Contact update failed.'); }
+    finally { setSaving(false); }
+  };
   const call = () => {
     if (!lead?.phone) return;
     const number = lead.phone.replace(/[^\d+]/g, '');
@@ -104,6 +130,14 @@ export default function LeadScreen() {
         {lead.email ? <Pressable onPress={() => void Linking.openURL('mailto:' + lead.email)}>
           <Text style={{ color: COLORS.primary }}>{lead.email}</Text></Pressable> : null}
         {lead.website ? <Text style={styles.subtitle}>{lead.website}</Text> : null}
+        {editingContact ? <>
+          <Field label="Contact name" value={contactName} onChangeText={setContactName}/>
+          <Field label="Role" value={contactRole} onChangeText={setContactRole}/>
+          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
+          <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address"/>
+          <Button disabled={saving} onPress={() => void saveContact()}>Save primary contact</Button>
+          <Button secondary onPress={() => setEditingContact(false)}>Cancel</Button>
+        </> : !lead.do_not_contact ? <Button secondary onPress={() => setEditingContact(true)}>Edit primary contact</Button> : null}
       </View>
       <View style={styles.card}>
         <Text style={styles.label}>Last outcome</Text>
