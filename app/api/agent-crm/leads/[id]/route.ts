@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
-import { CALL_OUTCOMES, LEAD_STAGES } from '@/lib/agent-crm/types';
+import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
 
 export const runtime = 'nodejs';
@@ -31,12 +31,21 @@ export async function GET(_request: Request, { params }: Params) {
       [id, access.agent.id],
     );
     if (!lead.rows[0]) return response('Lead not found.', 404);
+    // Preserve the original call log and merge it with the new outcome/action
+    // timeline without modifying historical rows.
     const history = await db.query<LeadUpdate>(
-      `SELECT id::text AS id, outcome, notes, next_action,
-               next_action_at::text AS next_action_at, created_at
+      `SELECT * FROM (
+         SELECT id::text AS id, 'outreach'::text AS event_type,
+                outcome::text AS outcome, NULL::text AS action,
+                notes, next_action, next_action_at::text AS next_action_at, created_at
          FROM public.crm_lead_updates
          WHERE lead_id = $1 AND agent_id = $2
-         ORDER BY created_at DESC LIMIT 30`,
+         UNION ALL
+         SELECT id::text AS id, event_type::text, outcome::text,
+                action, notes, next_action, next_action_at::text, created_at
+         FROM public.crm_lead_events
+         WHERE lead_id = $1 AND agent_id = $2
+       ) AS timeline ORDER BY created_at DESC LIMIT 50`,
       [id, access.agent.id],
     );
     return NextResponse.json(
@@ -46,14 +55,6 @@ export async function GET(_request: Request, { params }: Params) {
   } catch (error) {
     return crmError(error);
   }
-}
-
-function nextStage(previous: LeadStage, outcome: CallOutcome): LeadStage {
-  if (outcome === 'interested') return 'interested';
-  if (outcome === 'meeting_booked') return 'meeting';
-  if (outcome === 'not_interested') return 'lost';
-  if (previous === 'new') return 'contacted';
-  return previous;
 }
 
 export async function PATCH(request: Request, { params }: Params) {
@@ -124,23 +125,23 @@ export async function PATCH(request: Request, { params }: Params) {
     const stage = optOut ? 'do_not_contact' :
       (typeof stageOverride === 'string' && stageOverride !== 'new'
         ? stageOverride as LeadStage
-        : nextStage(current.stage, outcome as CallOutcome));
+        : stageForOutcome(current.stage, outcome as CallOutcome));
     const note = notes.trim() || null;
     const action = optOut ? null : nextAction.trim() || null;
     const date = optOut ? null : typeof dueDate === 'string' && dueDate ? dueDate : null;
 
     await client.query(
       `UPDATE public.crm_leads
-         SET last_outcome = $3, last_notes = $4, next_action = $5,
+         SET last_outcome_v2 = $3, last_notes = $4, next_action = $5,
              next_action_at = $6::date, last_contacted_at = now(),
              do_not_contact = $7, stage = $8, updated_at = now()
          WHERE id = $1 AND agent_id = $2`,
       [id, access.agent.id, outcome, note, action, date, optOut, stage],
     );
     await client.query(
-      `INSERT INTO public.crm_lead_updates
-         (lead_id, agent_id, outcome, notes, next_action, next_action_at)
-         VALUES ($1,$2,$3,$4,$5,$6::date)`,
+      `INSERT INTO public.crm_lead_events
+         (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at)
+         VALUES ($1,$2,'outreach',$3,$4,$5,$6::date)`,
       [id, access.agent.id, outcome, note, action, date],
     );
     const result = await client.query<Lead>(

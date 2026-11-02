@@ -3,7 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
-import { CALL_OUTCOMES, LEAD_STAGES } from '@/lib/agent-crm/types';
+import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, LEAD_STAGES } from '@/lib/agent-crm/types';
 
 type FormState = {
   company_name: string;
@@ -33,21 +33,6 @@ const defaults: FormState = {
   existing_system: '', problem_summary: '', qualification_reason: '',
   source_url: '', priority: 'normal', stage: 'new', outcome: '',
   notes: '', next_action: '', next_action_at: '',
-};
-
-const outcomes: Record<string, string> = {
-  connected: 'Connected',
-  no_answer: 'No answer',
-  busy: 'Busy',
-  switched_off: 'Switched off',
-  wrong_number: 'Wrong number',
-  call_back: 'Call back requested',
-  interested: 'Interested',
-  not_interested: 'Not interested',
-  meeting_booked: 'Meeting booked',
-  whatsapp_requested: 'WhatsApp requested',
-  email_requested: 'Email requested',
-  other: 'Other',
 };
 
 const title = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());
@@ -245,7 +230,7 @@ export function AddLeadModal({
 
             <div className="border-t border-slate-100 pt-5 dark:border-white/10">
               <h3 className="text-sm font-bold text-[#0A2836] dark:text-white">Already contacted?</h3>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optionally record the first call now. The outcome and notes will be saved to history.</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Calls are recommended. Record the first call here, or choose Email sent if outreach was by email. Notes and next actions are saved to history.</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className={labelClass}>
                   Call outcome
@@ -253,7 +238,7 @@ export function AddLeadModal({
                     onChange={(event) => change('outcome', event.target.value)}>
                     <option value="">Not contacted yet</option>
                     {CALL_OUTCOMES.map((value) => (
-                      <option key={value} value={value}>{outcomes[value]}</option>
+                      <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
                     ))}
                   </select>
                 </label>

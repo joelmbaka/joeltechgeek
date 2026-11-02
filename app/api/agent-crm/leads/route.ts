@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
-import { CALL_OUTCOMES, LEAD_STAGES } from '@/lib/agent-crm/types';
+import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { isCrmIndustry } from '@/lib/agent-crm/industries';
 
@@ -27,7 +27,7 @@ export async function GET() {
       db.query<LeadStats>(
         `SELECT count(*)::int AS total,
            count(*) FILTER (
-             WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND last_outcome IN ('no_answer','busy','switched_off'))) AND NOT do_not_contact
+             WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2, last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact
                AND stage NOT IN ('won','lost')
            )::int AS to_call,
            count(*) FILTER (
@@ -152,9 +152,9 @@ export async function POST(request: Request) {
   )) {
     return badInput('Invalid follow-up date.');
   }
-  const stage = stageValue === 'new' && outcome === 'interested' ? 'interested'
-    : stageValue === 'new' && outcome === 'meeting_booked' ? 'meeting'
-    : stageValue === 'new' && outcome ? 'contacted' : stageValue;
+  const stage = outcome
+    ? stageForOutcome(stageValue as LeadStage, outcome as CallOutcome)
+    : stageValue;
 
   let client: PoolClient | undefined;
   try {
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
       'agent_id', 'company_name', 'industry', 'country', 'city', 'website',
       'contact_name', 'contact_role', 'phone', 'email', 'existing_system',
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
-      'stage', 'last_outcome', 'last_notes', 'next_action', 'next_action_at',
+      'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
       'last_contacted_at',
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
@@ -190,9 +190,9 @@ export async function POST(request: Request) {
 
     if (outcome) {
       await client.query(
-        `INSERT INTO public.crm_lead_updates
-          (lead_id, agent_id, outcome, notes, next_action, next_action_at)
-          VALUES ($1, $2, $3, $4, $5, $6::date)`,
+        `INSERT INTO public.crm_lead_events
+          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at)
+          VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date)`,
         [id, access.agent.id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate],
       );

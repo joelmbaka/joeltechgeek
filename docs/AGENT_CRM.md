@@ -93,3 +93,13 @@ ON CONFLICT DO NOTHING;
 ## Agent lead controls
 - The Add Lead modal and POST endpoint are available to every authenticated registered agent, not only the owner. New lead ownership is derived from that agent's verified session.
 - The dashboard allows industry filtering across all supported categories and sorting by recommended order, next follow-up, priority, recent activity, industry or company.
+
+## Outreach outcomes and completed actions (2026-11-02)
+- Calls are the recommended default. The outcome dropdown is shared by Add Lead and Update Lead and includes: Number unavailable, Number switched off, No answer, Line busy, Wrong number, Not interested, Call back requested, Decision pending, Demo requested, Meeting booked, Pilot requested, Proposal requested, Email sent, Other.
+- For demo delivery channels or referral details, use conversation notes; do not multiply outcomes by channel.
+- Email sent represents an actual email outreach. The agent chooses the next call date; the CRM does not automatically infer email replies.
+- A **Mark action completed** form records execution of the current next task, optional completion notes, and a subsequent task and due date. Completing a task **does not** create an outreach outcome.
+- The additive migration `migrations/2026-11-02-agent-crm-outcomes-actions.sql` creates `crm_lead_events` with types `outreach` and `action_completed`, and adds `last_outcome_v2` to crm_leads. It does not delete or rewrite old `crm_lead_updates` or `last_outcome`.
+- Every read and write remains scoped to the authenticated agent via `agent_id`. Leads marked Do Not Contact cannot be called or have outstanding actions marked completed.
+- BlazeShield's WhatsApp demo was confirmed sent by Joel on November 2, 2026. Its current outcome is Demo requested; sending the link was entered as a separate action completion event. No follow-up date was assumed.
+- Test both dropdowns, historical outcome labels, no-answer retry queues, initial outreach logging, action completion logging, agent isolation, do-not-contact restrictions, and missing/mismatched Origin handling.

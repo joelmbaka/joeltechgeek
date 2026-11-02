@@ -6,6 +6,7 @@ import {
   ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, ShieldCheck, X,
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
+import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel } from '@/lib/agent-crm/types';
 import type { Agent, Lead, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
@@ -30,14 +31,6 @@ type FormValues = {
   do_not_contact: boolean;
 };
 
-const outcomes: Record<string, string> = {
-  connected: 'Connected', no_answer: 'No answer', busy: 'Busy',
-  switched_off: 'Switched off', wrong_number: 'Wrong number',
-  call_back: 'Call back requested', interested: 'Interested',
-  not_interested: 'Not interested', meeting_booked: 'Meeting booked',
-  whatsapp_requested: 'WhatsApp requested',
-  email_requested: 'Email requested', other: 'Other',
-};
 const stages: LeadStage[] = [
   'new', 'contacted', 'interested', 'meeting', 'proposal', 'negotiation',
   'won', 'lost', 'nurture',
@@ -69,7 +62,7 @@ function timeLabel(str: string) {
 function isToCall(lead: Lead) {
   return !lead.do_not_contact && !['won', 'lost'].includes(lead.stage) &&
     (!lead.last_contacted_at ||
-      (!lead.next_action_at && ['no_answer','busy','switched_off'].includes(lead.last_outcome || '')));
+      (!lead.next_action_at && ['number_unavailable','no_answer','busy','switched_off','wrong_number'].includes(lead.last_outcome || '')));
 }
 function isDue(lead: Lead) {
   return Boolean(!lead.do_not_contact && !['won', 'lost'].includes(lead.stage)
@@ -143,7 +136,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       {lead.last_notes && <p className="mt-2 line-clamp-2 text-xs text-slate-500">Latest note: {lead.last_notes}</p>}
       {lead.last_outcome && (
-        <p className="mt-3 text-xs text-slate-500">Last outcome: <strong className="text-slate-700 dark:text-slate-200">{outcomes[lead.last_outcome]}</strong></p>
+        <p className="mt-3 text-xs text-slate-500">Last outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
       {lead.next_action && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">Next: {lead.next_action}</p>}
       {lead.next_action_at && (
@@ -185,6 +178,11 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [completedNotes, setCompletedNotes] = useState('');
+  const [completedNextAction, setCompletedNextAction] = useState('');
+  const [completedNextDate, setCompletedNextDate] = useState('');
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -217,6 +215,21 @@ function LeadDialog({ lead, onClose, onSaved }: {
     } catch (err) { setError(errText(err)); }
     finally { setSaving(false); }
   }
+  async function completeAction(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!lead.next_action || completing) return;
+    setCompleting(true); setCompleteError('');
+    try {
+      await api('/api/agent-crm/leads/' + lead.id + '/actions', 'POST', {
+        notes: completedNotes,
+        next_action: completedNextAction,
+        next_action_at: completedNextDate || null,
+      });
+      await onSaved();
+      onClose();
+    } catch (err) { setCompleteError(errText(err)); }
+    finally { setCompleting(false); }
+  }
   const input = 'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 sm:items-center sm:p-5"
@@ -235,6 +248,46 @@ function LeadDialog({ lead, onClose, onSaved }: {
         </div>
         {lead.problem_summary && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 dark:bg-slate-900 dark:text-slate-300">{lead.problem_summary}</p>}
         {lead.qualification_reason && <p className="mt-2 text-xs text-slate-500">Why qualified: {lead.qualification_reason}</p>}
+        {lead.next_action && !lead.do_not_contact && (
+          <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-800/50 dark:bg-emerald-950/30">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-emerald-900 dark:text-emerald-200">
+              <Check className="h-4 w-4" /> Current next action
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">{lead.next_action}</p>
+            {lead.next_action_at && (
+              <p className="mt-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                Follow up: {dateLabel(lead.next_action_at)}
+              </p>
+            )}
+            <form onSubmit={completeAction} className="mt-4 space-y-3 border-t border-emerald-200 pt-4 dark:border-emerald-800/50">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Complete this task without recording another call. You can set the next action and follow-up date.
+              </p>
+              <label className="block text-xs font-semibold">
+                Completion notes
+                <textarea rows={2} maxLength={2500} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  placeholder="e.g. Demo sent via WhatsApp"
+                  value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} />
+              </label>
+              <label className="block text-xs font-semibold">
+                Next action (optional)
+                <input maxLength={300} className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  value={completedNextAction} onChange={(e) => setCompletedNextAction(e.target.value)}
+                  placeholder="Follow up on the demo, call about the email..." />
+              </label>
+              <label className="block text-xs font-semibold">
+                Next follow-up date (optional)
+                <input type="date" className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  value={completedNextDate} onChange={(e) => setCompletedNextDate(e.target.value)} />
+              </label>
+              {completeError && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{completeError}</p>}
+              <button type="submit" disabled={completing || saving || Boolean(completedNextDate && !completedNextAction.trim())}
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50 dark:bg-emerald-700 dark:hover:bg-emerald-600">
+                <Check className="h-4 w-4" /> {completing ? 'Saving...' : 'Mark action completed'}
+              </button>
+            </form>
+          </section>
+        )}
         {lead.do_not_contact ? (
           <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-200">
             Do Not Contact: this lead is now read-only.
@@ -246,8 +299,8 @@ function LeadDialog({ lead, onClose, onSaved }: {
               <select required className={input} value={form.outcome}
                 onChange={(e) => setForm((x) => ({...x, outcome:e.target.value}))}>
                 <option value="">Choose outcome</option>
-                {Object.entries(outcomes).map(([value, name]) =>
-                  <option key={value} value={value}>{name}</option>)}
+                {CALL_OUTCOMES.map((value) =>
+                  <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>)}
               </select>
             </label>
             <label className="block text-sm font-semibold">
@@ -290,19 +343,21 @@ function LeadDialog({ lead, onClose, onSaved }: {
             {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
             <button type="submit" disabled={!form.outcome || saving}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-              <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save update'}
+              <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save call outcome'}
             </button>
           </form>
         )}
         <div className="mt-7 border-t border-slate-200 pt-5 dark:border-slate-800">
-          <h3 className="text-sm font-semibold">Previous updates</h3>
+          <h3 className="text-sm font-semibold">Activity history</h3>
           {historyLoading ? <p className="mt-2 text-sm text-slate-500">Loading history...</p>
             : history.length === 0 ? <p className="mt-2 text-sm text-slate-500">No previous updates.</p>
             : <div className="mt-3 space-y-2">
                 {history.map((h) => (
                   <div key={h.id} className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-900">
                     <div className="flex items-center justify-between gap-3">
-                      <strong>{outcomes[h.outcome] || label(h.outcome)}</strong>
+                      <strong>{h.event_type === 'action_completed'
+  ? 'Action completed: ' + (h.action || 'Task')
+  : h.outcome ? callOutcomeLabel(h.outcome) : 'Outreach'}</strong>
                       <span className="text-slate-500">{timeLabel(h.created_at)}</span>
                     </div>
                     {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
