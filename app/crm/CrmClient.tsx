@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BriefcaseBusiness, CalendarDays, Check, ChevronRight,
-  ExternalLink, LogOut, Phone, RefreshCw, Search, ShieldCheck, X,
+  ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, ShieldCheck, X,
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import type { Agent, Lead, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
+import { AddLeadModal } from './AddLeadModal';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
 type Queue = 'all' | 'to_call' | 'due' | 'interested';
@@ -319,6 +320,7 @@ export function CrmClient() {
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [adding, setAdding] = useState(false);
   const [queue, setQueue] = useState<Queue>('all');
   const [industry, setIndustry] = useState('all');
   const [query, setQuery] = useState('');
@@ -472,7 +474,15 @@ export function CrmClient() {
               <h2 className="text-[28px] font-bold tracking-tight text-[#0A2836] dark:text-white sm:text-[32px]">My leads</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">Your prospects, conversations and next actions in one place.</p>
             </div>
-            <span className="self-start rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:self-auto">{data?.agent.name || 'Agent'}'s workspace</span>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                {data?.agent.name || 'Agent'}'s workspace
+              </span>
+              <button type="button" onClick={() => setAdding(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                <Plus className="h-4 w-4" /> Add lead
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {counters.map((item) => (
@@ -571,6 +581,18 @@ export function CrmClient() {
       )}
       {selected && <LeadDialog key={selected.id} lead={selected}
         onClose={() => setSelected(null)} onSaved={() => refresh(true)} />}
+      {adding && (
+        <AddLeadModal
+          onClose={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            setQueue('all');
+            setIndustry('all');
+            setQuery('');
+            void refresh(true);
+          }}
+        />
+      )}
     </main>
   );
 }
