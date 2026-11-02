@@ -5,7 +5,7 @@ Official Next.js website for **Joeltech Geek Systems**, a Kenya-registered, foun
 - Production: https://joeltechgeek.com
 - Founder & lead software engineer: Joel Mbaka
 - Business registration: BN-P7SEWW57 (Kenya)
-- Development branch: `brand/joeltechgeek`, reviewed and deployed manually (no automatic merge)
+- Main branch: `main`; production deployments are reviewed and performed manually (no automatic merge)
 - SEO, editorial/route policy: [docs/SEO_CONTENT_STRATEGY.md](docs/SEO_CONTENT_STRATEGY.md)
 
 ## Public website

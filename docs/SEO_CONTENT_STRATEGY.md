@@ -1,6 +1,6 @@
 # Joeltech Geek Systems — website information architecture and SEO content brief
 
-Updated: 2026-10-14. Development branch: `brand/joeltechgeek`.
+Updated: 2026-10-14. Main branch: `main`.
 
 ## Positioning
 
