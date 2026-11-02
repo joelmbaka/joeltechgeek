@@ -19,7 +19,7 @@ function Navigation() {
       contentStyle: { backgroundColor: COLORS.background },
     }}>
       <Stack.Screen name="index" options={{
-        title: 'JoelTechGeek CRM',
+        title: 'Joel Tech Geek CRM',
         headerBackVisible: false,
         headerLeft: () => null,
         headerRight: () => <HeaderProfileMenu />,

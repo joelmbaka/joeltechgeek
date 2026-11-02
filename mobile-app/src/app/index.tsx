@@ -84,7 +84,7 @@ export default function HomeScreen() {
   </SafeAreaView>;
   if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ padding: 22, gap: 16 }}>
-      <Text style={styles.title}>JoelTechGeek CRM</Text>
+      <Text style={styles.title}>Joel Tech Geek CRM</Text>
       <Text style={styles.subtitle}>Sign in with your registered Google account.</Text>
       {authError ? <Text style={styles.error}>{authError}</Text> : null}
       <Button onPress={() => void login()}>Continue with Google</Button>
