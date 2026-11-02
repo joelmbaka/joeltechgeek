@@ -11,7 +11,7 @@ function Navigation() {
   const dark = scheme === 'dark';
   const headerBackground = dark ? COLORS.ink : COLORS.white;
   return <>
-    <StatusBar style="auto" hidden={false} backgroundColor={headerBackground} />
+    <StatusBar style="auto" hidden={false} />
     <Stack screenOptions={{
       headerStyle: { backgroundColor: headerBackground },
       headerTintColor: dark ? COLORS.white : COLORS.ink,
@@ -33,7 +33,9 @@ function Navigation() {
 }
 
 export default function RootLayout() {
-  return <SafeAreaProvider>
+  const scheme = useColorScheme();
+  const backgroundColor = scheme === 'dark' ? COLORS.ink : COLORS.white;
+  return <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
     <AuthProvider>
       <Navigation />
     </AuthProvider>
