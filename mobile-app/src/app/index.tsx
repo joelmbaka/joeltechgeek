@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
-import type { Lead, LeadList, Stats } from '@/lib/types';
+import type { Lead, LeadList } from '@/lib/types';
 
 const PER_PAGE = 25;
 const SORTS: SelectOption[] = [
