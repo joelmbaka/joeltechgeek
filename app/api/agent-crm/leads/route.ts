@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       db.query<Lead>(
         'SELECT ' + LEAD_COLUMNS +
         ' FROM public.crm_leads WHERE agent_id = $1 ' +
-        'ORDER BY CASE WHEN next_action_at IS NOT NULL AND next_action_at <= ((now() AT TIME ZONE 'Africa/Nairobi')::date) THEN 0 ' +
+        "ORDER BY CASE WHEN next_action_at IS NOT NULL AND next_action_at <= ((now() AT TIME ZONE 'Africa/Nairobi')::date) THEN 0 " +
         'WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, ' +
         'next_action_at ASC NULLS LAST, updated_at DESC LIMIT 1000',
         [access.agent.id],

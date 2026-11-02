@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BriefcaseBusiness, CalendarDays, Check, ChevronRight, Clock3,
+  BriefcaseBusiness, CalendarDays, Check, ChevronRight,
   ExternalLink, LogOut, Phone, RefreshCw, Search, ShieldCheck, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';

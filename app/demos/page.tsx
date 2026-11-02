@@ -70,7 +70,7 @@ export default function DemosPage() {
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Guard Operations</h3>
               <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
-                Experience a security guard's simulated GPS shift check-in, patrol checkpoints,
+                Experience a security guard&apos;s simulated GPS shift check-in, patrol checkpoints,
                 camera evidence, emergency SOS, supervisor response, and management proof-of-service reports.
               </p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
