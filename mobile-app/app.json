@@ -22,10 +22,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
         "backgroundColor": "#0A2836"
       },
-      "predictiveBackGestureEnabled": false,
-      "notification": {
-        "color": "#059669"
-      }
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "server",
