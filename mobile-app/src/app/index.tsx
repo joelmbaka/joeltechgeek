@@ -238,7 +238,7 @@ export default function HomeScreen() {
           justifyContent: 'space-between', marginTop: 2, gap: 8,
         }}>
           <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '800' }}>
-            Leads{!loading && data ? ' (' + data.filtered_total + ')' : ''}
+            Leads{!loading && data ? ' (' + (data.filtered_total ?? data.stats.total) + ')' : ''}
           </Text>
           <SelectSheet title="Sort" value={sort}
             options={SORTS} onChange={setSort} compact/>
@@ -269,20 +269,24 @@ export default function HomeScreen() {
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
       ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
-      ListFooterComponent={!loading && data && data.filtered_total > 0 ?
+      ListFooterComponent={!loading && data && (data.leads.length > 0 || data.filtered_total > 0) ?
         <View style={[styles.card, { gap: 11, marginTop: 6, padding: 15 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <View style={{ gap: 4, flexShrink: 1 }}>
               <Text style={[styles.value, { fontSize: 13, fontVariant: ['tabular-nums'] }]}>
-                Showing {offset + 1}–{offset + data.leads.length} of {data.filtered_total}
+                Showing {offset + 1}–{offset + data.leads.length}
+                {Number.isFinite(data.filtered_total) ? ' of ' + data.filtered_total : ''}
               </Text>
               <Text style={styles.subtitle}>
-                {Math.max(0, data.filtered_total - offset - data.leads.length)} remaining
+                {Number.isFinite(data.filtered_total)
+                  ? Math.max(0, data.filtered_total - offset - data.leads.length) + ' remaining'
+                  : data.has_more ? 'More leads available' : 'End of list'}
               </Text>
             </View>
             <View style={{ backgroundColor: theme.surfaceMuted, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 7 }}>
               <Text style={[styles.label, { color: theme.ink }]}>
-                Page {Math.floor(offset / PER_PAGE) + 1} / {Math.ceil(data.filtered_total / PER_PAGE)}
+                Page {Math.floor(offset / PER_PAGE) + 1}
+                {Number.isFinite(data.filtered_total) ? ' / ' + Math.ceil(data.filtered_total / PER_PAGE) : ''}
               </Text>
             </View>
           </View>
