@@ -9,16 +9,20 @@ export type ServiceArea = {
   deliverables: string[];
   approach: string[];
   proofIds: string[];
+  buyerExamples?: Array<{ title: string; detail: string }>;
+  relatedDemos?: Array<{ label: string; href: string }>;
+  relatedServices?: Array<{ label: string; href: string }>;
+  ctaLabel?: string;
 };
 
 export const services: ServiceArea[] = [
   {
     slug: 'react-native-app-development',
     eyebrow: 'Mobile applications',
-    title: 'React Native mobile app development',
-    searchTitle: 'React Native App Development | Joeltech Geek Systems',
-    description: 'Build Android and iOS mobile applications with React Native, Expo and TypeScript. Remote engineering available for US, Kenyan and international teams building SaaS, operations and customer-facing apps.',
-    summary: 'We specialize in React Native rather than splitting our mobile engineering across unrelated frameworks. One product architecture supports Android and iOS, with platform-specific testing, native integrations and releases where needed.',
+    title: 'React Native app development for Android and iOS',
+    searchTitle: 'React Native App Development in Kenya | JoelTechGeek',
+    description: 'React Native and Expo apps for Android and iOS, built for Kenyan, US and international teams with APIs, payments, notifications and release support.',
+    summary: 'Build customer-facing mobile apps, staff tools and field workflows with React Native and Expo. A shared Android and iOS codebase can integrate authentication, payments, notifications and dependable backend services.',
     problems: [
       'Customers or field teams need a dependable mobile workflow instead of spreadsheets and disconnected messages.',
       'An existing app needs better navigation, API integration, payment handling or production stability.',
@@ -35,15 +39,29 @@ export const services: ServiceArea[] = [
       'Build with React Native, Expo and TypeScript; connect to tested backend contracts.',
       'Validate critical journeys and release for the agreed platforms.',
     ],
+    buyerExamples: [
+      { title: 'Customer-facing applications', detail: 'Accounts, balances, payment journeys and timely updates for the people using your services.' },
+      { title: 'Staff and field-service tools', detail: 'Assigned work, progress updates and permissions for teams operating away from a desk.' },
+      { title: 'Reliable connected workflows', detail: 'Authentication, notifications, API-backed records and platform-specific release checks.' },
+    ],
+    relatedDemos: [
+      { label: 'Security guard operations concept', href: '/demos/security' },
+      { label: 'Field service workflow concept', href: '/demos/field-services' },
+    ],
+    relatedServices: [
+      { label: 'Web apps and dashboards', href: '/services/web-app-development' },
+      { label: 'M-Pesa payment integrations', href: '/services/payment-integrations' },
+    ],
+    ctaLabel: 'Plan a mobile app',
     proofIds: ['rentpayor', 'journpad', 'schoolpey', 'macsim', 'milliol'],
   },
   {
     slug: 'web-app-development',
     eyebrow: 'Web platforms',
-    title: 'Next.js web application and dashboard development',
-    searchTitle: 'Next.js Web Apps & Dashboards | Joeltech Geek Systems',
-    description: 'Custom web applications, SaaS dashboards and business portals built with Next.js, React and TypeScript, with responsive workflows and secure API-backed operations.',
-    summary: 'We create operational web applications rather than treating every project as a brochure website. Teams get clear permissions, actionable records, responsive interfaces and reliable connections to the systems behind them.',
+    title: 'Custom business management systems and web apps',
+    searchTitle: 'Custom Business Systems & Web Apps Kenya | JoelTechGeek',
+    description: 'Custom web apps, dashboards and business management systems for Kenyan, US and international teams, built with Next.js, React and secure APIs.',
+    summary: 'Replace fragmented spreadsheets and disconnected records with a custom business management system. We build role-aware web dashboards, operational workflows, search and reporting around your team’s actual processes.',
     problems: [
       'Managers cannot reliably see financial, operational or customer activity in one place.',
       'The business has outgrown spreadsheet-based administration.',
@@ -60,6 +78,22 @@ export const services: ServiceArea[] = [
       'Implement interfaces alongside APIs and transaction-level business rules.',
       'Test real workflows in the browser at desktop and mobile widths.',
     ],
+    buyerExamples: [
+      { title: 'Operational dashboards', detail: 'Role-aware workspaces to manage records, tasks, approvals, search, filters and reporting.' },
+      { title: 'Invoices and financial workflows', detail: 'Billing, receipts, payment status and reconciliation connected to your business records.' },
+      { title: 'Inventory and service delivery', detail: 'Procurement, stock movement and workflow tracking for field, construction, transport or healthcare operations.' },
+    ],
+    relatedDemos: [
+      { label: 'Construction management concept', href: '/demos/construction' },
+      { label: 'Logistics dispatch concept', href: '/demos/logistics' },
+      { label: 'Rental operations concept', href: '/demos/property' },
+    ],
+    relatedServices: [
+      { label: 'Backend APIs and databases', href: '/services/fastapi-backend-development' },
+      { label: 'Mobile applications', href: '/services/react-native-app-development' },
+      { label: 'Payments and reconciliation', href: '/services/payment-integrations' },
+    ],
+    ctaLabel: 'Discuss a business system',
     proofIds: ['rentpayor', 'schoolpey', 'clivique-hmis', 'macsim'],
   },
   {
@@ -115,10 +149,10 @@ export const services: ServiceArea[] = [
   {
     slug: 'payment-integrations',
     eyebrow: 'Financial workflows',
-    title: 'M-Pesa payments, invoicing and reconciliation',
-    searchTitle: 'M-Pesa Payments & Reconciliation | Joeltech Geek Systems',
-    description: 'Integrate M-Pesa payment collection into apps with invoice matching, webhooks, idempotent callbacks, receipts, partial payments and reconciliation.',
-    summary: 'A successful payment prompt is only the beginning. Good payment software confirms the provider result, links it to the correct obligation, updates balances safely and leaves a usable audit trail.',
+    title: 'M-Pesa API integration, payments and reconciliation',
+    searchTitle: 'M-Pesa API Integration & Reconciliation | JoelTechGeek',
+    description: 'M-Pesa API integrations for invoices, callbacks, receipts, partial payments and reconciliation in custom Kenyan business software.',
+    summary: 'A successful STK Push is only the beginning. A dependable M-Pesa integration should verify the provider response, match payments to invoices, update balances safely and leave a clear audit trail.',
     problems: [
       'Payments arrive without a reliable connection to an invoice or customer.',
       'Partial payments and credits are difficult to account for.',
@@ -135,6 +169,20 @@ export const services: ServiceArea[] = [
       'Implement validated callback and idempotency controls.',
       'Test successful, delayed, duplicate, partial and failed payment paths.',
     ],
+    buyerExamples: [
+      { title: 'Payment initiation and verification', detail: 'Start a supported payment flow and validate the resulting provider callback before changing payment status.' },
+      { title: 'Invoice matching and partial balances', detail: 'Associate payments with the correct invoice, record partial payments and handle credits under agreed business rules.' },
+      { title: 'Reconciliation and auditability', detail: 'Use idempotency and duplicate-callback protection to keep receipts, balances and transaction history consistent.' },
+    ],
+    relatedDemos: [
+      { label: 'Rental payment workflow concept', href: '/demos/property' },
+      { label: 'School fees workflow concept', href: '/demos/education' },
+    ],
+    relatedServices: [
+      { label: 'Custom business systems', href: '/services/web-app-development' },
+      { label: 'FastAPI backends and webhooks', href: '/services/fastapi-backend-development' },
+    ],
+    ctaLabel: 'Discuss a payment workflow',
     proofIds: ['rentpayor', 'schoolpey', 'clivique-hmis', 'macsim'],
   },
   {
