@@ -331,9 +331,9 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
     <Text style={styles.subtitle}>{lead.contact_name || 'No contact'} · {lead.industry}</Text>
     {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
     <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
-      backgroundColor: theme.surfaceMuted, borderColor: theme.border,
+      backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,
       borderWidth: 1, borderRadius: 20 }}>
-      <Text style={[styles.label, { color: theme.muted, textTransform: 'capitalize' }]}>
+      <Text style={[styles.label, { color: lead.stage === 'competitor' ? theme.warning : theme.muted, textTransform: 'capitalize' }]}>
         {lead.stage.replace(/_/g, ' ')}
       </Text>
     </View>
