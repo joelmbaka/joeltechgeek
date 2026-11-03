@@ -6,11 +6,18 @@ import { SITE_URL } from '@/lib/site';
 import CTA from '@/components/CTA';
 
 export const metadata: Metadata = {
-  title: 'Custom Software Development | Joeltech Geek Systems',
-  description: 'Remote software development for US, Kenyan and international businesses: React Native apps, Next.js dashboards, FastAPI backends, SaaS and payment integrations.',
+  title: 'Custom Software Development in Kenya | JoelTechGeek',
+  description: 'Custom mobile apps, web platforms and business management systems for Kenyan and international businesses, with remote delivery for US teams too.',
   alternates: { canonical: '/services' },
-  openGraph: { title: 'Software Development Services | Joeltech Geek Systems', description: 'Engineering services for organisations that need working mobile, web and business software.', url: '/services' },
+  openGraph: { title: 'Custom Software Development in Kenya | JoelTechGeek', description: 'Custom mobile apps, web platforms, business systems and payment integrations for teams in Kenya and beyond.', url: '/services' },
 };
+
+const businessWorkflows = [
+  { title: 'Rent collection and reconciliation', description: 'Invoices, tenant balances, receipts and payment matching in property operations.', href: '/rentpayor', proof: 'RentPayor · Our product' },
+  { title: 'School fee administration', description: 'Student fee structures, term invoices, parent payments and financial records.', href: '/schoolpey', proof: 'SchoolPey · Our product' },
+  { title: 'Transport and dispatch operations', description: 'Loads, drivers, reservations, fleet activity and operational finance.', href: '/macsim', proof: 'Macsim Cargo · Client project' },
+  { title: 'Construction project operations', description: 'Site progress, procurement, materials, stock and financial reporting.', href: '/milliol', proof: 'Milliol · Client project' },
+];
 
 export default function ServicesPage() {
   const base = SITE_URL;
@@ -32,13 +39,21 @@ export default function ServicesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <header className="max-w-4xl">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">What clients hire us to build</p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Custom software development services.</h1>
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Custom software development for Kenyan and international businesses</h1>
         <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
-          Joeltech Geek Systems designs, develops and supports software for businesses in the US, Kenya and beyond. We work remotely across time zones and focus on practical outcomes: applications people use, dependable transaction records, and systems that help teams make decisions.
+          Joeltech Geek Systems builds custom mobile apps, web platforms and business management systems for teams in Kenya, the US and beyond. Whether your business needs invoicing, M-Pesa reconciliation, inventory, field operations or management reporting, we connect useful interfaces to dependable backend workflows.
         </p>
         <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
           Our core mobile specialization is <strong>React Native with Expo and TypeScript</strong>. For web applications we use Next.js and React; for backend services, Python, FastAPI and PostgreSQL. We integrate existing AI APIs where useful—we do not offer Flutter development, standalone native Swift/Kotlin projects, Java, C++, C#, PHP or Ruby development, machine-learning research or model training.
         </p>
+        <div className="mt-7 flex flex-wrap items-center gap-5 text-sm font-semibold">
+          <Link href="/contact" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 text-white transition hover:opacity-90">
+            Discuss your software project <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <Link href="/work" className="inline-flex items-center gap-2 text-palm-green hover:underline">
+            Explore our work <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
       </header>
 
       <section className="mt-14 grid gap-5 md:grid-cols-2" aria-label="Software development services">
@@ -52,6 +67,30 @@ export default function ServicesPage() {
             </Link>
           </article>
         ))}
+      </section>
+
+      <section className="mt-16" aria-labelledby="business-workflows-title">
+        <div className="max-w-3xl">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">Practical business outcomes</p>
+          <h2 id="business-workflows-title" className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Business systems grounded in real workflows</h2>
+          <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
+            These examples are from our published portfolio. We distinguish our own software products from commissioned client projects.
+          </p>
+        </div>
+        <div className="mt-7 grid gap-5 md:grid-cols-2">
+          {businessWorkflows.map((workflow) => (
+            <article key={workflow.href} className="rounded-2xl border border-gray-200 p-6 dark:border-gray-800">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{workflow.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">{workflow.description}</p>
+              <Link href={workflow.href} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-palm-green hover:underline">
+                {workflow.proof} <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </article>
+          ))}
+        </div>
+        <p className="mt-5 text-sm text-gray-600 dark:text-gray-300">
+          Evaluating a new workflow? <Link href="/demos" className="font-semibold text-palm-green hover:underline">Explore interactive software concepts</Link> using fictional data.
+        </p>
       </section>
 
       <section className="mt-16 grid gap-5 lg:grid-cols-3" aria-label="How we work">
