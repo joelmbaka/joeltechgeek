@@ -55,8 +55,8 @@ export async function POST(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const locked = await client.query<{ next_action: string | null; do_not_contact: boolean }>(
-      `SELECT next_action, do_not_contact FROM public.crm_leads
+    const locked = await client.query<{ next_action: string | null; do_not_contact: boolean; stage: string }>(
+      `SELECT next_action, do_not_contact, stage FROM public.crm_leads
        WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
       [id, access.agent.id],
     );
@@ -65,9 +65,9 @@ export async function POST(request: Request, { params }: Params) {
       await client.query('ROLLBACK');
       return fail('Lead not found.', 404);
     }
-    if (lead.do_not_contact) {
+    if (lead.do_not_contact || lead.stage === 'competitor') {
       await client.query('ROLLBACK');
-      return fail('This lead is marked Do Not Contact.', 409);
+      return fail('This record is excluded from outreach actions.', 409);
     }
     if (!lead.next_action?.trim()) {
       await client.query('ROLLBACK');
