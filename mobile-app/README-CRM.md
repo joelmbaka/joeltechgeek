@@ -40,3 +40,28 @@ cannot learn about a follow-up cancelled on the web until it reconnects.
 - Time-only without date is rejected; date-only generates no alarm.
 - Server failure displays Retry without deleting the refresh token.
 - npm lockfile is committed and matched to the mobile package manifest.
+
+## Google Play review authentication
+
+A second button, **Review access**, creates an independent mobile session for
+the server's synthetic review agent. The backend never issues Joel's production
+identity through the public review endpoint.
+
+This feature is controlled **only in server source code**, not environment
+variables or expiry timers. The current value in
+`lib/agent-crm/play-review.ts` is
+`PLAY_REVIEW_ACCESS_ENABLED = true`. The public GET /review endpoint advertises
+availability and the POST /review endpoint issues an ordinary agent-scoped
+session for the fictional `play-review@joeltechgeek.invalid` agent. The
+authorization and refresh queries recheck the gate on each use.
+
+Apply `migrations/2026-11-02-agent-crm-play-review-demo.sql` to seed a
+dedicated review workspace. This migration is independent of actual leads.
+
+In Play Console sign-in instructions: "Tap Review access on the login screen.
+No account credentials or Google sign-in are needed."
+
+Do not remove access immediately after the initial production approval:
+Google Play can review every later update and requires reusable access.
+If review access is intentionally retired, change the constant to `false`
+and deploy the backend, then remove the button in a later mobile release.

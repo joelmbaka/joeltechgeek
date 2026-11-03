@@ -39,3 +39,27 @@ The public API URL defaults to https://joeltechgeek.com. Only set EXPO_PUBLIC_AP
 5. Unregistered or access-disabled agents are denied.
 
 See README-CRM.md for details.
+
+## Google Play review access
+
+The Android sign-in screen also offers **Review access** (no Google
+authentication), which opens a separate sample CRM account. Joel's real leads
+are never involved.
+
+Before submitting, apply
+`migrations/2026-11-02-agent-crm-play-review-demo.sql` to the Portfolio
+Neon database and deploy the Next.js backend. Review access is enabled directly
+in `lib/agent-crm/play-review.ts`:
+
+```ts
+export const PLAY_REVIEW_ACCESS_ENABLED = true;
+```
+
+No environment variables, credentials in the APK, or automatic expiry are
+needed. In Play Console > App content > Sign-in details, tell reviewers to
+tap **Review access** on the login screen.
+
+Google may need access again for future app updates; retain working review
+access for subsequent submissions. To disable it deliberately, change the
+constant to `false` and redeploy the backend. This denies new review sign-ins
+and existing review sessions.

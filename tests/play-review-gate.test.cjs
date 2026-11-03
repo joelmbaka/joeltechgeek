@@ -5,39 +5,37 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-// Compile this tiny pure helper without loading Next.js or production DB.
+// No production DB needed. Compile just the pure server gate helper.
 const source = readFileSync(join(__dirname, '../lib/agent-crm/play-review.ts'), 'utf8');
-const javascript = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-function load(env) {
-  const context = { exports: {}, process: { env }, Date };
+function load(sourceText, env = {}) {
+  const javascript = ts.transpileModule(sourceText, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const context = { exports: {}, process: { env } };
   vm.runInNewContext(javascript, context, { filename: 'play-review.js' });
   return context.exports;
 }
-const now = Date.parse('2026-11-02T20:00:00Z');
-const until = '2026-12-31T00:00:00Z';
-
-test('review access is off without both explicit server settings', () => {
-  assert.equal(load({}).playReviewEnabled(now), false);
-  assert.equal(load({ CRM_PLAY_REVIEW_ENABLED: 'true' }).playReviewEnabled(now), false);
-  assert.equal(load({ CRM_PLAY_REVIEW_UNTIL: until }).playReviewEnabled(now), false);
-  assert.equal(load({ CRM_PLAY_REVIEW_ENABLED: 'TRUE', CRM_PLAY_REVIEW_UNTIL: until }).playReviewEnabled(now), false);
+test('review access stays enabled without environment variables or an expiration date', () => {
+  const gate = load(source);
+  assert.equal(gate.PLAY_REVIEW_ACCESS_ENABLED, true);
+  assert.equal(gate.playReviewEnabled(), true);
+  assert.equal(load(source, { CRM_PLAY_REVIEW_ENABLED: 'false',
+    CRM_PLAY_REVIEW_UNTIL: '2000-01-01T00:00:00Z' }).playReviewEnabled(), true);
 });
-test('review access works within the enabled window and expires exactly on deadline', () => {
-  const gate = load({ CRM_PLAY_REVIEW_ENABLED: 'true', CRM_PLAY_REVIEW_UNTIL: until });
-  assert.equal(gate.playReviewEnabled(now), true);
-  assert.equal(gate.playReviewEnabled(Date.parse(until) - 1), true);
-  assert.equal(gate.playReviewEnabled(Date.parse(until)), false);
-  assert.equal(gate.playReviewEnabled(Date.parse(until) + 1), false);
+test('disabling in server code rejects existing review sessions at the auth gate', () => {
+  const disabledSource = source.replace(
+    'export const PLAY_REVIEW_ACCESS_ENABLED = true;',
+    'export const PLAY_REVIEW_ACCESS_ENABLED = false;',
+  );
+  assert.notEqual(disabledSource, source);
+  assert.equal(load(disabledSource).playReviewEnabled(), false);
 });
-test('malformed or expired review expiry fails closed', () => {
-  for (const date of ['not-a-date', '', '2026-01-01T00:00:00Z', '2027-01-01', '2027/01/01']) {
-    const gate = load({ CRM_PLAY_REVIEW_ENABLED: 'true', CRM_PLAY_REVIEW_UNTIL: date });
-    assert.equal(gate.playReviewEnabled(now), false, date);
-  }
+test('the review identity is a synthetic, non-routable inbox, not Joel', () => {
+  const gate = load(source);
+  assert.equal(gate.PLAY_REVIEW_AGENT_EMAIL, 'play-review@joeltechgeek.invalid');
+  assert.equal(gate.PLAY_REVIEW_AGENT_EMAIL.endsWith('.invalid'), true);
 });
-test('review identity is synthetic and cannot be an ordinary Google inbox', () => {
-  const identity = load({});
-  assert.equal(identity.PLAY_REVIEW_AGENT_EMAIL, 'play-review@joeltechgeek.invalid');
+test('gate implementation has no runtime environment or date dependence', () => {
+  assert.equal(source.includes('process.env'), false);
+  assert.equal(source.includes('Date.now'), false);
 });
