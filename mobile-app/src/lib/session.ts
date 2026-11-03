@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
@@ -78,13 +79,19 @@ export async function startGoogleSignIn(): Promise<void> {
     await SecureStore.setItemAsync(PKCE_KEY, verifier, {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });
-    // Each installed variant owns a distinct scheme, preventing the Android
-    // app chooser from routing sign-in to another installed CRM variant.
+    // EAS Update's native build channel survives OTA manifest changes.
+    // Use it first so the installed preview APK can never route an OAuth
+    // callback into the production package after receiving a JS update.
+    // Dev clients have a null channel, so use their configured dev scheme.
     const configuredScheme = Constants.expoConfig?.scheme;
-    const scheme = configuredScheme === 'joeltechgeek-dev'
-      ? 'joeltechgeek-dev'
-      : configuredScheme === 'joeltechgeek-preview'
-        ? 'joeltechgeek-preview' : 'joeltechgeek';
+    const scheme = Updates.channel === 'preview'
+      ? 'joeltechgeek-preview'
+      : Updates.channel === 'production'
+        ? 'joeltechgeek'
+        : configuredScheme === 'joeltechgeek-dev'
+          ? 'joeltechgeek-dev'
+          : configuredScheme === 'joeltechgeek-preview'
+            ? 'joeltechgeek-preview' : 'joeltechgeek';
     const returnUrl = Linking.createURL('auth-callback', {
       scheme, isTripleSlashed: true,
     });

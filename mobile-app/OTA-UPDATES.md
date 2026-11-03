@@ -43,7 +43,7 @@ runtime version), first create and distribute a new binary.
 
 ```sh
 # From mobile-app/ after testing and committing changes:
-eas update --channel preview --environment preview --message "Test CRM UI changes"
+APP_VARIANT=preview eas update --channel preview --environment preview --message "Test CRM UI changes"
 ```
 
 Install or reopen the preview APK and verify the update. Once accepted,
@@ -51,7 +51,7 @@ publish the **same tested source commit** to production; do not run an
 unrelated workspace state:
 
 ```sh
-eas update --channel production --environment production --message "CRM UI polish"
+APP_VARIANT=production eas update --channel production --environment production --message "CRM UI polish"
 ```
 
 For SDK 55+, `--environment` is required. Ensure Expo EAS preview and
@@ -124,7 +124,14 @@ For sign-in to work through that local backend, it must share the OAuth state
 database with the deployed Google callback. Alternatively, point the dev
 variant to the deployed API for authentication tests.
 
-The new preview APK still receives only preview-channel OTA updates. Do not
-publish an update to the production channel during preview acceptance testing.
+The new preview APK still receives only preview-channel OTA updates. The
+mobile OAuth helper checks the native `expo-updates` channel first, so a
+preview build never selects the production scheme after receiving OTA content.
+When publishing, explicitly provide `APP_VARIANT=preview` (or configure the
+same value in the EAS preview environment), since `eas update` has no build
+profile and otherwise resolves the app configuration as production.
+
+Do not publish an update to the production channel during preview acceptance
+testing.
 No EAS build, OTA publication, or backend deployment is performed by these
 repository changes.
