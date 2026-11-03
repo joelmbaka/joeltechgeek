@@ -52,6 +52,7 @@ export const CRM_INDUSTRIES = [
   'Software & Technology',
   'Transport & Logistics',
   'Travel & Tours',
+  'Vehicle Tracking & Telematics',
   'Warehousing & Storage',
   'Waste & Recycling',
 ] as const;
