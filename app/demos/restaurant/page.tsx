@@ -24,7 +24,7 @@ const roles = [
   {
     title: 'Restaurant Operations',
     Icon: Store,
-    description: 'See incoming orders across fictional branches, move them through preparation and dispatch to delivery, and toggle item availability. Customer ordering immediately reflects the same demo data.',
+    description: 'See incoming en-route orders across fictional branches, mark them delivered in one action, and toggle menu availability. Customer ordering immediately reflects the same demo data.',
     tabs: 'Orders · Menu',
   },
 ];
@@ -84,7 +84,7 @@ export default function RestaurantDemoPage() {
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
           <ShoppingBag className="h-7 w-7 text-palm-green" aria-hidden />
           <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Basket &amp; availability</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Add dishes, change quantities, and see updated totals. Operations can mark a dish sold out, preventing new orders for it.</p>
+          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Choose a pizza size, add dishes, change quantities, and see updated totals. Operations can mark a dish sold out, preventing new orders for it.</p>
         </article>
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
           <CreditCard className="h-7 w-7 text-palm-green" aria-hidden />
@@ -94,7 +94,7 @@ export default function RestaurantDemoPage() {
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
           <Truck className="h-7 w-7 text-palm-green" aria-hidden />
           <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Order status handoff</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Restaurant staff move the order from received through preparation and dispatch to delivery. Customer status updates instantly in the demo.</p>
+          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Restaurant staff move the order from en route to delivered. Customer status updates instantly in the demo.</p>
         </article>
       </section>
       <section className="mt-12 rounded-3xl border border-gray-200 p-7 dark:border-gray-800">

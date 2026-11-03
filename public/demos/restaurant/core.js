@@ -15,13 +15,31 @@ const MENU=[
 {id:"fries",name:"Seasoned Fries",category:"Sides",desc:"Fresh fries with house seasoning",price:290,icon:"🍟"},
 {id:"soda",name:"Chilled Soda",category:"Drinks",desc:"500 ml bottled soft drink",price:180,icon:"🥤"}
 ];
-const STEPS=["Received","Preparing","Ready for dispatch","Out for delivery","Delivered"];
+const STEPS=["En route","Delivered"];
+const PIZZA_SIZES=["Small","Medium","Large"];
+const PIZZA_PRICES={
+ classic:{Small:750,Medium:950,Large:1250},
+ bbq:{Small:950,Medium:1250,Large:1650},
+ peri:{Small:1050,Medium:1350,Large:1750}
+};
 const BOUNDS={north:-1.237,south:-1.338,west:36.746,east:36.867};
 const DELIVERY={base:120,perKm:45,maxKm:12};
 const copy=o=>JSON.parse(JSON.stringify(o));
 const money=n=>"KES "+n.toLocaleString("en-KE");
 const item=id=>MENU.find(x=>x.id===id);
 const branch=id=>BRANCHES.find(x=>x.id===id);
+function sizeFor(id,size){
+ const p=item(id);if(!p)throw Error("Unknown menu item.");
+ if(p.category!=="Pizza"){if(size!=null&&size!=="")throw Error("Size is only available for pizza.");return null;}
+ const value=size==null?"Medium":size;
+ if(!PIZZA_SIZES.includes(value))throw Error("Choose a valid pizza size.");
+ return value;
+}
+function priceFor(id,size){
+ const p=item(id);if(!p)throw Error("Unknown menu item.");
+ const normalized=sizeFor(id,size);
+ return normalized?PIZZA_PRICES[id][normalized]:p.price;
+}
 const precise=(v,name,min,max)=>{let n=Number(v);if(v==null||String(v).trim()===""||!Number.isFinite(n)||n<min||n>max)throw Error("Select a valid "+name+".");return n;};
 const amount=(v,name,min,max)=>{let n=Number(v);if(v==null||String(v).trim()===""||!Number.isSafeInteger(n)||n<min||n>max)throw Error(name+" must be a whole number between "+min+" and "+max+".");return n;};
 function distance(a,b){
@@ -50,19 +68,19 @@ function nearest(pin){
  return BRANCHES.map(b=>({b,km:distance(b,pin)})).sort((a,b)=>a.km-b.km)[0].b;
 }
 function seed(){
- return {version:1,nextOrder:1043,availability:Object.fromEntries(MENU.map(x=>[x.id,true])),
- orders:[{id:"SL-1042",createdAt:"Sample · earlier today",branchId:"kilimani",items:[{id:"bbq",qty:1,price:1250},{id:"fries",qty:1,price:290}],subtotal:1540,deliveryFee:250,total:1790,distanceKm:2.9,status:"Preparing",payment:"Simulated M-Pesa",pin:{lat:-1.299,lng:36.781}}]};
+ return {version:2,nextOrder:1043,availability:Object.fromEntries(MENU.map(x=>[x.id,true])),
+ orders:[{id:"SL-1042",createdAt:"Sample · earlier today",branchId:"kilimani",items:[{id:"bbq",qty:1,size:"Medium",price:1250},{id:"fries",qty:1,size:null,price:290}],subtotal:1540,deliveryFee:250,total:1790,distanceKm:2.9,status:"En route",payment:"Simulated M-Pesa",pin:{lat:-1.299,lng:36.781}}]};
 }
 function validate(d){
- return !!d&&d.version===1&&Array.isArray(d.orders)&&d.availability&&Number.isSafeInteger(d.nextOrder);
+ return !!d&&d.version===2&&Array.isArray(d.orders)&&d.orders.every(o=>STEPS.includes(o.status))&&d.availability&&Number.isSafeInteger(d.nextOrder);
 }
 function subtotal(cart){
- return cart.reduce((s,x)=>{const p=item(x.id);if(!p)throw Error("Unknown menu item.");return s+p.price*amount(x.qty,"Quantity",1,20);},0);
+ return cart.reduce((s,x)=>{const p=item(x.id);if(!p)throw Error("Unknown menu item.");return s+priceFor(x.id,x.size)*amount(x.qty,"Quantity",1,20);},0);
 }
-function cartChange(cart,id,delta){
- if(!item(id))throw Error("Unknown menu item.");
- const next=copy(cart),i=next.findIndex(x=>x.id===id);
- if(i<0&&delta>0)next.push({id,qty:Math.min(delta,20)});
+function cartChange(cart,id,delta,size){
+ const normalized=sizeFor(id,size);
+ const next=copy(cart),i=next.findIndex(x=>x.id===id&&(x.size??null)===normalized);
+ if(i<0&&delta>0)next.push({id,size:normalized,qty:amount(delta,"Quantity",1,20)});
  else if(i>=0){const qty=next[i].qty+delta;if(qty>20)throw Error("Maximum 20 of one item.");if(qty<=0)next.splice(i,1);else next[i].qty=qty;}
  return next;
 }
@@ -71,14 +89,14 @@ function checkout(d,params){
  const cart=params.cart;
  if(!Array.isArray(cart)||cart.length===0)throw Error("Add something to your basket first.");
  if(cart.some(x=>!d.availability[x.id]))throw Error("An item in your basket is unavailable. Remove it to continue.");
- const ids=cart.map(x=>x.id);
+ const ids=cart.map(x=>x.id+':'+(sizeFor(x.id,x.size)||''));
  if(new Set(ids).size!==ids.length)throw Error("Duplicate basket item.");
  const phone=String(params.phone||"").replace(/[\s-]/g,"");
  if(!/^(?:07|01)\d{8}$/.test(phone))throw Error("Use a valid Kenyan mobile number (for example 0722000011).");
  const q=quote(params.branchId,params.pin);
  if(!q.eligible)throw Error(q.reason);
  const sub=subtotal(cart),id="SL-"+d.nextOrder;
- const record={id,createdAt:"Just now",branchId:params.branchId,items:cart.map(x=>({id:x.id,qty:x.qty,price:item(x.id).price})),subtotal:sub,deliveryFee:q.fee,total:sub+q.fee,distanceKm:q.distanceKm,status:"Received",payment:"Simulated M-Pesa",pin:{lat:+params.pin.lat,lng:+params.pin.lng}};
+ const record={id,createdAt:"Just now",branchId:params.branchId,items:cart.map(x=>({id:x.id,qty:x.qty,size:sizeFor(x.id,x.size),price:priceFor(x.id,x.size)})),subtotal:sub,deliveryFee:q.fee,total:sub+q.fee,distanceKm:q.distanceKm,status:"En route",payment:"Simulated M-Pesa",pin:{lat:+params.pin.lat,lng:+params.pin.lng}};
  // Store no customer name or number. This never invokes a real STK prompt.
  d.orders.unshift(record);d.nextOrder+=1;return record;
 }
@@ -94,6 +112,6 @@ function toggle(d,id){
 function overview(d){
  return {open:d.orders.filter(x=>x.status!=="Delivered").length,delivered:d.orders.filter(x=>x.status==="Delivered").length,revenue:d.orders.filter(x=>x.status==="Delivered").reduce((s,x)=>s+x.total,0)};
 }
-return {BRANCHES,MENU,STEPS,BOUNDS,DELIVERY,money,item,branch,mapPoint,coordsOnMap,quote,nearest,seed,validate,subtotal,cartChange,checkout,advance,toggle,overview};
+return {BRANCHES,MENU,STEPS,BOUNDS,DELIVERY,PIZZA_SIZES,money,item,priceFor,branch,mapPoint,coordsOnMap,quote,nearest,seed,validate,subtotal,cartChange,checkout,advance,toggle,overview};
 })();
 if(typeof module!=="undefined"&&module.exports)module.exports=restaurantCore;

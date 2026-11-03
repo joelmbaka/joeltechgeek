@@ -11,7 +11,11 @@ const title=()=>ui.detail==="incident"?"Incident details":ui.detail==="site"?"Si
  supervisor:{overview:"Supervisor",sites:"Sites",alerts:"Alerts",activity:"Occurrence Book"},
  manager:{dashboard:"Operations",deployments:"Deployments",incidents:"Incidents",reports:"Daily Report"}
 }[ui.role][ui.tab];
+let lastViewScrollKey=null;
 function render(){
+ const scrollKey=[ui.role,ui.tab,ui.detail,ui.detailId].join(':');
+ const previousScroll=root.querySelector?.(".main")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
  const v=makeViews(d,ui,core);
  const roleOptions=core.ROLES.map(r=>'<option value="'+r.id+'" '+(r.id===ui.role?"selected":"")+'>'+
  v.escape(r.name+" · "+r.title)+'</option>').join("");
@@ -33,6 +37,8 @@ function render(){
  '<small>No real GPS, camera recording, alerts, or external connections.</small></aside></div>'+
  v.modal()+(ui.notice?'<div class="toast" role="status">'+v.escape(ui.notice)+
  '<button data-action="dismiss" aria-label="Dismiss">×</button></div>':"");
+ if(keepScroll){const host=root.querySelector?.(".main");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
 }
 function go(role){
  if(!core.ROLES.some(r=>r.id===role))return;

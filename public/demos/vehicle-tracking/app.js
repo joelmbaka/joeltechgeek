@@ -129,7 +129,11 @@ function navbar(){
  return '<nav class="bottom-nav" aria-label="Demo navigation">'+tabs.map(([id,label,symbol])=>
  '<button type="button" data-action="tab" data-id="'+id+'" class="'+(tab===id?"active":"")+'" aria-current="'+(tab===id?"page":"false")+'"><span>'+symbol+'</span><small>'+label+'</small></button>').join("")+'</nav>';
 }
+let lastViewScrollKey=null;
 function render(){
+ const scrollKey=[role,tab].join(":");
+ const previousScroll=root.querySelector?.("#tracking-screen")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
  if(role==="owner"&&!ownerTabs.some(x=>x[0]===tab))tab="track";
  if(role==="desk"&&!deskTabs.some(x=>x[0]===tab))tab="fleet";
  const owner={track:ownerTrack,trips:ownerTrips,alerts:ownerAlerts,support:ownerSupport};
@@ -140,12 +144,16 @@ function render(){
  '<div class="device"><div class="system-bar"><span>9:41</span><span>●●● ◕ ▰</span></div>'+
  '<header class="topbar"><div class="brand"><span class="brand-mark">⌖</span><span><strong>Waypoint</strong><small>VEHICLE SECURITY · DEMO</small></span></div>'+
  '<label class="role-label">Perspective<select id="role-select" aria-label="Choose demo role"><option value="owner" '+(role==="owner"?"selected":"")+'>Vehicle Owner</option><option value="desk" '+(role==="desk"?"selected":"")+'>Monitoring Desk</option></select></label></header>'+
- '<div class="screen" id="tracking-screen">'+(notice?'<div class="flash" role="status">'+esc(notice)+'</div>':"")+screen+'</div>'+
+ '<div class="screen" id="tracking-screen">'+screen+'</div>'+
  navbar()+'<div class="device-home"><i></i></div></div>'+
  '<aside class="guide"><div class="kicker">TRY THESE SCENARIOS</div><h3>Track. Respond. Resolve.</h3><ol><li>Select a vehicle and explore its sample map.</li><li>Play a recorded trip.</li><li>Simulate signal loss or a geofence alert.</li><li>Submit a support request.</li><li>Switch to Monitoring Desk to respond.</li></ol>'+
- '<button type="button" class="reset-button" data-action="reset">↺ Reset fictional data</button><a href="/demos">All software demos ↗</a><p class="fine-print">No real vehicle commands, GPS readings, backend connectivity or alerts.</p></aside></div>';
+ '<button type="button" class="reset-button" data-action="reset">↺ Reset fictional data</button><a href="/demos">All software demos ↗</a><p class="fine-print">No real vehicle commands, GPS readings, backend connectivity or alerts.</p></aside></div>'+
+ (notice?'<div class="flash-toast" role="status"><span>'+esc(notice)+'</span><button type="button" data-action="dismiss" aria-label="Dismiss notification">×</button></div>':"");
+ if(keepScroll){const host=root.querySelector?.("#tracking-screen");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
 }
 function handleAction(action,id){
+  if(action==="dismiss"){notice="";return;}
  if(action==="tab"){stop();tab=id;notice="";return;}
  if(action==="choose"){C.get(data,id);stop();selected=id;playbackStep=0;notice="";return;}
  if(action==="reset"){if(!window.confirm("Reset all fictional tracking data and requests?"))return;stop();data=C.seed();selected="V-101";playbackStep=0;role="owner";tab="track";persist();notice="Sample data restored.";return;}

@@ -150,3 +150,7 @@ button.small{min-height:32px;padding:7px 10px;margin-top:9px;font-size:10px}
 @media(max-width:1160px){.introduction,.guide{display:none}.scene{padding:12px}.device{height:min(900px,calc(100dvh - 24px))}}
 @media(max-width:560px){html,body{background:var(--bg)}.scene{display:block;min-height:100dvh;padding:0;background:var(--bg)}.device{width:100%;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.screen{padding:16px 14px 25px}.vehicle-scroll{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}.map{height:min(285px,34dvh)}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
+.flash-toast{position:fixed;z-index:100;bottom:24px;left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:11px;background:#153a42;color:white;box-shadow:0 14px 36px #133d454a;font-size:12px;line-height:1.6}
+.flash-toast button{border:0;background:transparent;color:inherit;font-size:20px;font-weight:850;min-width:28px;min-height:28px}
+@media(max-width:560px){.flash-toast{bottom:86px}}

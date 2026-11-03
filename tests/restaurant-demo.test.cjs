@@ -62,7 +62,7 @@ test("checkout validates payment phone, map zone and menu availability before mu
  assert.throws(()=>C.checkout(d,{cart,branchId:b.id,pin,phone:"0722000011"}),/unavailable/);
  C.toggle(d,"bbq");
  const order=C.checkout(d,{cart,branchId:b.id,pin,phone:"0722000011"});
- assert.equal(order.status,"Received");
+ assert.equal(order.status,"En route");
  assert.equal(order.subtotal,1250+2*180);
  assert.equal(order.total,order.subtotal+order.deliveryFee);
  assert.equal(d.orders[0].id,order.id);
@@ -73,10 +73,8 @@ test("checkout validates payment phone, map zone and menu availability before mu
 });
 test("operational status handoffs enforce the single forward lifecycle",()=>{
  const d=C.seed(),o=d.orders[0];
- assert.equal(o.status,"Preparing");
- for(const step of ["Ready for dispatch","Out for delivery","Delivered"]){
-  C.advance(d,o.id);assert.equal(o.status,step);
- }
+ assert.equal(o.status,"En route");
+ C.advance(d,o.id);assert.equal(o.status,"Delivered");
  assert.throws(()=>C.advance(d,o.id),/complete/);
  assert.throws(()=>C.advance(d,"missing"),/not found/);
  assert.equal(C.overview(d).delivered,1);
@@ -96,6 +94,10 @@ test("standalone assets, gallery and overview follow the existing demo pattern",
  assert.match(app,/data-action="pin"/);
  assert.match(app,/Simulate M-Pesa payment & place order/);
  assert.match(app,/Switch to Operations/);
+ assert.match(app,/flash-toast/);
+ assert.match(app,/data-action="size"/);
+ assert.match(app,/previousScroll/);
+ assert.doesNotMatch(app,/status:"Preparing"/);
  assert.doesNotMatch(app,/\bfetch\s*\(|XMLHttpRequest|navigator\.geolocation/);
  assert.doesNotMatch(core,/jajemelo/i);
  for(const [filename,source] of [["core.js",core],["app.js",app]]){
@@ -125,14 +127,68 @@ test("customer checkout, sample pin, operations handoff and availability share b
  assert.match(root.innerHTML,/Estimated sample delivery fee/);
  events.submit({preventDefault(){},target:{id:"checkout-form",phone:"0722000011"}});
  assert.match(root.innerHTML,/SL-1043/);
- assert.doesNotMatch(storageData.jtg_restaurant_demo_v1,/0722000011/);
+ assert.doesNotMatch(storageData.jtg_restaurant_demo_v2,/0722000011/);
  events.change({target:{id:"demo-role",value:"operations"}});
  assert.match(root.innerHTML,/Incoming orders/);
  click("advance","SL-1043");
- assert.equal(JSON.parse(storageData.jtg_restaurant_demo_v1).orders[0].status,"Preparing");
+ assert.equal(JSON.parse(storageData.jtg_restaurant_demo_v2).orders[0].status,"Delivered");
  click("tab","menu");
  click("toggle","bbq");
- assert.equal(JSON.parse(storageData.jtg_restaurant_demo_v1).availability.bbq,false);
+ assert.equal(JSON.parse(storageData.jtg_restaurant_demo_v2).availability.bbq,false);
  events.change({target:{id:"demo-role",value:"customer"}});
  assert.match(root.innerHTML,/Sold out/);
+});
+test("pizza sizes are independent basket lines with correctly priced order snapshots",()=>{
+ const d=C.seed(),b=C.BRANCHES[0],pin={lat:b.lat,lng:b.lng};
+ let cart=C.cartChange([],"bbq",1,"Small");
+ cart=C.cartChange(cart,"bbq",1,"Large");
+ cart=C.cartChange(cart,"bbq",1,"Small");
+ assert.equal(cart.length,2);
+ assert.equal(C.subtotal(cart),950*2+1650);
+ assert.throws(()=>C.cartChange(cart,"bbq",1,"XXL"),/valid pizza size/);
+ assert.throws(()=>C.cartChange(cart,"fries",1,"Large"),/only available for pizza/);
+ const order=C.checkout(d,{cart,branchId:b.id,pin,phone:"0722000011"});
+ assert.equal(order.items[0].size,"Small");
+ assert.equal(order.items[0].price,950);
+ assert.equal(order.items[1].size,"Large");
+ assert.equal(order.items[1].price,1650);
+ assert.equal(order.status,"En route");
+ assert.equal(C.advance(d,order.id).status,"Delivered");
+ assert.throws(()=>C.advance(d,order.id),/complete/);
+});
+test("same-screen actions retain scroll; map pin and size selection show fixed toast feedback",()=>{
+ const events={},storageData={};let html="",screen={scrollTop:0};
+ const root={
+  contains:()=>true,addEventListener:(type,fn)=>{events[type]=fn;},
+  querySelector:selector=>selector==="#restaurant-screen"?screen:null,
+  get innerHTML(){return html;},
+  set innerHTML(value){html=value;screen={scrollTop:0};}
+ };
+ const document={getElementById:id=>id==="app"?root:null};
+ const localStorage={getItem:key=>storageData[key]??null,setItem:(key,value)=>{storageData[key]=value;}};
+ const window={confirm:()=>true};
+ class FakeFormData{constructor(form){this.form=form;}get(key){return this.form[key];}}
+ new Function("document","localStorage","window","FormData",
+   read("public/demos/restaurant/core.js")+"\n"+read("public/demos/restaurant/app.js")
+ )(document,localStorage,window,FakeFormData);
+ const click=(action,id,size)=>events.click({
+  target:{closest:()=>({dataset:{action,id,size},getBoundingClientRect:()=>({left:0,top:0,width:300,height:200})})},
+  clientX:150,clientY:100
+ });
+ screen.scrollTop=190;click("size","bbq","Large");
+ assert.equal(screen.scrollTop,190);
+ assert.match(html,/aria-pressed="true">Large/);
+ click("add","bbq");
+ assert.equal(screen.scrollTop,190);
+ assert.match(html,/Large added to your basket/);
+ click("tab","cart");
+ assert.equal(screen.scrollTop,0,"navigating to a different tab should open at the start");
+ screen.scrollTop=365;click("pin");
+ assert.equal(screen.scrollTop,365,"pinning a location must not jump to the top");
+ assert.match(html,/flash-toast/);
+ assert.match(html,/Estimated sample delivery fee/);
+ assert.match(html,/1,650/,"large pizza price must update the basket");
+ click("dismiss");
+ assert.equal(screen.scrollTop,365,"dismissing a toast must not scroll");
+ assert.doesNotMatch(html,/class="flash-toast"/);
 });

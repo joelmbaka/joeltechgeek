@@ -21,7 +21,11 @@ const authorized=(screen,id)=>{
 };
 const open=(screen,id=null)=>{if(!authorized(screen,id))return;ui.history.push([ui.screen,ui.id]);ui.screen=screen;ui.id=id;ui.drawer=false;ui.notice="";render()};
 const back=()=>{if(ui.modal)ui.modal=null;else{const prev=ui.history.pop();ui.screen=prev?.[0]||null;ui.id=prev?.[1]||null;}ui.notice="";render()};
+let lastViewScrollKey=null;
 function render(){
+ const scrollKey=[ui.role,ui.tab,ui.screen,ui.id].join(':');
+ const previousScroll=root.querySelector?.(".phone-main")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
  const view=createViews(data,ui,core),e=view.esc;
  const drawer=ui.role==="manager"&&ui.drawer?'<div class="drawer-wrap"><button class="drawer-backdrop" data-action="close-drawer" aria-label="Close menu"></button><aside class="drawer"><div class="drawer-title"><small>PROPERTY WORKSPACE</small><b>'+e(data.workspace.name)+'</b><span>Property Manager</span></div>'+
  menus.map(([group,items])=>'<section class="drawer-section"><h3>'+group+'</h3>'+items.map(([id,text,icon])=>'<button data-drawer="'+id+'"><span>'+icon+'</span>'+text+'<i>›</i></button>').join("")+'</section>').join("")+
@@ -37,6 +41,8 @@ function render(){
  '<main class="phone-main"><div class="screen">'+view.page()+'</div></main>'+nav+'<div class="gesture"><span></span></div>'+drawer+'</div>'+
  '<aside class="help"><b>Two connected roles</b><p>Choose Property Manager or Tenant inside the phone. Both see the same fictional rent records.</p>'+(ui.role==="manager"?view.btn("Reset sample data","reset",null,"soft"):"")+'<small>No live collections or tenant messages.</small></aside></div>'+
  view.form()+(ui.notice?'<div class="toast" role="status">'+e(ui.notice)+view.btn("×","dismiss",null,"text")+'</div>':"");
+ if(keepScroll){const host=root.querySelector?.(".phone-main");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
 }
 const perform=fn=>{try{fn();save();ui.modal=null;ui.notice="Sample record updated.";}catch(ex){ui.notice=ex?.message||"Action unavailable.";}render()};
 document.addEventListener("click",event=>{

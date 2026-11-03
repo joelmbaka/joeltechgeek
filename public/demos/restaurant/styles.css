@@ -40,3 +40,9 @@ h1,h2,h3,p{margin:0}p{line-height:1.6}button,input,select{font:inherit}button{cu
 @media(max-width:1100px){.scene-info,.side-note{display:none}.scene{padding:12px}.device{height:min(900px,calc(100dvh - 24px))}}
 @media(max-width:560px){body{background:var(--bg)}.scene{display:block;padding:0;min-height:100dvh;background:var(--bg)}.device{width:100%;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.screen{padding:16px 14px 25px}.food-art{width:85px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}
+.pizza-sizes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:9px;padding:3px;border:1px solid #e1ebe8;background:#f6faf8;border-radius:9px}
+.pizza-sizes button{border:0;border-radius:6px;background:transparent;color:#68847f;padding:6px 2px;font-size:10px;font-weight:850;min-height:30px}
+.pizza-sizes button.selected{color:#08765d;background:#fff;box-shadow:0 1px 4px #16372f22}
+.flash-toast{position:fixed;z-index:100;bottom:24px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:space-between;gap:12px;width:min(420px,calc(100vw - 24px));padding:12px 14px;border-radius:11px;background:#113b43;color:#fff;box-shadow:0 10px 35px #0a283953;font-size:12px;line-height:1.55}
+.flash-toast button{flex:none;border:0;background:transparent;color:inherit;font-weight:850;font-size:20px;min-width:28px;min-height:28px}
+@media(max-width:560px){.flash-toast{bottom:86px}.food-art{width:79px}}

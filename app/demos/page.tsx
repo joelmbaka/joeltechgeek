@@ -66,7 +66,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Restaurant &amp; delivery · Interactive concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Restaurant Ordering &amp; Delivery</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Order a sample pizza, pin a delivery location for an automatically estimated fee, simulate M-Pesa checkout, then switch to Restaurant Operations to follow the order from preparation through delivery.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Choose a pizza size, pin your delivery location for a sample distance-based fee, simulate M-Pesa checkout, then switch to Operations and mark the en-route order delivered.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Customer / Operations</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Illustrative delivery map</span>

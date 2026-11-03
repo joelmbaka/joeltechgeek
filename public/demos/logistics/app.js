@@ -191,7 +191,11 @@
    items.map(([key,label,icon])=>'<button data-page="'+key+'"><span>'+icon+'</span>'+label+'<span class="drawer-arrow">›</span></button>').join("")+
    '<a href="/demos/logistics">← Back to demos</a></aside></div>';
  }
- function render(){
+ let lastViewScrollKey=null;
+function render(){
+ const scrollKey=[role,tab,screen,selected].join(':');
+ const previousScroll=mount.querySelector?.(".app-content")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
   mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app built around dispatching, reservations and driver trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
    '<div class="device"><div class="status-bar"><span>9:41</span><span>▰ ▱ ▰</span></div>'+toolbar()+
    '<main class="app-content">'+(screen==="detail"?detail():screen?directory():board())+'</main>'+tabs()+
@@ -199,6 +203,8 @@
    '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · No live GPS, uploads or payments</small></aside></div>'+
    cargoFormModal()+
    (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
+ if(keepScroll){const host=mount.querySelector?.(".app-content");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
  }
  const done=(callback,msg)=>{try{callback();save();toast=msg;}catch(ex){toast=ex?.message||"Unable to complete action.";}render();};
  const back=()=>{if(formOpen){formOpen=false;}else{screen=null;}toast="";render();};

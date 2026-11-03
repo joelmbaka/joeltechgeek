@@ -186,7 +186,11 @@ function page(){
  if(state.role==="parent")return ({fees:parentFees,payments:parentPayments,children:parentChildren}[state.tab]||parentFees)();
  return ({overview:financeOverview,invoices:financeInvoices,payments:financePayments,students:financeStudents}[state.tab]||financeOverview)();
 }
+let lastViewScrollKey=null;
 function render(){
+ const scrollKey=[state.role,state.tab,state.screen,state.invoiceId,state.studentId,state.paymentId].join(":");
+ const previousScroll=root.querySelector?.(".phone-main")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
  root.innerHTML='<div class="demo-stage"><aside class="demo-intro"><span>SCHOOL FINANCE · INTERACTIVE DEMO</span><h2>School Fee Management</h2>'+
  '<p>One fictional school, preconfigured fees and add-ons, three children linked to one parent, and a shared payment ledger.</p>'+
  '<a href="/demos/education">← Demo overview</a></aside>'+
@@ -195,6 +199,8 @@ function render(){
  '<aside class="demo-help"><b>Two connected views</b><p>Switch between Mary (Parent) and David (Finance). Payments update both immediately.</p>'+
  btn("Reset sample data","reset","","soft")+'<small>Fictional invoices · No real STK or bank transfer.</small></aside></div>'+
  (state.notice?'<div class="toast" role="status">'+e(state.notice)+btn("×","dismiss","","text")+'</div>':"");
+ if(keepScroll){const host=root.querySelector?.(".phone-main");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
 }
 function back(){
  if(state.screen==="checkout"){state.screen="invoice";}

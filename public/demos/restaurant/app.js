@@ -1,9 +1,9 @@
 /* SliceLane: browser-only fictional restaurant demo. No payment, delivery, GPS or remote API. */
 (function(){
 "use strict";
-const C=restaurantCore,KEY="jtg_restaurant_demo_v1",root=document.getElementById("app");
+const C=restaurantCore,KEY="jtg_restaurant_demo_v2",root=document.getElementById("app");
 if(!root)return;
-let data,role="customer",tab="menu",cart=[],branchId="westlands",pin=null,notice="",lastOrder=null;
+let data,role="customer",tab="menu",cart=[],branchId="westlands",pin=null,notice="",lastOrder=null,selectedSizes={},lastScrollKey="";
 try{data=JSON.parse(localStorage.getItem(KEY)||"null");if(!C.validate(data))data=C.seed();}
 catch(_){data=C.seed();}
 const e=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
@@ -12,7 +12,7 @@ const branch=id=>C.branch(id)?.name||"Unknown";
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(_){}};
 const notify=s=>{notice=s;render();};
 const count=()=>cart.reduce((n,x)=>n+x.qty,0);
-const labels={Received:"Received",Preparing:"Preparing","Ready for dispatch":"Ready","Out for delivery":"On the way",Delivered:"Delivered"};
+const labels={"En route":"En route",Delivered:"Delivered"};
 const pills=o=>'<span class="status status-'+e(o.status.toLowerCase().replaceAll(" ","-"))+'">'+e(labels[o.status]||o.status)+'</span>';
 const line=(a,b)=>'<div class="cost-line"><span>'+e(a)+'</span><b>'+e(b)+'</b></div>';
 function header(){
@@ -32,7 +32,11 @@ function menuView(){
  branches()+
  '<div class="delivery-hint">📍 Pin a delivery point at checkout to choose the nearest branch and estimate a fee.</div>'+
  '<div class="section-head"><h2>Made for your cravings</h2><span>'+C.MENU.filter(x=>data.availability[x.id]).length+' available</span></div>'+
- C.MENU.map(p=>'<article class="food-card"><div class="food-art" aria-hidden="true">'+p.icon+'</div><div class="food-info"><div class="food-meta">'+e(p.category)+'</div><h3>'+e(p.name)+'</h3><p>'+e(p.desc)+'</p><div class="food-foot"><b>'+money(p.price)+'</b><button type="button" data-action="add" data-id="'+p.id+'" class="button primary small" '+(!data.availability[p.id]?"disabled":"")+'>'+(data.availability[p.id]?"＋ Add":"Sold out")+'</button></div></div></article>').join("")+
+ C.MENU.map(p=>{
+  const size=selectedSizes[p.id]||"Medium",pizza=p.category==="Pizza";
+  const sizes=pizza?'<div class="pizza-sizes" role="group" aria-label="'+e(p.name)+' size">'+C.PIZZA_SIZES.map(s=>'<button type="button" data-action="size" data-id="'+e(p.id)+'" data-size="'+s+'" class="'+(size===s?"selected":"")+'" aria-pressed="'+(size===s?'true':'false')+'">'+s+'</button>').join("")+'</div>':"";
+  return '<article class="food-card"><div class="food-art" aria-hidden="true">'+p.icon+'</div><div class="food-info"><div class="food-meta">'+e(p.category)+'</div><h3>'+e(p.name)+'</h3><p>'+e(p.desc)+'</p>'+sizes+'<div class="food-foot"><b>'+money(C.priceFor(p.id,pizza?size:null))+'</b><button type="button" data-action="add" data-id="'+p.id+'" class="button primary small" '+(!data.availability[p.id]?"disabled":"")+'>'+(data.availability[p.id]?"＋ Add":"Sold out")+'</button></div></div></article>';
+ }).join("")+
  '<button class="button primary full" data-action="tab" data-id="cart">View basket · '+count()+' items</button>';
 }
 function mapMarkup(){
@@ -47,7 +51,7 @@ function mapMarkup(){
  '<span class="map-watermark">ILLUSTRATIVE MAP · NOT LIVE GPS</span></button>';
 }
 function cartView(){
- const list=cart.map(x=>{const p=C.item(x.id);return '<div class="basket-item"><div><b>'+e(p.name)+'</b><small>'+money(p.price)+' each</small></div><div class="qty"><button type="button" data-action="decrement" data-id="'+x.id+'" aria-label="Remove one '+e(p.name)+'">−</button><span>'+x.qty+'</span><button type="button" data-action="increment" data-id="'+x.id+'" aria-label="Add one '+e(p.name)+'">+</button></div></div>';}).join("");
+ const list=cart.map(x=>{const p=C.item(x.id),size=x.size||"";return '<div class="basket-item"><div><b>'+e(p.name)+(size?" · "+e(size):"")+'</b><small>'+money(C.priceFor(x.id,x.size))+' each</small></div><div class="qty"><button type="button" data-action="decrement" data-id="'+x.id+'" data-size="'+e(size)+'" aria-label="Remove one '+e(p.name)+'">−</button><span>'+x.qty+'</span><button type="button" data-action="increment" data-id="'+x.id+'" data-size="'+e(size)+'" aria-label="Add one '+e(p.name)+'">+</button></div></div>';}).join("");
  let q=null;if(pin){try{q=C.quote(branchId,pin);}catch(err){q={eligible:false,reason:err.message};}}
  let sub=0;try{sub=C.subtotal(cart);}catch(_){}
  return heading("YOUR ORDER","Basket & delivery","Set your delivery pin to see a sample automatically calculated delivery fee.")+
@@ -60,12 +64,12 @@ function cartView(){
  '<button type="submit" class="button primary full" '+(!q?.eligible?"disabled":"")+'>Simulate M-Pesa payment & place order</button></form></div>':"");
 }
 function orderCard(o,operating){
- const items=o.items.map(x=>{const p=C.item(x.id);return x.qty+" × "+(p?p.name:x.id);}).join(" · ");
+ const items=o.items.map(x=>{const p=C.item(x.id);return x.qty+" × "+(p?p.name:x.id)+(x.size?" ("+x.size+")":"");}).join(" · ");
  const next=C.STEPS[C.STEPS.indexOf(o.status)+1];
  return '<article class="order-card"><div class="order-top"><div><small>'+e(o.id)+' · '+e(o.createdAt)+'</small><h3>'+e(branch(o.branchId))+'</h3></div>'+pills(o)+'</div><p>'+e(items)+'</p>'+
  '<div class="order-facts">'+line("Food",money(o.subtotal))+line("Delivery",money(o.deliveryFee))+line("Paid (simulated)",money(o.total))+'</div>'+
  '<div class="timeline">'+C.STEPS.map((s,i)=>'<span class="'+(i<=C.STEPS.indexOf(o.status)?"done":"")+'" title="'+e(s)+'"></span>').join("")+'</div><p class="muted">Status: '+e(o.status)+' · '+e(o.payment)+'</p>'+
- (operating&&next?'<button class="button primary full" data-action="advance" data-id="'+e(o.id)+'">Mark as '+e(next)+'</button>':"")+'</article>';
+ (operating&&next?'<button class="button primary full" data-action="advance" data-id="'+e(o.id)+'">Mark delivered</button>':"")+'</article>';
 }
 function ordersView(){
  const ops=role==="operations";
@@ -80,12 +84,19 @@ function operationsMenu(){
  '<div class="panel">'+C.MENU.map(p=>'<div class="availability"><div><b>'+e(p.name)+'</b><small>'+e(p.category)+' · '+money(p.price)+'</small></div><button type="button" class="button '+(data.availability[p.id]?"secondary":"warning")+'" data-action="toggle" data-id="'+e(p.id)+'">'+(data.availability[p.id]?"Available":"Sold out")+'</button></div>').join("")+'</div>';
 }
 function render(){
+ const viewKey=role+":"+tab;
+ const oldScreen=root.querySelector?.("#restaurant-screen");
+ const previousScroll=oldScreen?.scrollTop||0;
+ const keepPosition=lastScrollKey===viewKey;
  if(role==="customer"&&!["menu","cart","orders"].includes(tab))tab="menu";
  if(role==="operations"&&!["orders","menu"].includes(tab))tab="orders";
  const body=role==="customer"?(tab==="menu"?menuView():tab==="cart"?cartView():ordersView()):(tab==="orders"?ordersView():operationsMenu());
  root.innerHTML='<div class="scene"><aside class="scene-info"><span>JOELTECHGEEK · INTERACTIVE CONCEPT</span><h2>From cravings to doorstep.</h2><p>Explore how a fictional restaurant could manage direct customer ordering, branch routing and delivery updates.</p><a href="/demos/restaurant">← Back to restaurant demo overview</a></aside>'+
- '<div class="device">'+header()+'<main class="screen" id="restaurant-screen">'+(notice?'<div role="status" class="flash">'+e(notice)+'</div>':"")+body+'</main><div class="home-line"><span></span></div></div>'+
- '<aside class="side-note"><b>Explore the workflow</b><p>1. Add pizza in Customer view.</p><p>2. Pin a location and see a calculated fee.</p><p>3. Simulate M-Pesa checkout.</p><p>4. Switch to Operations to update the order.</p><p>All orders, fees and locations are illustrative.</p><button type="button" data-action="reset" class="button secondary">↻ Reset sample data</button><a href="/demos">All demos ↗</a></aside></div>';
+ '<div class="device">'+header()+'<main class="screen" id="restaurant-screen">'+body+'</main><div class="home-line"><span></span></div></div>'+
+ '<aside class="side-note"><b>Explore the workflow</b><p>1. Choose a pizza size and add it to your basket.</p><p>2. Pin a location and see a calculated fee.</p><p>3. Simulate M-Pesa checkout.</p><p>4. Switch to Operations to mark the order delivered.</p><p>All orders, fees and locations are illustrative.</p><button type="button" data-action="reset" class="button secondary">↻ Reset sample data</button><a href="/demos">All demos ↗</a></aside></div>'+
+ (notice?'<div role="status" class="flash-toast"><span>'+e(notice)+'</span><button type="button" data-action="dismiss" aria-label="Dismiss notification">×</button></div>':"");
+ if(keepPosition){const nextScreen=root.querySelector?.("#restaurant-screen");if(nextScreen)nextScreen.scrollTop=previousScroll;}
+ lastScrollKey=viewKey;
 }
 root.addEventListener("change",event=>{
  if(event.target?.id==="demo-role"){role=event.target.value==="operations"?"operations":"customer";tab=role==="customer"?"menu":"orders";notice="";render();}
@@ -93,12 +104,14 @@ root.addEventListener("change",event=>{
 });
 root.addEventListener("click",event=>{
  const el=event.target.closest?.("[data-action]");if(!el||!root.contains(el))return;
- const action=el.dataset.action,id=el.dataset.id;
+ const action=el.dataset.action,id=el.dataset.id,size=el.dataset.size||null;
  try{
  if(action==="tab"){tab=id;notice="";}
- else if(action==="add"){if(!data.availability[id])throw Error("This item is sold out.");cart=C.cartChange(cart,id,1);notice=C.item(id).name+" added to your basket.";}
- else if(action==="increment"){if(!data.availability[id])throw Error("This item is currently unavailable.");cart=C.cartChange(cart,id,1);notice="";}
- else if(action==="decrement"){cart=C.cartChange(cart,id,-1);notice="";}
+ else if(action==="dismiss"){notice="";}
+ else if(action==="size"){if(C.item(id)?.category!=="Pizza")throw Error("Only pizzas have sizes.");selectedSizes[id]=size;notice="";}
+ else if(action==="add"){if(!data.availability[id])throw Error("This item is sold out.");const pizza=C.item(id).category==="Pizza";const chosen=pizza?(selectedSizes[id]||"Medium"):null;cart=C.cartChange(cart,id,1,chosen);notice=C.item(id).name+(chosen?" · "+chosen:"")+" added to your basket.";}
+ else if(action==="increment"){if(!data.availability[id])throw Error("This item is currently unavailable.");cart=C.cartChange(cart,id,1,size);notice="";}
+ else if(action==="decrement"){cart=C.cartChange(cart,id,-1,size);notice="";}
  else if(action==="clear"){cart=[];notice="Basket cleared.";}
  else if(action==="pin"){
  const rect=el.getBoundingClientRect();
@@ -110,7 +123,7 @@ root.addEventListener("click",event=>{
  else if(action==="nearest"){if(!pin)throw Error("Pin a location first.");branchId=C.nearest(pin).id;notice="Nearest example branch selected.";}
  else if(action==="advance"){if(role!=="operations")throw Error("Switch to Operations first.");const o=C.advance(data,id);persist();notice=o.id+" updated to "+o.status+".";}
  else if(action==="toggle"){if(role!=="operations")throw Error("Switch to Operations first.");C.toggle(data,id);persist();notice="Menu availability updated.";}
- else if(action==="reset"){if(window.confirm("Reset all fictional restaurant orders and menu settings?")){data=C.seed();persist();cart=[];pin=null;branchId="westlands";lastOrder=null;notice="Sample data restored.";}}
+ else if(action==="reset"){if(window.confirm("Reset all fictional restaurant orders and menu settings?")){data=C.seed();persist();cart=[];pin=null;branchId="westlands";lastOrder=null;selectedSizes={};notice="Sample data restored.";}}
  else return;
  render();
  }catch(err){notify(err.message||"Action could not be completed.");}
