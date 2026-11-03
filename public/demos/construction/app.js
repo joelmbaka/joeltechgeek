@@ -198,12 +198,18 @@ function page(){
  if(ui.role==="stockkeeper")return ({todo:stockTodo,stock,history}[ui.tab]||stockTodo)();
  return ({todo:accountantTodo,invoices,payments}[ui.tab]||accountantTodo)();
 }
+let lastViewScrollKey=null;
 function render(){
+ const scrollKey=[ui.role,ui.tab,ui.screen,ui.kind,ui.id].join(':');
+ const previousScroll=root.querySelector?.(".phone-main")?.scrollTop||0;
+ const keepScroll=lastViewScrollKey===scrollKey;
  root.innerHTML=`<div class="stage"><aside class="stage-intro"><small>MOBILE CONSTRUCTION DEMO</small><h2>SiteFlow Construction</h2>`+
   `<p>A connected fictional project with the four site roles and their real operational handoffs.</p><a href="/demos/construction">← Demo overview</a></aside>`+
   `<div class="phone"><div class="phone-status"><span>9:41</span><span>▰ ▱ ▰</span></div>${header()}<main class="phone-main"><div class="screen">${page()}</div></main>${bottom()}<div class="gesture"><span></span></div>${drawer()}</div>`+
   `<aside class="stage-guide"><b>Switch roles</b><p>Nia, Peter, Asha and Samuel share the same fictional project records.</p>${btn("Reset sample data","reset","","soft")}<small>No real uploads, stock or payments.</small></aside></div>`+
   form()+(ui.toast?`<div role="status" class="toast">${esc(ui.toast)}${btn("×","dismiss","","icon")}</div>`:"");
+ if(keepScroll){const host=root.querySelector?.(".phone-main");if(host)host.scrollTop=previousScroll;}
+ lastViewScrollKey=scrollKey;
 }
 const change=(action,message)=>{try{action();save();ui.toast=message||"Updated.";ui.modal=null;}catch(err){ui.toast=err?.message||"Unable to perform this action.";}render()};
 const open=(kind,id)=>{ui.screen="detail";ui.kind=kind;ui.id=id;ui.drawer=false;ui.modal=null;ui.toast="";render()};

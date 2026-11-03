@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
+import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
@@ -10,10 +10,98 @@ import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followu
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const access = await requireCrmAgent();
+
+/** A paginated, server-searchable response for Android. Web GET remains unchanged. */
+async function getPagedLeads(params: URLSearchParams, agentId: string) {
+  const rawLimit = params.get('limit') || '25';
+  const rawOffset = params.get('offset') || '0';
+  if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset))
+    return badInput('Invalid pagination parameters.');
+  const limit = Number(rawLimit);
+  const offset = Number(rawOffset);
+  if (limit < 1 || limit > 100 || !Number.isSafeInteger(offset) || offset > 1000000)
+    return badInput('Pagination is out of range.');
+
+  const search = (params.get('q') || '').trim().replace(/\s+/g, ' ');
+  if (search.length > 120) return badInput('Search is too long.');
+  const queue = params.get('queue') || 'all';
+  const sort = params.get('sort') || 'recommended';
+  const industry = (params.get('industry') || '').trim();
+  if (!['all','due','to_call','interested'].includes(queue) ||
+      !['recommended','recent','company','priority','followup'].includes(sort) ||
+      industry.length > 100) return badInput('Invalid filter.');
+
+  const due = "(next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))))";
+  const active = "NOT do_not_contact AND stage NOT IN ('won','lost')";
+  const filters: string[] = ['agent_id = $1'];
+  const args: unknown[] = [agentId];
+  const bind = (value: unknown) => { args.push(value); return '$' + args.length; };
+  if (industry && industry !== 'all') filters.push('industry = ' + bind(industry));
+  if (queue === 'due') filters.push(active + ' AND ' + due);
+  if (queue === 'to_call') filters.push(active +
+    " AND (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2, last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number')))");
+  if (queue === 'interested') filters.push("stage IN ('interested','meeting','proposal','negotiation')");
+  if (search) {
+    for (const term of search.split(' ').slice(0, 8)) {
+      const pattern = '%' + term.replace(/[!%_]/g, (char) => '!' + char) + '%';
+      const p = bind(pattern);
+      filters.push('(company_name ILIKE ' + p + " ESCAPE '!' OR " +
+        'contact_name ILIKE ' + p + " ESCAPE '!' OR " +
+        'phone ILIKE ' + p + " ESCAPE '!' OR " +
+        'email ILIKE ' + p + " ESCAPE '!' OR " +
+        'industry ILIKE ' + p + " ESCAPE '!')");
+    }
+  }
+  const order: Record<string,string> = {
+    recommended: 'CASE WHEN ' + due + ' THEN 0 WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC, id DESC',
+    recent: 'updated_at DESC, id DESC',
+    company: 'lower(company_name) ASC, id ASC',
+    priority: "CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, updated_at DESC, id DESC",
+    followup: 'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, id ASC',
+  };
+  try {
+    const db = getCrmPool();
+    // Build SQL + placeholders before executing. Both are scoped to agent_id.
+    const where = filters.join(' AND ');
+    const countArgs = [...args];
+    const lim = bind(limit + 1);
+    const off = bind(offset);
+    const [leads, filteredCount, summary, industryRows] = await Promise.all([
+      db.query<Lead>('SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE ' +
+        where + ' ORDER BY ' + order[sort] + ' LIMIT ' + lim + ' OFFSET ' + off, args),
+      db.query<{ total: number }>('SELECT count(*)::int AS total FROM public.crm_leads WHERE ' + where, countArgs),
+      db.query<LeadStats>(
+        'SELECT count(*)::int AS total, ' +
+        "count(*) FILTER (WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2,last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact AND stage NOT IN ('won','lost'))::int AS to_call, " +
+        'count(*) FILTER (WHERE ' + due + " AND NOT do_not_contact AND stage NOT IN ('won','lost'))::int AS followups_due, " +
+        "count(*) FILTER (WHERE stage IN ('interested','meeting','proposal','negotiation'))::int AS interested, " +
+        "count(*) FILTER (WHERE stage = 'meeting')::int AS meetings, " +
+        "count(*) FILTER (WHERE stage = 'won')::int AS won " +
+        'FROM public.crm_leads WHERE agent_id = $1',
+        [agentId],
+      ),
+      db.query<{ industry: string; count: number }>(
+        'SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 GROUP BY industry ORDER BY industry',
+        [agentId],
+      ),
+    ]);
+    return NextResponse.json({
+      ok: true, leads: leads.rows.slice(0, limit),
+      has_more: leads.rows.length > limit, filtered_total: filteredCount.rows[0]?.total ?? 0, limit, offset,
+      stats: summary.rows[0], industries: industryRows.rows.map((row) => row.industry),
+      industry_counts: Object.fromEntries(industryRows.rows.map((row) => [row.industry, row.count])),
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) { return crmError(error); }
+}
+
+export async function GET(request: Request) {
+  const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
 
+  const searchParams = new URL(request.url).searchParams;
+  if (searchParams.has('limit')) {
+    return getPagedLeads(searchParams, access.agent.id);
+  }
   try {
     const db = getCrmPool();
     const [leadsResult, statsResult] = await Promise.all([
@@ -81,14 +169,8 @@ function normalizedUrl(value: string): string | null {
 }
 
 export async function POST(request: Request) {
-  // The browser authenticates using an HTTP-only Auth.js session cookie.
-  // Check Origin on writes to prevent cross-site POSTs.
-  const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) {
-    return badInput('Invalid request origin.', 403);
-  }
-
-  const access = await requireCrmAgent();
+  if (!validCrmWriteOrigin(request)) return badInput('Invalid request origin.', 403);
+  const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
 
   let body: Record<string, unknown>;

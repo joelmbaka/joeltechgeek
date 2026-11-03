@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
+import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import type { Lead } from '@/lib/agent-crm/types';
@@ -15,9 +15,8 @@ function fail(error: string, status: number) {
 
 /** Schedule/edit follow-up independently of call outcomes. */
 export async function PATCH(request: Request, { params }: Params) {
-  const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent();
+  if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
+  const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead.', 400);

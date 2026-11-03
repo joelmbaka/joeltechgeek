@@ -39,6 +39,11 @@ export function Footer() {
             <a href="https://linkedin.com/in/joelmbaka" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 hover:text-palm-green"><Linkedin className="h-4 w-4" aria-hidden /> LinkedIn</a>
           </div>
         </div>
+        <div className="mt-8 border-t border-gray-200 pt-5 text-xs dark:border-gray-800">
+          <Link href="/privacy" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </footer>
   );

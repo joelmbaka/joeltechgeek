@@ -24,7 +24,11 @@ function detail(type,id){
  if(type==="encounter"&&!data.encounters.some(x=>x.id===id))return;
  ui.detail=type;ui.id=id;ui.modal=null;ui.menu=false;ui.encTab="overview";ui.message="";render();
 }
+let lastDesktopViewKey=null;
 function render(){
+ const viewKey=[ui.role,ui.page,ui.detail,ui.id].join(':');
+ const previousPosition=document.scrollingElement?.scrollTop||0;
+ const preservePosition=lastDesktopViewKey===viewKey;
  const v=makeViews(data,ui,core),esc=v.e;
  const link=(x)=>'<button type="button" class="side-link '+(ui.page===x[0]&&!ui.detail?"active":"")+
  '" data-nav="'+esc(x[0])+'"><span aria-hidden="true">'+x[2]+'</span>'+x[1]+'</button>';
@@ -48,6 +52,8 @@ function render(){
  '<p class="demo-footnote">Fictional clinical and billing information · No real patient data, medical decisions, insurance checks or transactions</p></main></div>'+
  '</div>'+v.dialog()+
  (ui.message?'<div class="toast" role="status">'+esc(ui.message)+v.btn("×","dismiss","","text")+'</div>':"");
+ if(preservePosition&&document.scrollingElement)document.scrollingElement.scrollTop=previousPosition;
+ lastDesktopViewKey=viewKey;
 }
 function openModal(kind,id,attrs){
  if(!can(kind))return;

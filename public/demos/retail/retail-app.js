@@ -212,7 +212,11 @@
   }
   function navList(){return nav.filter(([id])=>roles[ui.role].items.includes(id)).map(([id,title,symbol])=>
     '<button class="nav-link '+(ui.view===id?'selected':'')+'" data-nav="'+id+'"><span class="nav-icon">'+symbol+'</span><span>'+title+'</span></button>').join("");}
-  function render(){
+  let lastDesktopViewKey=null;
+function render(){
+ const viewKey=[ui.role,ui.view].join(':');
+ const previousPosition=document.scrollingElement?.scrollTop||0;
+ const preservePosition=lastDesktopViewKey===viewKey;
     const pages={dashboard,pos,inventory,purchasing,sales,reports,settings};
     if(!pages[ui.view])ui.view=roles[ui.role].start;
     const title=nav.find(([id])=>id===ui.view)?.[1]||"Store overview";
@@ -225,6 +229,8 @@
       (ui.toast?'<div class="toast" role="status"><span>'+escapeHtml(ui.toast)+'</span><button data-act="dismiss" aria-label="Dismiss message">×</button></div>':'')+
       modal()+
       (ui.modal?.type==="receipt"&&data.sales.some(s=>s.id===ui.modal.id)?'<div class="print-only">'+receiptHtml(data.sales.find(s=>s.id===ui.modal.id))+'</div>':'');
+ if(preservePosition&&document.scrollingElement)document.scrollingElement.scrollTop=previousPosition;
+ lastDesktopViewKey=viewKey;
   }
   function changeRole(id){
     if(!roles[id])return;
@@ -234,7 +240,6 @@
     const pages=["dashboard","pos","inventory","purchasing","sales","reports","settings"];
     if(!pages.includes(id)||!roles[ui.role].items.includes(id))return;
     ui.view=id;ui.modal=null;ui.toast="";render();
-    window.scrollTo({top:0,behavior:"auto"});
   }
   function addCart(id){
     const p=byId(id);

@@ -1,0 +1,60 @@
+import type { PoolClient } from 'pg';
+import { getCrmPool } from '@/lib/agent-crm/db';
+import { mintMobileSession, mobileJson } from '@/lib/agent-crm/mobile-auth';
+import { PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled } from '@/lib/agent-crm/play-review';
+import type { Agent } from '@/lib/agent-crm/types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * Discoverability only. Review access is controlled by the server, never by a
+ * build-time secret in the APK. Feature is OFF unless both env values are valid.
+ */
+export function GET() {
+  return mobileJson({ ok: true, enabled: playReviewEnabled() });
+}
+
+/**
+ * Public one-tap review login. Does NOT impersonate Joel or access real leads.
+ * Session is a normal agent-scoped mobile session for a synthetic demo agent.
+ * Android Play reviewers can use it without Google, OTP, account credentials,
+ * device-bound permissions, or location restrictions.
+ */
+export async function POST() {
+  if (!playReviewEnabled()) return mobileJson({ error: 'Review access is disabled.' }, 403);
+
+  let client: PoolClient | undefined;
+  try {
+    client = await getCrmPool().connect();
+    await client.query('BEGIN');
+    const match = await client.query<Agent>(
+      `SELECT id::text AS id, full_name AS name, email, phone,
+              google_picture_url AS picture_url
+         FROM public.sales_agent_applications
+         WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
+           AND status = 'approved'
+         LIMIT 1`,
+      [PLAY_REVIEW_AGENT_EMAIL],
+    );
+    const agent = match.rows[0];
+    if (!agent) {
+      await client.query('ROLLBACK');
+      return mobileJson({ error: 'Review workspace is not initialized.' }, 503);
+    }
+    // Check a second time in case the server setting changes before committing.
+    if (!playReviewEnabled()) {
+      await client.query('ROLLBACK');
+      return mobileJson({ error: 'Review access is disabled.' }, 403);
+    }
+    const tokens = await mintMobileSession(client, agent.id);
+    await client.query('COMMIT');
+    return mobileJson({ ok: true, agent, ...tokens });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    console.error('[CRM_PLAY_REVIEW]', error);
+    return mobileJson({ error: 'Review sign-in is unavailable.' }, 503);
+  } finally {
+    client?.release();
+  }
+}

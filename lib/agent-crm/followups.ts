@@ -38,6 +38,6 @@ export function parseFollowupSchedule(body: Record<string, unknown>):
 }
 /** Numeric SQL placeholders are (date, time, timezone). */
 export function followupDueAtSQL(d: number, t: number, z: number): string {
-  return 'CASE WHEN $'+d+'::date IS NOT NULL AND $'+t+'::time IS NOT NULL '+
-    'THEN ($'+d+'::date + $'+t+'::time) AT TIME ZONE $'+z+'::text ELSE NULL END';
+  return `CASE WHEN $${d}::date IS NOT NULL AND $${t}::time IS NOT NULL ` +
+    `THEN ($${d}::date + $${t}::time) AT TIME ZONE $${z}::varchar ELSE NULL END`;
 }

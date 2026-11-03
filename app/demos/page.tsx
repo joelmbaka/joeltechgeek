@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, ClipboardCheck, ShoppingCart, PackageCheck, TrendingUp, CreditCard, HardHat, Boxes, ClipboardList, Wrench, CalendarCheck, FileCheck2, Truck, GraduationCap, Receipt, Building2, WalletCards, HeartPulse, ClipboardPlus } from 'lucide-react';
+import { ArrowRight, ShieldCheck, ClipboardCheck, ShoppingCart, PackageCheck, TrendingUp, CreditCard, HardHat, Boxes, ClipboardList, Wrench, CalendarCheck, FileCheck2, Truck, GraduationCap, Receipt, Building2, WalletCards, HeartPulse, ClipboardPlus, Pizza, MapPin } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Interactive Software Demos | Joeltech Geek Systems',
-  description: 'Explore nine interactive business software concepts: security guard operations, field services, logistics, school finance, rent management, healthcare, fire safety, construction and retail.',
+  description: 'Explore eleven interactive business software concepts, including vehicle tracking: security guard operations, field services, logistics, school finance, rent management, healthcare, fire safety, construction and retail.',
   alternates: { canonical: '/demos' },
-  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore nine industry software concepts with fictional data and interactive business workflows.' },
+  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore eleven industry software concepts with fictional data and interactive business workflows.' },
 };
 
 export default function DemosPage() {
@@ -24,6 +24,74 @@ export default function DemosPage() {
       </header>
       <section aria-labelledby="available-demos" className="mt-12">
         <h2 id="available-demos" className="text-2xl font-bold text-gray-900 dark:text-white">Available demos</h2>
+        <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="grid lg:grid-cols-[1fr_1.05fr]">
+            <div className="flex flex-col p-7 sm:p-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><MapPin className="h-6 w-6" aria-hidden /></span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Vehicle security · Mobile app concept</span>
+              </div>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Vehicle Tracking &amp; Security</h3>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Follow fictional vehicles on an illustrated map, replay trips, simulate tracker signal loss and geofence alerts, and handle customer requests from a connected monitoring desk.</p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Vehicle Owner / Monitoring Desk</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Simulated GPS &amp; alerts</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No live tracking</span>
+              </div>
+              <Link href="/demos/vehicle-tracking" className="mt-8 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
+                Explore vehicle tracking demo <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            </div>
+            <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
+                <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
+                  <div className="flex items-center gap-2"><MapPin className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Waypoint · Tracking overview</span></div>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Fictional concept</span>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white/10 p-4"><MapPin className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Track &amp; replay</p><p className="mt-1 text-xs text-white/70">Trip history and freshness</p></div>
+                  <div className="rounded-xl bg-white/10 p-4"><ShieldCheck className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Alerts &amp; support</p><p className="mt-1 text-xs text-white/70">Connected monitoring desk</p></div>
+                </div>
+                <p className="mt-5 text-xs leading-6 text-white/80">No tracker devices, APIs, notifications or real vehicle security commands are connected.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="grid lg:grid-cols-[1fr_1.05fr]">
+            <div className="flex flex-col p-7 sm:p-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><Pizza className="h-6 w-6" aria-hidden /></span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Restaurant &amp; delivery · Interactive concept</span>
+              </div>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Restaurant Ordering &amp; Delivery</h3>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Choose a pizza size, pin your delivery location for a sample distance-based fee, simulate M-Pesa checkout, then switch to Operations and mark the en-route order delivered.</p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Customer / Operations</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Illustrative delivery map</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No real payments</span>
+              </div>
+              <Link href="/demos/restaurant" className="mt-8 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
+                Explore restaurant demo <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            </div>
+            <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
+                <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
+                  <div className="flex items-center gap-2"><Pizza className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Direct ordering flow</span></div>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Fictional concept</span>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white/10 p-4"><MapPin className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Pin &amp; fee</p><p className="mt-1 text-xs text-white/70">Illustrative branch routing</p></div>
+                  <div className="rounded-xl bg-white/10 p-4"><ShoppingCart className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Order &amp; track</p><p className="mt-1 text-xs text-white/70">Simulated M-Pesa checkout</p></div>
+                </div>
+                <p className="mt-5 text-xs leading-6 text-white/80">Customer and restaurant views share browser-local menu availability and order status.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
         <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="grid lg:grid-cols-[1fr_1.05fr]">
             <div className="flex flex-col p-7 sm:p-10">

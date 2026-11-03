@@ -3,7 +3,7 @@
 ## Scope
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).
 - Mobile-first web workspace. No admin UI, separate call log, or industry tables. Agents can add leads using a modal.
-- Google-only sign-in using self-hosted Auth.js v5 (NextAuth) inside Next.js; no Supabase involvement in CRM.
+- Web CRM: Google-only Auth.js v5 cookie sessions. Android CRM: Milliol-style temporary Google OAuth browser flow, Next.js-owned Google callback, then a one-time app handoff and independent Neon mobile session. No website login or shared Auth.js cookies.
 - JoelTechGeek Neon PostgreSQL holds the registered agent allowlist and assigned leads.
 - The legacy /crm job-hunting UI and /api/crm job endpoints are removed. Existing job data tables are intentionally NOT dropped by this change.
 
@@ -17,6 +17,18 @@
 7. Verify public navigation/footer still behave normally and /crm stays absent from sitemap and navigation.
 8. Test build: npm ci && npx tsc --noEmit && npx eslint . && npm run build.
 9. Deploy manually only after review; do not automatically merge the development branch.
+
+## Google Play review access (code-controlled)
+
+- The Android sign-in screen checks `GET /api/agent-crm/mobile/review` and shows **Review access** while enabled.
+- Tapping it calls `POST /api/agent-crm/mobile/review`. No Google login, OTP, browser session, or review credentials are required.
+- The server grants a normal mobile session to the **synthetic** `Joel (Play Review)` agent and fictional leads, never Joel's real production account. All CRM routes remain scoped by agent ID.
+- Apply `migrations/2026-11-02-agent-crm-play-review-demo.sql` to JoelTechGeek Portfolio Neon `neondb`; it creates isolated sample records.
+- **No review environment variables or automatic expiry.** `lib/agent-crm/play-review.ts` contains `PLAY_REVIEW_ACCESS_ENABLED = true` until changed in source and deployed.
+- Play Console > App content > Sign-in details: "Tap Review access. No username or password is required. Sample leads are available."
+- Google Play may test the app during subsequent updates. Google's policy says sign-in instructions must remain continuously valid. **Keep review access for later submissions** rather than removing it as soon as the first production release is approved.
+- If intentionally retiring this feature, change `PLAY_REVIEW_ACCESS_ENABLED` to `false` and deploy the backend **before** removing the UI and endpoints. The server gate also prevents refresh and use of previously issued review tokens.
+- Any app user can open the fictional workspace while enabled. Never change the endpoint to impersonate Joel's actual agent account.
 
 ## Eligibility and data protection
 - Auth.js validates the Google OAuth/OIDC identity and creates encrypted HTTP-only JWT cookies (30-day max age).
@@ -82,7 +94,7 @@ ON CONFLICT DO NOTHING;
 - For local development: `http://localhost:3002/api/auth/callback/google`.
 - Only the registered Google account can create a session; sessions last up to 30 days with normal Auth.js rotation.
 - If a user signs in using an unregistered email, Auth.js returns to `/crm?error=AccessDenied`.
-- The existing public website Supabase code is outside this CRM change and was deliberately left alone.
+- Legacy Supabase authentication UI has been retired. The agent CRM uses Auth.js (Google) and the Portfolio Neon database; historical sales-agent SQL lives under migrations/.
 - Recheck with `npm ci`, `npx tsc --noEmit`, scoped ESLint, and `npm run build` before deployment.
 
 ## Industry dropdown
@@ -114,4 +126,4 @@ ON CONFLICT DO NOTHING;
 - Agent ownership, same-origin write checks, and Do Not Contact protections remain enforced on each API.
 - Validate: add lead date-only; add lead with time; change date without a call outcome; time without date rejected; complete task and schedule the next task; preserve call history; verify timezone and due_at; no duplicate or cross-agent updates; opt-out blocked.
 - BlazeShield's WhatsApp demo send was previously recorded as action completed; its follow-up was set to Thursday **2026-11-05** with no invented time.
-- The Expo mobile app is a separate project and is untouched by this CRM-only change. Local/push notifications are not implemented in this change.
+- The Expo mobile app is a separate project; it implements timed local follow-up notifications and its own OAuth session.

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError } from '@/lib/agent-crm/auth';
+import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
@@ -19,8 +19,8 @@ function response(error: string, status: number) {
   );
 }
 
-export async function GET(_request: Request, { params }: Params) {
-  const access = await requireCrmAgent();
+export async function GET(request: Request, { params }: Params) {
+  const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);
@@ -69,11 +69,10 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   // Defense in depth for same-site cookie authorization.
-  const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) {
+  if (!validCrmWriteOrigin(request)) {
     return response('Invalid request origin.', 403);
   }
-  const access = await requireCrmAgent();
+  const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);

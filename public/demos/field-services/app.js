@@ -243,7 +243,11 @@
   }
   return '<div class="overlay"><section class="modal" role="dialog" aria-modal="true" aria-label="Field service action"><div class="modal-head"><span>NORTHSTAR · INTERACTIVE CONCEPT</span><button class="close" data-act="close" aria-label="Close dialog">×</button></div>'+content+'</section></div>';
  }
- function render(){
+ let lastDesktopViewKey=null;
+function render(){
+ const viewKey=[ui.role,ui.view].join(':');
+ const previousPosition=document.scrollingElement?.scrollTop||0;
+ const preservePosition=lastDesktopViewKey===viewKey;
   const views={overview,tickets,mywork,reviews,maintenance,parts,billing,reports,settings};
   if(!allowed(ui.view))ui.view=roles[ui.role].start;
   const name=nav.find(([id])=>id===ui.view)?.[1]||"Overview";
@@ -260,6 +264,8 @@
    (ui.message?'<div class="toast" role="status"><span>'+esc(ui.message)+'</span><button data-act="dismiss" aria-label="Dismiss notification">×</button></div>':'')+
    modal()+
    (ui.modal?.type==="invoice"&&invoice(ui.modal.id)?'<div class="print-only">'+invoiceHtml(invoice(ui.modal.id))+'</div>':'');
+ if(preservePosition&&document.scrollingElement)document.scrollingElement.scrollTop=previousPosition;
+ lastDesktopViewKey=viewKey;
  }
  function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(error){ui.message="Browser storage unavailable; changes are temporary.";}}
  function notify(message){ui.message=message;render();}

@@ -1,56 +1,65 @@
-# Welcome to your Expo app 👋
+# JoelTechGeek CRM Android
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Android sign-in follows Milliol: Continue with Google opens a temporary Google OAuth browser session. It never signs into the JoelTechGeek website or uses web Auth.js cookies. After choosing an account, the app receives a one-time authorization code via its deep link and exchanges that for an independent mobile session.
 
-## Get started
+## Google Cloud
 
-1. Install dependencies
+Open the existing JoelTechGeek CRM Web OAuth client and add the exact authorized redirect URI:
 
-   ```bash
-   npm install
-   ```
+    https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback
 
-2. Start the app
+Keep the existing website Auth.js callback URI; they coexist. The OAuth credentials remain on the Next.js server. No Android OAuth client, SHA-1 registration, Firebase file, iOS reversed scheme, or EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is required.
 
-   ```bash
-   npx expo start
-   ```
+## Production preparation
 
-In the output, you'll find options to open the app in a
+1. Apply the additive migration in migrations/2026-11-02-agent-crm-google-oauth-states.sql to the JoelTechGeek Portfolio Neon production neondb.
+2. Deploy the Next.js changes from mobile; /api/agent-crm/mobile/oauth/start and /oauth/callback become available.
+3. Keep AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET, DATABASE_URL on the server, not in Expo.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Run on connected Android
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+    git switch mobile
+    git pull origin mobile
+    cd mobile-app
+    npm ci
+    npx tsc --noEmit
+    npx expo lint
+    npx expo install --check
+    adb devices
+    npx expo run:android --device
 
-## Get a fresh project
+The public API URL defaults to https://joeltechgeek.com. Only set EXPO_PUBLIC_API_BASE_URL if using a different backend. The Android app scheme is joeltechgeek.
 
-When you're ready, run:
+## Acceptance
 
-```bash
-npm run reset-project
+1. Continue with Google opens a Google sign-in Custom Tab and prompts account selection.
+2. Google returns through the backend callback, then joeltechgeek:///auth-callback with a short-lived one-time code, not access tokens.
+3. Android exchanges that code over HTTPS to access only leads owned by the registered agent.
+4. Sessions restore across restarts via SecureStore; sign-out revokes the mobile refresh session.
+5. Unregistered or access-disabled agents are denied.
+
+See README-CRM.md for details.
+
+## Google Play review access
+
+The Android sign-in screen also offers **Review access** (no Google
+authentication), which opens a separate sample CRM account. Joel's real leads
+are never involved.
+
+Before submitting, apply
+`migrations/2026-11-02-agent-crm-play-review-demo.sql` to the Portfolio
+Neon database and deploy the Next.js backend. Review access is enabled directly
+in `lib/agent-crm/play-review.ts`:
+
+```ts
+export const PLAY_REVIEW_ACCESS_ENABLED = true;
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+No environment variables, credentials in the APK, or automatic expiry are
+needed. In Play Console > App content > Sign-in details, tell reviewers to
+tap **Review access** on the login screen.
 
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Google may need access again for future app updates; retain working review
+access for subsequent submissions. To disable it deliberately, change the
+constant to `false` and redeploy the backend. This denies new review sign-ins
+and existing review sessions.

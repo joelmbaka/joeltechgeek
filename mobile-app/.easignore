@@ -1,0 +1,45 @@
+# Repository metadata
+.git
+.gitignore
+.easignore
+
+# Dependencies and local tooling caches
+node_modules/
+.expo/
+.metro/
+.metro-health-check*
+.cache/
+
+# Generated web/native/build output
+dist/
+web-build/
+build/
+android/
+ios/
+*.apk
+*.aab
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Logs and temporary files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.orig.*
+.DS_Store
+
+# Local-only tests and coverage
+coverage/
+__tests__/
+*.test.*
+*.spec.*
