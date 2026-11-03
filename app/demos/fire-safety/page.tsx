@@ -71,6 +71,9 @@ export default function FireSafetyDemoPage() {
         <a href="/demos/fire-safety/demo.html" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white hover:opacity-90"><MonitorPlay className="h-5 w-5" aria-hidden /> Open the demo <ArrowRight className="h-4 w-4" aria-hidden /></a>
         <Link href="/demos" className="inline-flex min-h-12 items-center gap-2 text-sm font-semibold text-palm-green hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden /> Back to demos</Link>
       </div>
+    <p className="mt-8 text-sm leading-7 text-gray-600 dark:text-gray-300">
+      Looking to build something similar? This demo is a fictional concept; explore our <Link href="/services/web-app-development" className="font-semibold text-palm-green hover:underline">custom business management systems</Link> service for real project requirements.
+    </p>
     </main>
   );
 }

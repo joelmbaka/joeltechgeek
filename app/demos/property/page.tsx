@@ -142,6 +142,9 @@ export default function RentalManagementDemoPage() {
           <ArrowLeft className="h-4 w-4" aria-hidden /> All demos
         </Link>
       </div>
+    <p className="mt-8 text-sm leading-7 text-gray-600 dark:text-gray-300">
+      Looking to build something similar? This demo is a fictional concept; explore our <Link href="/services/payment-integrations" className="font-semibold text-palm-green hover:underline">M-Pesa payments and reconciliation</Link> service for real project requirements.
+    </p>
     </main>
   );
 }
