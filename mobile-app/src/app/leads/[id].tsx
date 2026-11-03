@@ -133,7 +133,7 @@ export default function LeadScreen() {
     if (kind === 'call' && !canSaveCall) return;
     if (kind === 'followup' && !canSaveFollowup) return;
     if (kind === 'complete' && !canComplete) return;
-    if (date && !nextAction.trim()) {
+    if (kind !== 'call' && date && !nextAction.trim()) {
       setError('Choose a next action for the selected date.');
       return;
     }
