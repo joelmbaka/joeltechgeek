@@ -189,7 +189,7 @@ export default function HomeScreen() {
             style={{
               color: theme.muted, fontSize: 12, fontWeight: '800',
               letterSpacing: .1, flexShrink: 1,
-            }}>Today's Focus · {todayLabel()}</Text>
+            }}>Today&apos;s Focus · {todayLabel()}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
