@@ -22,18 +22,18 @@ export function AgentAvatar({ name, pictureUrl, size = 32 }: Props) {
     backgroundColor: dark ? '#20475A' : '#E6F5EF',
     alignItems: 'center', justifyContent: 'center',
   }}>
-    {pictureUrl && !loadFailed
-      ? <Image
-          source={{ uri: pictureUrl }}
-          resizeMode="cover"
-          onError={() => setLoadFailed(true)}
-          accessible={false}
-          style={{ width: size, height: size, borderRadius: size / 2 }}
-        />
-      : <Text style={{
-          color: dark ? '#B8F1DA' : theme.primaryDark,
-          fontSize: Math.round(size * 0.4),
-          fontWeight: '800',
-        }}>{initial}</Text>}
+    <Text style={{
+      color: dark ? '#B8F1DA' : theme.primaryDark,
+      fontSize: Math.round(size * 0.4),
+      fontWeight: '800',
+    }}>{initial}</Text>
+    {pictureUrl && !loadFailed ? <Image
+      source={{ uri: pictureUrl }}
+      resizeMode="cover"
+      onError={() => setLoadFailed(true)}
+      accessible={false}
+      style={{ position: 'absolute', width: size, height: size,
+        borderRadius: size / 2 }}
+    /> : null}
   </View>;
 }

@@ -65,3 +65,24 @@ Do not remove access immediately after the initial production approval:
 Google Play can review every later update and requires reusable access.
 If review access is intentionally retired, change the constant to `false`
 and deploy the backend, then remove the button in a later mobile release.
+
+## Branded dialogs, loading and Google photo
+
+The native Google account chooser and platform date/time pickers remain native.
+CRM confirmations and link errors use the shared `AppDialogProvider`/`useAppDialog`
+components. Session restoration, OAuth completion, and the dedicated sign-out
+route share `LoadingState`. Sign-out erases local tokens and bounds the
+server revoke request even if the device is offline.
+
+Google OAuth requests `openid email profile`. If the verified ID token has
+no `picture` claim, the backend makes a short authenticated request to the
+OpenID Connect UserInfo endpoint, requiring the same subject and verified email.
+Only a Google-hosted HTTPS image URL is stored. Existing avatars are preserved
+when Google provides no picture. No Vercel Blob or other upload service is needed.
+
+After deploying the updated Next.js backend to Vercel, a real agent must sign
+out and complete Google sign-in again before a previously missing photo can be
+populated. Check `sales_agent_applications.google_picture_url` in production
+Neon, then verify the header and Profile photo. An OAuth sign-in succeeded does
+not prove Google returned a profile picture. The initials fallback remains
+available for users without a Google profile photo.

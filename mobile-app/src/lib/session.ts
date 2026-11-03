@@ -158,12 +158,19 @@ export async function signOutSession(): Promise<void> {
   await SecureStore.deleteItemAsync(SESSION_KEY);
   await SecureStore.deleteItemAsync(PKCE_KEY);
   publish(null, null);
-  if (token) await fetch(API_BASE_URL + '/api/agent-crm/mobile/logout', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: token }),
-    signal: AbortSignal.timeout(5000),
-  }).catch(() => {
-    // The local refresh credential has already been erased. Offline sign-out
-    // must never remain stuck on a loading screen.
-  });
+  if (token) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      await fetch(API_BASE_URL + '/api/agent-crm/mobile/logout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: token }),
+        signal: controller.signal,
+      });
+    } catch {
+      // Local credentials were already erased; offline sign-out must complete.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 }

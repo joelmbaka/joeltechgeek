@@ -23,7 +23,10 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
     const action = dialog?.onConfirm;
     setDialog(null);
     // Dialog closes immediately; the caller owns any async loading state.
-    if (action) void Promise.resolve().then(action);
+    if (action) void Promise.resolve().then(action).catch(() => {
+      setDialog({ title: 'Action unavailable',
+        message: 'The action could not be completed. Please try again.' });
+    });
   };
   return <Context.Provider value={{ showDialog }}>
     {children}
@@ -55,8 +58,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
           <Text style={{ color: theme.muted, fontSize: 14, lineHeight: 21 }}>
             {dialog.message}
           </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end',
-            gap: 10, marginTop: 10 }}>
+          <View style={{
+            flexDirection: dialog.onConfirm && (dialog.confirmLabel?.length || 0) > 14
+              ? 'column-reverse' : 'row',
+            justifyContent: 'flex-end', gap: 10, marginTop: 10,
+          }}>
             {dialog.onConfirm ? <Pressable
               accessibilityRole="button"
               onPress={() => setDialog(null)}
