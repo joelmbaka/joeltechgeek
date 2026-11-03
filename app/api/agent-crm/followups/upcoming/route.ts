@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       `SELECT id::text AS id, next_action_due_at
        FROM public.crm_leads WHERE agent_id = $1
          AND next_action_due_at > now()
-         AND NOT do_not_contact AND stage NOT IN ('won','lost')
+         AND NOT do_not_contact AND stage NOT IN ('won','lost','competitor')
        ORDER BY next_action_due_at ASC, id ASC LIMIT 50`,
       [access.agent.id],
     );
