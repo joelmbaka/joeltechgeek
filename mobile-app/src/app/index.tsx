@@ -21,6 +21,16 @@ const SORTS: SelectOption[] = [
   { value: 'followup', label: 'Next follow-up' },
 ];
 
+function BrandMark({ dark }: { dark: boolean }) {
+  // eslint-disable-next-line jsx-a11y/alt-text
+  return <Image
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    source={dark ? require('../../assets/images/auth-logo-dark.png') : require('../../assets/images/auth-logo.png')}
+    style={{ width: 108, height: 108, alignSelf: 'center' }}
+    resizeMode="contain"
+    accessibilityLabel="JoelTechGeek logo" />;
+}
+
 export default function HomeScreen() {
   const brandScheme = useColorScheme();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
@@ -110,20 +120,14 @@ export default function HomeScreen() {
   };
 
   if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
-    <Busy label="Restoring your session…"/>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <BrandMark dark={brandScheme === 'dark'}/>
+      <Busy label="Restoring your session…"/>
+    </View>
   </SafeAreaView>;
   if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ padding: 22, gap: 16 }}>
-      {/* eslint-disable-next-line jsx-a11y/alt-text */}
-      <Image
-        source={brandScheme === 'dark'
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          ? require('../../assets/images/auth-logo-dark.png')
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          : require('../../assets/images/auth-logo.png')}
-        style={{ width: 108, height: 108, alignSelf: 'center' }}
-        resizeMode="contain"
-        accessibilityLabel="JoelTechGeek logo" />
+      <BrandMark dark={brandScheme === 'dark'}/>
       <Text style={[styles.title, { textAlign: 'center' }]}>JoelTechGeek CRM</Text>
       <Text style={styles.subtitle}>Sign in with your registered Google account.</Text>
       {authError ? <Text style={styles.error}>{authError}</Text> : null}
