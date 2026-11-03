@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, FlatList, Image, Linking, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Busy, Button, styles } from '@/components/ui';
+import { Busy, Button, useUIStyles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
 import { LeadCardSkeleton } from '@/components/Skeleton';
-import { COLORS, API_BASE_URL } from '@/lib/config';
+import { PriorityChip } from '@/components/PriorityChip';
+import { useTheme, API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
@@ -33,6 +34,8 @@ function BrandMark({ dark }: { dark: boolean }) {
 
 export default function HomeScreen() {
   const brandScheme = useColorScheme();
+  const theme = useTheme();
+  const styles = useUIStyles();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -126,26 +129,29 @@ export default function HomeScreen() {
     </View>
   </SafeAreaView>;
   if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
-    <View style={{ padding: 22, gap: 16 }}>
-      <BrandMark dark={brandScheme === 'dark'}/>
-      <Text style={[styles.title, { textAlign: 'center' }]}>JoelTechGeek CRM</Text>
-      <Text style={styles.subtitle}>Sign in with your registered Google account.</Text>
-      {authError ? <Text style={styles.error}>{authError}</Text> : null}
-      <Button onPress={() => void login()}>Continue with Google</Button>
-      {reviewAvailable ? <>
-        <Button secondary disabled={reviewBusy} onPress={() => void openReview()}>
+    <View style={{ flex: 1, padding: 22, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{
+        width: '100%', maxWidth: 360, padding: 24, gap: 14,
+        backgroundColor: theme.white, borderColor: theme.border, borderWidth: 1,
+        borderRadius: 24, elevation: 3,
+        shadowColor: '#000', shadowOpacity: .08, shadowRadius: 16, shadowOffset: { width: 0, height: 5 },
+      }}>
+        <BrandMark dark={brandScheme === 'dark'}/>
+        <Text style={[styles.title, { textAlign: 'center', fontSize: 22 }]}>JoelTechGeek CRM</Text>
+        <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: 6 }]}>Sign in to continue</Text>
+        {authError ? <Text style={[styles.error, { textAlign: 'center' }]}>{authError}</Text> : null}
+        <Button onPress={() => void login()}>Continue with Google</Button>
+        {reviewAvailable ? <Button secondary disabled={reviewBusy} onPress={() => void openReview()}>
           {reviewBusy ? 'Opening review workspace…' : 'Review access'}
-        </Button>
-        <Text style={styles.subtitle}>Explore the CRM with fictional sample leads.</Text>
-      </> : null}
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel="Read Privacy Policy"
-        onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
-          .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
-        style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ color: COLORS.primaryDark, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Privacy Policy</Text>
-      </Pressable>
+        </Button> : null}
+        <Pressable
+          accessibilityRole="link" accessibilityLabel="Read Privacy Policy"
+          onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
+            .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
+          style={{ minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: theme.primaryDark, fontSize: 13, fontWeight: '700' }}>Privacy Policy</Text>
+        </Pressable>
+      </View>
     </View>
   </SafeAreaView>;
 
@@ -167,7 +173,7 @@ export default function HomeScreen() {
       data={loading ? [] : (data?.leads || [])}
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={COLORS.primary}/>}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary}/>}
       contentContainerStyle={{ padding: 14, paddingBottom: 30, gap: 9 }}
       ListHeaderComponent={<View style={{ gap: 10 }}>
         <View style={{
@@ -175,20 +181,20 @@ export default function HomeScreen() {
           minHeight: 38, gap: 10,
         }}>
           <Text style={{
-            color: COLORS.muted, fontSize: 12, fontWeight: '800', letterSpacing: .6,
-          }}>MY WORK</Text>
+            color: theme.muted, fontSize: 12, fontWeight: '800', letterSpacing: .6,
+          }}>TODAY’S FOCUS</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
             hitSlop={4}
             onPress={() => router.push('/leads/new')}
             style={{
-              backgroundColor: COLORS.primary, borderRadius: 10, minHeight: 36,
+              backgroundColor: theme.primary, borderRadius: 10, minHeight: 36,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
               paddingHorizontal: 14, gap: 6,
             }}>
-            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>+</Text>
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Add lead</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '600' }}>+</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>Add lead</Text>
           </Pressable>
         </View>
         <View style={{ flexDirection: 'row', gap: 9 }}>
@@ -203,15 +209,15 @@ export default function HomeScreen() {
               style={[styles.card, {
                 flex: 1, minWidth: 0, minHeight: 70, paddingHorizontal: 13,
                 paddingVertical: 10, gap: 5,
-                borderColor: queue === metric.queue ? COLORS.primary : COLORS.border,
+                borderColor: queue === metric.queue ? theme.primary : theme.border,
               }]}>
               <Text numberOfLines={1} style={[styles.label, { fontSize: 12 }]}>
                 {metric.label}
               </Text>
               {loading ? <View style={{
-                height: 23, width: 36, borderRadius: 6, backgroundColor: '#DEE7EA',
+                height: 23, width: 36, borderRadius: 6, backgroundColor: theme.surfaceMuted,
               }}/> : <Text style={{
-                color: COLORS.ink, fontSize: 24, lineHeight: 27,
+                color: theme.ink, fontSize: 24, lineHeight: 27,
                 fontWeight: '800', fontVariant: ['tabular-nums'],
               }}>{metric.value ?? 0}</Text>}
             </Pressable>
@@ -231,8 +237,8 @@ export default function HomeScreen() {
           flexDirection: 'row', alignItems: 'center',
           justifyContent: 'space-between', marginTop: 2, gap: 8,
         }}>
-          <Text style={{ color: COLORS.ink, fontSize: 16, fontWeight: '800' }}>
-            Leads{!loading && stats ? ' (' + stats.total + ')' : ''}
+          <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '800' }}>
+            Leads{!loading && data ? ' (' + data.filtered_total + ')' : ''}
           </Text>
           <SelectSheet title="Sort" value={sort}
             options={SORTS} onChange={setSort} compact/>
@@ -243,7 +249,7 @@ export default function HomeScreen() {
             value={search}
             onChangeText={setSearch}
             placeholder="Search leads"
-            placeholderTextColor={COLORS.muted}
+            placeholderTextColor={theme.muted}
             autoCapitalize="none" autoCorrect={false}
             returnKeyType="search"
             accessibilityLabel="Search company, contact, phone or email"
@@ -251,7 +257,7 @@ export default function HomeScreen() {
           {search ? <Pressable accessibilityRole="button"
             accessibilityLabel="Clear search" hitSlop={10}
             onPress={() => setSearch('')}>
-            <Text style={{ color: COLORS.muted, fontSize: 22 }}>×</Text>
+            <Text style={{ color: theme.muted, fontSize: 22 }}>×</Text>
           </Pressable> : null}
         </View>
         {message ? <View style={styles.card}>
@@ -263,40 +269,57 @@ export default function HomeScreen() {
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
       ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
-      ListFooterComponent={<View style={{ gap: 12, paddingTop: 5 }}>
-        {!loading && data ? <>
-          <Text style={styles.subtitle}>
-            Page {Math.floor(offset / PER_PAGE) + 1} · {data.leads.length} leads shown
-          </Text>
+      ListFooterComponent={!loading && data && data.filtered_total > 0 ?
+        <View style={[styles.card, { gap: 11, marginTop: 6, padding: 15 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <View style={{ gap: 4, flexShrink: 1 }}>
+              <Text style={[styles.value, { fontSize: 13, fontVariant: ['tabular-nums'] }]}>
+                Showing {offset + 1}–{offset + data.leads.length} of {data.filtered_total}
+              </Text>
+              <Text style={styles.subtitle}>
+                {Math.max(0, data.filtered_total - offset - data.leads.length)} remaining
+              </Text>
+            </View>
+            <View style={{ backgroundColor: theme.surfaceMuted, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 7 }}>
+              <Text style={[styles.label, { color: theme.ink }]}>
+                Page {Math.floor(offset / PER_PAGE) + 1} / {Math.ceil(data.filtered_total / PER_PAGE)}
+              </Text>
+            </View>
+          </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Button secondary disabled={offset === 0}
-                onPress={() => setOffset((value) => Math.max(0, value - PER_PAGE))}>Previous</Button>
+                onPress={() => setOffset((value) => Math.max(0, value - PER_PAGE))}>‹ Previous</Button>
             </View>
             <View style={{ flex: 1 }}>
               <Button secondary disabled={!data.has_more}
-                onPress={() => setOffset((value) => value + PER_PAGE)}>Next</Button>
+                onPress={() => setOffset((value) => value + PER_PAGE)}>Next ›</Button>
             </View>
           </View>
-        </> : null}
-      </View>}
+        </View> : null}
     />
   </SafeAreaView>;
 }
 
 function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
+  const theme = useTheme();
+  const styles = useUIStyles();
   return <Pressable accessibilityRole="button"
     accessibilityLabel={'Open ' + lead.company_name} onPress={onPress} style={styles.card}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
       <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.company_name}</Text>
-      <Text style={[styles.label, { color: lead.priority === 'high' ? COLORS.red : COLORS.muted }]}>
-        {lead.priority.toUpperCase()}
-      </Text>
+      <PriorityChip priority={lead.priority}/>
     </View>
     <Text style={styles.subtitle}>{lead.contact_name || 'No contact'} · {lead.industry}</Text>
     {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
-    <Text style={styles.subtitle}>Status: {lead.stage.replace(/_/g, ' ')}</Text>
-    {lead.next_action ? <Text style={{ color: COLORS.primaryDark, fontWeight: '700' }}>
+    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
+      backgroundColor: theme.surfaceMuted, borderColor: theme.border,
+      borderWidth: 1, borderRadius: 20 }}>
+      <Text style={[styles.label, { color: theme.muted, textTransform: 'capitalize' }]}>
+        {lead.stage.replace(/_/g, ' ')}
+      </Text>
+    </View>
+    {lead.next_action ? <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>
       Next: {lead.next_action}{lead.next_action_at ? ' · ' + lead.next_action_at : ''}
     </Text> : null}
   </Pressable>;

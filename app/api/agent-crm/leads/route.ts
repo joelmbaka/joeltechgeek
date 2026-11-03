@@ -63,11 +63,13 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     const db = getCrmPool();
     // Build SQL + placeholders before executing. Both are scoped to agent_id.
     const where = filters.join(' AND ');
+    const countArgs = [...args];
     const lim = bind(limit + 1);
     const off = bind(offset);
-    const [leads, summary, industryRows] = await Promise.all([
+    const [leads, filteredCount, summary, industryRows] = await Promise.all([
       db.query<Lead>('SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE ' +
         where + ' ORDER BY ' + order[sort] + ' LIMIT ' + lim + ' OFFSET ' + off, args),
+      db.query<{ total: number }>('SELECT count(*)::int AS total FROM public.crm_leads WHERE ' + where, countArgs),
       db.query<LeadStats>(
         'SELECT count(*)::int AS total, ' +
         "count(*) FILTER (WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2,last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact AND stage NOT IN ('won','lost'))::int AS to_call, " +
@@ -85,7 +87,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     ]);
     return NextResponse.json({
       ok: true, leads: leads.rows.slice(0, limit),
-      has_more: leads.rows.length > limit, limit, offset,
+      has_more: leads.rows.length > limit, filtered_total: filteredCount.rows[0]?.total ?? 0, limit, offset,
       stats: summary.rows[0], industries: industryRows.rows.map((row) => row.industry),
       industry_counts: Object.fromEntries(industryRows.rows.map((row) => [row.industry, row.count])),
     }, { headers: { 'Cache-Control': 'private, no-store' } });

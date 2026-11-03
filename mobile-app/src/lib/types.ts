@@ -23,7 +23,7 @@ export type Stats = {
   total: number; to_call: number; followups_due: number;
   interested: number; meetings: number; won: number;
 };
-export type LeadList = { ok: true; leads: Lead[]; has_more: boolean;
+export type LeadList = { ok: true; leads: Lead[]; has_more: boolean; filtered_total: number;
   limit: number; offset: number; stats: Stats; industries: string[]; industry_counts?: Record<string, number> };
 export type LeadDetails = { ok: true; lead: Lead; history: LeadEvent[] };
 export const OUTCOMES = [
