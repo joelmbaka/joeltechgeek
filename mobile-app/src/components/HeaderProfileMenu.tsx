@@ -20,10 +20,11 @@ export function HeaderProfileMenu() {
   const showMenu = () => {
     // measureInWindow includes the status bar. Non-translucent Android modals
     // begin below it, so subtract the inset to avoid overlapping the header.
-    anchor.current?.measureInWindow((_x, y, _width, height) => {
+    if (!anchor.current) { setVisible(true); return; }
+    anchor.current.measureInWindow((_x, y, _width, height) => {
       setMenuTop(Math.max(0, y + height - (Platform.OS === 'android' ? (NativeStatusBar.currentHeight || 0) : 0) + 8));
+      setVisible(true);
     });
-    setVisible(true);
   };
   return <>
     <View ref={anchor} collapsable={false}>

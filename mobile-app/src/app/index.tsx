@@ -193,8 +193,8 @@ export default function HomeScreen() {
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
               paddingHorizontal: 14, gap: 6,
             }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '600' }}>+</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>Add lead</Text>
+            <Text style={{ color: theme.onPrimary, fontSize: 17, fontWeight: '600' }}>+</Text>
+            <Text style={{ color: theme.onPrimary, fontSize: 13, fontWeight: '800' }}>Add lead</Text>
           </Pressable>
         </View>
         <View style={{ flexDirection: 'row', gap: 9 }}>

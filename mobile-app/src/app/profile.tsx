@@ -19,7 +19,7 @@ export default function ProfileScreen() {
   const signOut = () => {
     Alert.alert('Sign out?', 'You will need to choose your Google account to return.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
+      { text: 'Sign out', onPress: () => void logout() },
     ]);
   };
   return <Page>

@@ -21,7 +21,7 @@ export function useUIStyles() {
     error: { color: theme.warning, fontSize: 13 },
     button: { backgroundColor: theme.primary, borderRadius: 10, paddingVertical: 12,
       paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-    buttonText: { color: '#062419', fontWeight: '800', fontSize: 14 },
+    buttonText: { color: theme.onPrimary, fontWeight: '800', fontSize: 14 },
     secondary: { backgroundColor: theme.white, borderWidth: 1, borderColor: theme.border },
     secondaryText: { color: theme.ink, fontWeight: '700' },
   }), [theme]);
