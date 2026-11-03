@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, Text, View, useColorScheme } from 'react-native';
-import { COLORS } from '@/lib/config';
+import { useTheme } from '@/lib/config';
 
 type Props = {
   name: string;
@@ -12,12 +12,13 @@ type Props = {
 export function AgentAvatar({ name, pictureUrl, size = 32 }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const dark = useColorScheme() === 'dark';
+  const theme = useTheme();
   useEffect(() => setLoadFailed(false), [pictureUrl]);
 
   const initial = name.trim().slice(0, 1).toUpperCase() || '?';
   return <View style={{
     width: size, height: size, borderRadius: size / 2, overflow: 'hidden',
-    borderWidth: 1, borderColor: dark ? '#456071' : COLORS.border,
+    borderWidth: 1, borderColor: dark ? '#456071' : theme.border,
     backgroundColor: dark ? '#20475A' : '#E6F5EF',
     alignItems: 'center', justifyContent: 'center',
   }}>
@@ -30,7 +31,7 @@ export function AgentAvatar({ name, pictureUrl, size = 32 }: Props) {
           style={{ width: size, height: size, borderRadius: size / 2 }}
         />
       : <Text style={{
-          color: dark ? '#B8F1DA' : COLORS.primaryDark,
+          color: dark ? '#B8F1DA' : theme.primaryDark,
           fontSize: Math.round(size * 0.4),
           fontWeight: '800',
         }}>{initial}</Text>}

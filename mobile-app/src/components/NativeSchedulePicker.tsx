@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '@/lib/config';
-import { styles } from './ui';
+import { useTheme } from '@/lib/config';
+import { useUIStyles } from './ui';
 
 type Mode = 'date' | 'time';
 
@@ -35,6 +35,8 @@ export function NativeSchedulePicker({
   onChange: (next: string) => void;
   disabled?: boolean;
 }) {
+  const styles = useUIStyles();
+  const theme = useTheme();
   const [visible, setVisible] = useState(false);
   const [draft, setDraft] = useState<Date>(new Date());
   const insets = useSafeAreaInsets();
@@ -57,14 +59,14 @@ export function NativeSchedulePicker({
           flex: 1, justifyContent: 'center', minHeight: 46,
           opacity: disabled ? .5 : 1,
         }]}>
-        <Text style={{ color: value ? COLORS.ink : COLORS.muted, fontWeight: '600' }}>
+        <Text style={{ color: value ? theme.ink : theme.muted, fontWeight: '600' }}>
           {value || (mode === 'date' ? 'Choose date' : 'Choose time')}
         </Text>
       </Pressable>
       {value ? <Pressable
         accessibilityRole="button" accessibilityLabel={'Clear ' + label}
         onPress={() => onChange('')} style={{ padding: 8 }}>
-        <Text style={{ color: COLORS.muted }}>×</Text>
+        <Text style={{ color: theme.muted }}>×</Text>
       </Pressable> : null}
     </View>
     {visible && Platform.OS === 'android' ?
@@ -74,14 +76,14 @@ export function NativeSchedulePicker({
         onDismiss={() => setVisible(false)}
       /> : null}
     {Platform.OS === 'ios' ? <Modal
-      transparent visible={visible} animationType="slide" onRequestClose={() => setVisible(false)}>
+      transparent statusBarTranslucent={false} visible={visible} animationType="slide" onRequestClose={() => setVisible(false)}>
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable onPress={() => setVisible(false)}
           style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
             backgroundColor: 'rgba(7,17,29,.4)' }} />
         <View style={{ paddingHorizontal: 18, paddingTop: 20,
           paddingBottom: Math.max(insets.bottom, 16),
-          backgroundColor: COLORS.white, borderTopLeftRadius: 22, borderTopRightRadius: 22 }}>
+          backgroundColor: theme.white, borderTopLeftRadius: 22, borderTopRightRadius: 22 }}>
           <Text style={[styles.title, { fontSize: 18, marginBottom: 12 }]}>{label}</Text>
           <DateTimePicker mode={mode} value={draft}
             onValueChange={(_, next) => setDraft(next)} />

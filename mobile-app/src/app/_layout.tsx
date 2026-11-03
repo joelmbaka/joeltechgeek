@@ -4,20 +4,21 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
-import { COLORS } from '@/lib/config';
+import { useTheme } from '@/lib/config';
 
 function Navigation() {
   const { agent } = useAuth();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
-  const headerBackground = dark ? COLORS.ink : COLORS.white;
+  const theme = useTheme();
+  const headerBackground = dark ? '#0A2836' : '#FFFFFF';
   return <>
-    <StatusBar style="auto" hidden={false} />
+    <StatusBar style={dark ? 'light' : 'dark'} hidden={false} translucent={false} backgroundColor={headerBackground}/>
     <Stack screenOptions={{
       headerStyle: { backgroundColor: headerBackground },
-      headerTintColor: dark ? COLORS.white : COLORS.ink,
+      headerTintColor: theme.ink,
       headerTitleStyle: { fontWeight: '700' },
-      contentStyle: { backgroundColor: COLORS.background },
+      contentStyle: { backgroundColor: theme.background },
     }}>
       <Stack.Screen name="index" options={{
         title: '',
@@ -44,7 +45,7 @@ function Navigation() {
 
 export default function RootLayout() {
   const scheme = useColorScheme();
-  const backgroundColor = scheme === 'dark' ? COLORS.ink : COLORS.white;
+  const backgroundColor = scheme === 'dark' ? '#0A2836' : '#FFFFFF';
   return <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
     <AuthProvider>
       <Navigation />
