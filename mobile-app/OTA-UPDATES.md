@@ -75,46 +75,56 @@ Do not publish untested workspace code to production.
 **Backend deploys** (Next.js/Vercel) are separate from OTA. Server-side schema
 and API changes must be deployed before publishing a client that depends on them.
 
-## Side-by-side development and preview installs
+## Three simultaneously installable Android variants
 
-The app uses a dynamic `app.config.js` variant selected by the EAS
-`development` profile (`APP_VARIANT=development`). Expo CNG is used: no
-`android/` or `ios/` native directory is tracked.
+`app.config.js` selects the native ID and deep-link scheme from
+`APP_VARIANT` (or the matching EAS build profile). The production identifier
+and Google Play listing are untouched. No native `android/` or `ios/`
+directory is tracked.
 
-| Build | Launcher | Android package | URL scheme | Update channel |
+| Build | Launcher | Android package | URL scheme | EAS channel |
 | --- | --- | --- | --- | --- |
 | Development | JTG CRM Dev | `com.joeltechgeek.app.dev` | `joeltechgeek-dev` | `development` |
-| Preview | JTG CRM | `com.joeltechgeek.app` | `joeltechgeek` | `preview` |
+| Preview | JTG Preview | `com.joeltechgeek.app.preview` | `joeltechgeek-preview` | `preview` |
 | Production | JTG CRM | `com.joeltechgeek.app` | `joeltechgeek` | `production` |
 
-Development and preview can coexist. Preview and production still share a
-package ID and cannot coexist under that package; this is intentional.
+All three packages can coexist on Android with separate local app data and
+SecureStore sessions. Preview and production still talk to the same production
+API; they are **not** isolated server environments.
 
-Check the native config before building:
-
-```sh
-APP_VARIANT=development npx expo config --type public | grep -E 'name|scheme|package|bundleIdentifier'
-npx expo config --type public | grep -E 'name|scheme|package|bundleIdentifier'
-```
-
-Build a new development client (the old build will not acquire a new package
-identifier through OTA):
+Before building, compare the resolved configurations:
 
 ```sh
-eas build --platform android --profile development
-# Local Metro must use the SAME variant, otherwise linking may use the wrong scheme:
-APP_VARIANT=development npx expo start --dev-client
+APP_VARIANT=development npx expo config --type public
+APP_VARIANT=preview npx expo config --type public
+npx expo config --type public
+npx tsc --noEmit
+npx expo lint
 ```
 
-The mobile Google OAuth handoff now accepts **two exact, whitelisted** return
-schemes. The start endpoint tags its server-issued random state so the callback
-returns only to the originating variant. Google still redirects to the single
-registered HTTPS callback on `joeltechgeek.com` and the existing database
-schema is unchanged. **Deploy the two backend OAuth route changes before
-trying Google sign-in with the dev variant.** If the dev build uses the LAN
-API address in `eas.json`, that backend and the hosted Google callback must
-use the same OAuth state database, or Google sign-in cannot complete.
+Build the new native preview APK first; the old preview APK has the production
+package ID and **cannot be converted** using OTA:
 
-The new development build can live next to a preview APK, allowing safe OTA
-tests on the preview channel without uninstalling the dev client. Neither a
-new native build nor backend deployment has been performed by this change.
+```sh
+eas build --platform android --profile preview
+```
+
+For a separate dev client, build `eas build --platform android --profile
+development` and run Metro with
+`APP_VARIANT=development npx expo start --dev-client`.
+
+Google OAuth recognizes three **exact** return schemes; a marker on the random
+one-time state directs each callback to the originating native variant. Google
+still redirects to the same registered HTTPS URL, and no database migration is
+required. **Deploy both updated OAuth backend routes** before attempting
+Google sign-in with the preview or development variant.
+
+The dev build currently uses `http://192.168.0.199:3002` in `eas.json`.
+For sign-in to work through that local backend, it must share the OAuth state
+database with the deployed Google callback. Alternatively, point the dev
+variant to the deployed API for authentication tests.
+
+The new preview APK still receives only preview-channel OTA updates. Do not
+publish an update to the production channel during preview acceptance testing.
+No EAS build, OTA publication, or backend deployment is performed by these
+repository changes.

@@ -78,10 +78,13 @@ export async function startGoogleSignIn(): Promise<void> {
     await SecureStore.setItemAsync(PKCE_KEY, verifier, {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });
-    // Each installed variant owns its OAuth deep-link scheme. The dev
-    // client must never steal a preview/production sign-in callback.
-    const scheme = Constants.expoConfig?.scheme === 'joeltechgeek-dev'
-      ? 'joeltechgeek-dev' : 'joeltechgeek';
+    // Each installed variant owns a distinct scheme, preventing the Android
+    // app chooser from routing sign-in to another installed CRM variant.
+    const configuredScheme = Constants.expoConfig?.scheme;
+    const scheme = configuredScheme === 'joeltechgeek-dev'
+      ? 'joeltechgeek-dev'
+      : configuredScheme === 'joeltechgeek-preview'
+        ? 'joeltechgeek-preview' : 'joeltechgeek';
     const returnUrl = Linking.createURL('auth-callback', {
       scheme, isTripleSlashed: true,
     });

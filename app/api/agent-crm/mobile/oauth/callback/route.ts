@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const APP_CALLBACK = 'joeltechgeek:///auth-callback';
 const DEV_APP_CALLBACK = 'joeltechgeek-dev:///auth-callback';
+const PREVIEW_APP_CALLBACK = 'joeltechgeek-preview:///auth-callback';
 const GOOGLE_CALLBACK = 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
 const googleKeys = createRemoteJWKSet(
   new URL('https://www.googleapis.com/oauth2/v3/certs'),
@@ -28,9 +29,10 @@ function verifiedGooglePicture(candidate: unknown): string | null {
   } catch { return null; }
 }
 function backToApp(key: 'code' | 'error', value: string, state: string) {
-  // The OAuth start endpoint embeds a variant marker in its 43-character,
-  // single-use random state. Both destinations are server-hardcoded.
-  const destination = state.startsWith('DEV_') ? DEV_APP_CALLBACK : APP_CALLBACK;
+  // The start endpoint marks the random, one-time state. All return
+  // destinations are hardcoded; no caller-controlled redirect is accepted.
+  const destination = state.startsWith('DEV_') ? DEV_APP_CALLBACK
+    : state.startsWith('PRV_') ? PREVIEW_APP_CALLBACK : APP_CALLBACK;
   const url = destination + '?' + key + '=' + encodeURIComponent(value);
   return new Response(null, {
     status: 302,
