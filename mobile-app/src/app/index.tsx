@@ -24,10 +24,10 @@ function todayLabel(date: Date): string {
 }
 const SORTS: SelectOption[] = [
   { value: 'recommended', label: 'Default' },
-  { value: 'recent', label: 'Recently updated' },
-  { value: 'company', label: 'Company A–Z' },
+  { value: 'recent', label: 'Recent' },
+  { value: 'company', label: 'A–Z' },
   { value: 'priority', label: 'Priority' },
-  { value: 'followup', label: 'Next follow-up' },
+  { value: 'followup', label: 'Follow-up' },
 ];
 
 function BrandMark({ dark }: { dark: boolean }) {
