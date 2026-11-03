@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Linking, Pressable, Text, View } from 'react-native';
-import { Button, Field, Page, styles } from '@/components/ui';
+import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
 import { NativeSchedulePicker } from '@/components/NativeSchedulePicker';
 import { LeadDetailSkeleton } from '@/components/Skeleton';
-import { COLORS } from '@/lib/config';
+import { useTheme } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
@@ -16,11 +16,13 @@ import { OUTCOMES, outcomeLabel } from '@/lib/types';
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
 const outcomeOptions = OUTCOMES.map(([value, label]) => ({ value, label }));
 
-function labelAndValue(label: string, value: string | null) {
+function LabelValue({ label, value }: { label: string; value: string | null }) {
+  const styles = useUIStyles();
+  const theme = useTheme();
   if (!value) return null;
   return <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
     <Text style={[styles.label, { minWidth: 64, marginTop: 2 }]}>{label}:</Text>
-    <Text selectable style={[styles.subtitle, { color: COLORS.ink, flex: 1 }]}>{value}</Text>
+    <Text selectable style={[styles.subtitle, { color: theme.ink, flex: 1 }]}>{value}</Text>
   </View>;
 }
 
@@ -39,6 +41,8 @@ function whatsappNumber(phone: string, country: string) {
 }
 
 export default function LeadScreen() {
+  const styles = useUIStyles();
+  const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { agent } = useAuth();
@@ -184,7 +188,7 @@ export default function LeadScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Edit contact"
           onPress={showContactEditor}
           style={{ minWidth: 42, minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: COLORS.primary, fontWeight: '800', fontSize: 27 }}>✎</Text>
+          <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 27 }}>✎</Text>
         </Pressable> : undefined,
     }}/>
     {loading ? <LeadDetailSkeleton/> : null}
@@ -204,9 +208,9 @@ export default function LeadScreen() {
             {lead.contact_role ? <Text style={styles.subtitle}>{lead.contact_role}</Text> : null}
           </View>
         </View>
-        {labelAndValue('Phone', lead.phone)}
-        {labelAndValue('Email', lead.email)}
-        {labelAndValue('Website', lead.website)}
+        <LabelValue label="Phone" value={lead.phone}/>
+        <LabelValue label="Email" value={lead.email}/>
+        <LabelValue label="Website" value={lead.website}/>
         {editingContact ? <>
           <Field label="Name" value={contactName} onChangeText={setContactName}/>
           <Field label="Role" value={contactRole} onChangeText={setContactRole}/>
@@ -251,7 +255,7 @@ export default function LeadScreen() {
           <Pressable onPress={() => edit(() => setOptOut(!optOut))}
             accessibilityRole="checkbox" accessibilityState={{ checked: optOut }}
             style={styles.row}>
-            <Text style={{ color: optOut ? COLORS.red : COLORS.muted }}>
+            <Text style={{ color: optOut ? theme.warning : theme.muted }}>
               {optOut ? '☑' : '□'} Mark Do Not Contact
             </Text>
           </Pressable>

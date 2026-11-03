@@ -1,16 +1,19 @@
 import { Alert, Linking, Pressable, Text, View } from 'react-native';
-import { Page, styles } from '@/components/ui';
+import { Page, useUIStyles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
-import { COLORS } from '@/lib/config';
+import { useTheme } from '@/lib/config';
 import { AgentAvatar } from '@/components/AgentAvatar';
 
 function DetailRow({ title, value }: { title: string; value: string }) {
+  const styles = useUIStyles();
   return <View style={{ paddingVertical: 13, gap: 5 }}>
     <Text style={styles.label}>{title}</Text>
     <Text selectable style={styles.value}>{value}</Text>
   </View>;
 }
 export default function ProfileScreen() {
+  const theme = useTheme();
+  const styles = useUIStyles();
   const { agent, logout } = useAuth();
   if (!agent) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
   const signOut = () => {
@@ -30,9 +33,9 @@ export default function ProfileScreen() {
     <Text style={styles.label}>ACCOUNT DETAILS</Text>
     <View style={[styles.card, { gap: 0 }]}>
       <DetailRow title="Name" value={agent.name}/>
-      <View style={{ height: 1, backgroundColor: COLORS.border }}/>
+      <View style={{ height: 1, backgroundColor: theme.border }}/>
       <DetailRow title="Email" value={agent.email}/>
-      <View style={{ height: 1, backgroundColor: COLORS.border }}/>
+      <View style={{ height: 1, backgroundColor: theme.border }}/>
       <DetailRow title="Phone" value={agent.phone || 'Not provided'}/>
     </View>
     <Text style={styles.label}>PRIVACY</Text>
@@ -41,16 +44,16 @@ export default function ProfileScreen() {
         .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontWeight: '700', color: COLORS.primaryDark }}>Privacy Policy</Text>
-        <Text style={{ color: COLORS.muted, fontSize: 20 }}>›</Text>
+        <Text style={{ fontWeight: '700', color: theme.primaryDark }}>Privacy Policy</Text>
+        <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
-      <View style={{ height: 1, backgroundColor: COLORS.border }}/>
+      <View style={{ height: 1, backgroundColor: theme.border }}/>
       <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=JoelTechGeek%20CRM%20account%20and%20data%20deletion')
         .catch(() => Alert.alert('Email unavailable', 'Please email mbakajoe26@gmail.com to request deletion.'))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontWeight: '700', color: COLORS.ink }}>Request account/data deletion</Text>
-        <Text style={{ color: COLORS.muted, fontSize: 20 }}>›</Text>
+        <Text style={{ fontWeight: '700', color: theme.ink }}>Request account/data deletion</Text>
+        <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
     </View>
     <Text style={styles.label}>ACCESS</Text>
@@ -58,8 +61,8 @@ export default function ProfileScreen() {
       <Pressable accessibilityRole="button" onPress={signOut}
         style={{ minHeight: 58, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontWeight: '700', color: COLORS.red }}>Sign out</Text>
-        <Text style={{ color: COLORS.muted, fontSize: 20 }}>›</Text>
+        <Text style={{ fontWeight: '700', color: theme.ink }}>Sign out</Text>
+        <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
     </View>
   </Page>;

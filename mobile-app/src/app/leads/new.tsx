@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Text } from 'react-native';
-import { Button, Field, Page, styles } from '@/components/ui';
+import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
 import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
@@ -9,6 +9,7 @@ import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import type { Lead } from '@/lib/types';
 
 export default function AddLead() {
+  const styles = useUIStyles();
   const router = useRouter();
   const { agent } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);

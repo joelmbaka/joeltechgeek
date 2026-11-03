@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from 'react-native';
-import { Page, Busy, Button, styles } from '@/components/ui';
+import { Page, Busy, Button, useUIStyles } from '@/components/ui';
 import { exchangeGoogleCode, getAgent } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
@@ -14,6 +14,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default function AuthCallback() {
+  const styles = useUIStyles();
   const { code, error: authError } = useLocalSearchParams<{ code?: string; error?: string }>();
   const router = useRouter();
   const started = useRef('');
