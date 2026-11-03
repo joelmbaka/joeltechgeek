@@ -69,6 +69,13 @@
         "projectId": "5f11b316-8b98-4729-821f-794f56456c27"
       }
     },
-    "owner": "joeltech-geek-systems"
+    "owner": "joeltech-geek-systems",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5f11b316-8b98-4729-821f-794f56456c27",
+      "checkAutomatically": "ON_LOAD"
+    }
   }
 }
