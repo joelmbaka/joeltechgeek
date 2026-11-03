@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
@@ -77,8 +78,12 @@ export async function startGoogleSignIn(): Promise<void> {
     await SecureStore.setItemAsync(PKCE_KEY, verifier, {
       keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
     });
+    // Each installed variant owns its OAuth deep-link scheme. The dev
+    // client must never steal a preview/production sign-in callback.
+    const scheme = Constants.expoConfig?.scheme === 'joeltechgeek-dev'
+      ? 'joeltechgeek-dev' : 'joeltechgeek';
     const returnUrl = Linking.createURL('auth-callback', {
-      scheme: 'joeltechgeek', isTripleSlashed: true,
+      scheme, isTripleSlashed: true,
     });
     const url = new URL('/api/agent-crm/mobile/oauth/start', API_BASE_URL);
     url.searchParams.set('redirect_uri', returnUrl);

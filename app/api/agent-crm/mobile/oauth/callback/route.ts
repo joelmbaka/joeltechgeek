@@ -7,6 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const APP_CALLBACK = 'joeltechgeek:///auth-callback';
+const DEV_APP_CALLBACK = 'joeltechgeek-dev:///auth-callback';
 const GOOGLE_CALLBACK = 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
 const googleKeys = createRemoteJWKSet(
   new URL('https://www.googleapis.com/oauth2/v3/certs'),
@@ -26,9 +27,11 @@ function verifiedGooglePicture(candidate: unknown): string | null {
     return url.toString();
   } catch { return null; }
 }
-function backToApp(key: 'code' | 'error', value: string) {
-  // The destination is a hardcoded app scheme, never a request-supplied URL.
-  const url = APP_CALLBACK + '?' + key + '=' + encodeURIComponent(value);
+function backToApp(key: 'code' | 'error', value: string, state: string) {
+  // The OAuth start endpoint embeds a variant marker in its 43-character,
+  // single-use random state. Both destinations are server-hardcoded.
+  const destination = state.startsWith('DEV_') ? DEV_APP_CALLBACK : APP_CALLBACK;
+  const url = destination + '?' + key + '=' + encodeURIComponent(value);
   return new Response(null, {
     status: 302,
     headers: { Location: url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
@@ -66,16 +69,16 @@ export async function GET(request: Request) {
     row = claimed.rows[0];
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_STATE]', error);
-    return backToApp('error', 'provider_error');
+    return backToApp('error', 'provider_error', state);
   }
 
   if (!row) return stateInvalid();
-  if (providerError) return backToApp('error', providerError === 'access_denied' ? 'access_denied' : 'provider_error');
-  if (!code || code.length > 4096) return backToApp('error', 'invalid_response');
+  if (providerError) return backToApp('error', providerError === 'access_denied' ? 'access_denied' : 'provider_error', state);
+  if (!code || code.length > 4096) return backToApp('error', 'invalid_response', state);
 
   const clientId = process.env.AUTH_GOOGLE_ID?.trim();
   const clientSecret = process.env.AUTH_GOOGLE_SECRET?.trim();
-  if (!clientId || !clientSecret) return backToApp('error', 'configuration_error');
+  if (!clientId || !clientSecret) return backToApp('error', 'configuration_error', state);
 
   let idToken: string;
   let googleAccessToken: string | null = null;
@@ -95,10 +98,10 @@ export async function GET(request: Request) {
       cache: 'no-store',
       signal: AbortSignal.timeout(15000),
     });
-    if (!response.ok) return backToApp('error', 'provider_error');
+    if (!response.ok) return backToApp('error', 'provider_error', state);
     const body = await response.json() as { id_token?: unknown; access_token?: unknown };
     if (typeof body.id_token !== 'string' || !body.id_token) {
-      return backToApp('error', 'invalid_response');
+      return backToApp('error', 'invalid_response', state);
     }
     idToken = body.id_token;
     if (typeof body.access_token === 'string' && body.access_token.length <= 8192) {
@@ -106,7 +109,7 @@ export async function GET(request: Request) {
     }
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_GOOGLE]', error);
-    return backToApp('error', 'provider_error');
+    return backToApp('error', 'provider_error', state);
   }
 
   let email: string;
@@ -122,21 +125,21 @@ export async function GET(request: Request) {
     if (typeof payload.nonce !== 'string' || !equals(payload.nonce, row.nonce) ||
         typeof payload.sub !== 'string' || !payload.sub ||
         typeof payload.iat !== 'number' || typeof payload.exp !== 'number') {
-      return backToApp('error', 'invalid_response');
+      return backToApp('error', 'invalid_response', state);
     }
     if (payload.email_verified !== true) {
-      return backToApp('error', 'google_email_unverified');
+      return backToApp('error', 'google_email_unverified', state);
     }
     if (typeof payload.email !== 'string' ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-      return backToApp('error', 'invalid_response');
+      return backToApp('error', 'invalid_response', state);
     }
     email = payload.email.trim().toLowerCase();
     googleSubject = payload.sub;
     googlePictureUrl = verifiedGooglePicture(payload.picture);
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_IDENTITY]', error);
-    return backToApp('error', 'invalid_response');
+    return backToApp('error', 'invalid_response', state);
   }
 
   // Some Google ID tokens omit the optional picture claim. Request it from
@@ -173,7 +176,7 @@ export async function GET(request: Request) {
       [email],
     );
     const agent = found.rows[0];
-    if (!agent) return backToApp('error', 'account_not_invited');
+    if (!agent) return backToApp('error', 'account_not_invited', state);
 
     // Preserve any existing photo if Google omits the optional picture claim.
     // We store only the verified Google URL, never the image or access token.
@@ -190,9 +193,9 @@ export async function GET(request: Request) {
        VALUES ($1, $2::uuid, $3, now() + interval '2 minutes')`,
       [digestToken(handoff), agent.id, row.app_challenge],
     );
-    return backToApp('code', handoff);
+    return backToApp('code', handoff, state);
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_AGENT]', error);
-    return backToApp('error', 'provider_error');
+    return backToApp('error', 'provider_error', state);
   }
 }

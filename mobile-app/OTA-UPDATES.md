@@ -74,3 +74,47 @@ Do not publish untested workspace code to production.
 
 **Backend deploys** (Next.js/Vercel) are separate from OTA. Server-side schema
 and API changes must be deployed before publishing a client that depends on them.
+
+## Side-by-side development and preview installs
+
+The app uses a dynamic `app.config.js` variant selected by the EAS
+`development` profile (`APP_VARIANT=development`). Expo CNG is used: no
+`android/` or `ios/` native directory is tracked.
+
+| Build | Launcher | Android package | URL scheme | Update channel |
+| --- | --- | --- | --- | --- |
+| Development | JTG CRM Dev | `com.joeltechgeek.app.dev` | `joeltechgeek-dev` | `development` |
+| Preview | JTG CRM | `com.joeltechgeek.app` | `joeltechgeek` | `preview` |
+| Production | JTG CRM | `com.joeltechgeek.app` | `joeltechgeek` | `production` |
+
+Development and preview can coexist. Preview and production still share a
+package ID and cannot coexist under that package; this is intentional.
+
+Check the native config before building:
+
+```sh
+APP_VARIANT=development npx expo config --type public | grep -E 'name|scheme|package|bundleIdentifier'
+npx expo config --type public | grep -E 'name|scheme|package|bundleIdentifier'
+```
+
+Build a new development client (the old build will not acquire a new package
+identifier through OTA):
+
+```sh
+eas build --platform android --profile development
+# Local Metro must use the SAME variant, otherwise linking may use the wrong scheme:
+APP_VARIANT=development npx expo start --dev-client
+```
+
+The mobile Google OAuth handoff now accepts **two exact, whitelisted** return
+schemes. The start endpoint tags its server-issued random state so the callback
+returns only to the originating variant. Google still redirects to the single
+registered HTTPS callback on `joeltechgeek.com` and the existing database
+schema is unchanged. **Deploy the two backend OAuth route changes before
+trying Google sign-in with the dev variant.** If the dev build uses the LAN
+API address in `eas.json`, that backend and the hosted Google callback must
+use the same OAuth state database, or Google sign-in cannot complete.
+
+The new development build can live next to a preview APK, allowing safe OTA
+tests on the preview channel without uninstalling the dev client. Neither a
+new native build nor backend deployment has been performed by this change.

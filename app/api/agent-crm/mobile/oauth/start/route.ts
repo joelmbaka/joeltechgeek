@@ -4,9 +4,10 @@ import { digestToken, pkceChallenge, randomToken } from '@/lib/agent-crm/mobile-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Only this exact Android deep link is allowed to receive a one-time code.
-// No website redirect, website session, browser cookie or dynamic host header.
+// Whitelist both installed variants. The Google redirect remains this server,
+// and each variant receives only its own short-lived, PKCE-bound handoff code.
 const APP_CALLBACK = 'joeltechgeek:///auth-callback';
+const DEV_APP_CALLBACK = 'joeltechgeek-dev:///auth-callback';
 const GOOGLE_CALLBACK = 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
 
 function errorPage(message: string, status: number) {
@@ -26,12 +27,16 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const appRedirect = params.get('redirect_uri');
   const challenge = params.get('challenge');
-  if (appRedirect !== APP_CALLBACK ||
+  if ((appRedirect !== APP_CALLBACK && appRedirect !== DEV_APP_CALLBACK) ||
       typeof challenge !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) {
     return errorPage('Invalid mobile sign-in request.', 400);
   }
 
-  const state = randomToken();
+  // The prefix is bound to a random one-time state stored by SHA-256 digest.
+  // It selects only a server-hardcoded callback, avoiding a DB migration and
+  // never allowing user-controlled redirect destinations.
+  const state = (appRedirect === DEV_APP_CALLBACK ? 'DEV_' : 'PRO_') +
+    randomToken().slice(0, 39);
   const nonce = randomToken();
   const googleVerifier = randomToken();
 
