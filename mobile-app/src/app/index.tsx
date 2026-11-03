@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, FlatList, Linking, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Linking, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Busy, Button, styles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
@@ -22,6 +22,7 @@ const SORTS: SelectOption[] = [
 ];
 
 export default function HomeScreen() {
+  const brandScheme = useColorScheme();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -113,7 +114,17 @@ export default function HomeScreen() {
   </SafeAreaView>;
   if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ padding: 22, gap: 16 }}>
-      <Text style={styles.title}>Joel Tech Geek CRM</Text>
+      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+      <Image
+        source={brandScheme === 'dark'
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          ? require('../../assets/images/auth-logo-dark.png')
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          : require('../../assets/images/auth-logo.png')}
+        style={{ width: 108, height: 108, alignSelf: 'center' }}
+        resizeMode="contain"
+        accessibilityLabel="JoelTechGeek logo" />
+      <Text style={[styles.title, { textAlign: 'center' }]}>JoelTechGeek CRM</Text>
       <Text style={styles.subtitle}>Sign in with your registered Google account.</Text>
       {authError ? <Text style={styles.error}>{authError}</Text> : null}
       <Button onPress={() => void login()}>Continue with Google</Button>
