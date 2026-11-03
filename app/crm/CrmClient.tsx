@@ -371,23 +371,20 @@ function LeadDialog({ lead, onClose, onSaved }: {
           </div>
         )}
 
-        {!lead.do_not_contact || lead.stage === 'competitor' ? (
+        {classificationError && <p role="alert" className="mt-3 text-sm text-rose-700 dark:text-rose-300">{classificationError}</p>}
+        {lead.stage === 'competitor' ? (
           <section className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm dark:border-violet-800 dark:bg-violet-950/20">
-            <p className="font-semibold">
-              {lead.stage === 'competitor'
-                ? 'Competitor — research record, not an active sales prospect'
-                : 'Company classification'}
-            </p>
+            <p className="font-semibold">Competitor — research record</p>
             <p className="mt-1 text-slate-600 dark:text-slate-300">
-              {lead.stage === 'competitor'
-                ? 'Excluded from calls, outreach queues and follow-up reminders. The company remains searchable under its industry.'
-                : 'Mark an industry competitor without logging a call or marking it as a lost sale.'}
+              Excluded from calls, outreach queues and follow-up reminders. The company remains searchable under its industry.
             </p>
-            {classificationError && <p role="alert" className="mt-2 text-rose-700 dark:text-rose-300">{classificationError}</p>}
             <button type="button" disabled={savingClassification}
-              onClick={() => void updateClassification(lead.stage === 'competitor' ? 'new' : 'competitor')}
+              onClick={() => {
+                if (window.confirm('Return this competitor to the new-lead queue?'))
+                  void updateClassification('new');
+              }}
               className="mt-3 min-h-10 rounded-xl border border-violet-300 bg-white px-4 text-xs font-semibold text-violet-800 disabled:opacity-60 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-100">
-              {savingClassification ? 'Saving…' : lead.stage === 'competitor' ? 'Reopen as prospect' : 'Mark as competitor'}
+              {savingClassification ? 'Saving…' : 'Reopen as prospect'}
             </button>
           </section>
         ) : null}
@@ -514,12 +511,22 @@ function LeadDialog({ lead, onClose, onSaved }: {
               <form onSubmit={submitCall} className="mt-4 space-y-4">
                 <label className="block text-sm font-semibold">
                   Call outcome <span className="text-rose-600">*</span>
-                  <select required className={input} value={form.outcome}
-                    onChange={(e) => setForm((x) => ({...x, outcome: e.target.value}))}>
+                  <select required className={input} value={form.outcome} disabled={savingClassification}
+                    onChange={(e) => {
+                      if (e.target.value === 'mark_competitor') {
+                        // Administrative classification, never a call outcome sent to the API.
+                        e.currentTarget.value = form.outcome;
+                        if (window.confirm('Mark this business as a competitor? It stays searchable, but outreach and reminders stop. No call will be logged.'))
+                          void updateClassification('competitor');
+                        return;
+                      }
+                      setForm((x) => ({...x, outcome: e.target.value}));
+                    }}>
                     <option value="">Choose outcome</option>
                     {CALL_OUTCOMES.map((value) => (
                       <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
                     ))}
+                    <option value="mark_competitor">Mark as competitor</option>
                   </select>
                 </label>
                 <label className="block text-sm font-semibold">
