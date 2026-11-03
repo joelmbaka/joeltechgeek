@@ -73,11 +73,16 @@ export function SelectSheet({
         <ChevronDown/>
       </> : <>
         <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ color: COLORS.ink, fontWeight: '700', flex: 1 }}>
+        <View style={{ paddingRight: 19 }}>
+          <Text numberOfLines={1} style={{ color: COLORS.ink, fontWeight: '700' }}>
             {selectedLabel}
             {selected?.count !== undefined ? ' (' + selected.count + ')' : ''}
           </Text>
+        </View>
+        <View pointerEvents="none" style={{
+          position: 'absolute', right: 10, top: 0, bottom: 0,
+          alignItems: 'center', justifyContent: 'center',
+        }}>
           <ChevronDown/>
         </View>
       </>}
