@@ -199,9 +199,6 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>No leads match your search or filters.</Text> : null}
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
-      // Keep skeletons inside the list's scrollable content while data is
-      // cleared for a fresh request. As a footer they could be off-screen
-      // after restoring the previous scroll offset on back navigation.
       ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : null}
       ListFooterComponent={<View style={{ gap: 12, paddingTop: 5 }}>
         {!loading && data ? <>
