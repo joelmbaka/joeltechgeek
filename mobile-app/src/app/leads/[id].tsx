@@ -119,9 +119,9 @@ export default function LeadScreen() {
     next_action_time: time.trim() || null,
     next_action_timezone: timezone,
   });
-  const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact;
-  const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact;
-  const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim();
+  const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
+  const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
+  const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim() && !lead?.do_not_contact && lead?.stage !== 'competitor';
   const contactChanged = !!lead && (
     contactName !== (lead.contact_name || '') ||
     contactRole !== (lead.contact_role || '') ||
@@ -179,6 +179,23 @@ export default function LeadScreen() {
     } finally { setSaving(false); }
   };
 
+  const updateClassification = async (status: 'competitor' | 'new') => {
+    if (!id || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/classification', {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      dirty.current = false;
+      reload();
+      if (agent) void reconcileReminders(agent).catch(() => {});
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update classification.');
+    } finally { setSaving(false); }
+  };
+
   const saveContact = async () => {
     if (!id) return;
     setError(null);
@@ -197,12 +214,12 @@ export default function LeadScreen() {
     } finally { setSaving(false); }
   };
   const call = () => {
-    if (!lead?.phone || lead.do_not_contact) return;
+    if (!lead?.phone || lead.do_not_contact || lead.stage === 'competitor') return;
     const number = lead.phone.replace(/[^\d+]/g, '');
     if (number) void Linking.openURL('tel:' + number);
   };
   const whatsApp = () => {
-    if (!lead?.phone || lead.do_not_contact) return;
+    if (!lead?.phone || lead.do_not_contact || lead.stage === 'competitor') return;
     const number = whatsappNumber(lead.phone, lead.country);
     if (!number) {
       showDialog({ title: 'Phone number needs updating', message: 'Add the international country code to the contact’s phone number to open WhatsApp.' });
@@ -215,7 +232,7 @@ export default function LeadScreen() {
   if (!agent) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
   return <Page>
     <Stack.Screen options={{
-      headerRight: () => lead && !lead.do_not_contact ?
+      headerRight: () => lead && !lead.do_not_contact && lead.stage !== 'competitor' ?
         <Pressable accessibilityRole="button" accessibilityLabel="Edit contact"
           onPress={showContactEditor}
           style={{ minWidth: 42, minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
@@ -258,7 +275,7 @@ export default function LeadScreen() {
             </View>
           </View>
         </> : null}
-        {lead.phone && !lead.do_not_contact ? <View style={{
+        {lead.phone && !lead.do_not_contact && lead.stage !== 'competitor' ? <View style={{
           flexDirection: 'row', gap: 9, marginTop: 6,
         }}>
           <View style={{ flex: 1 }}><Button onPress={call}>Call</Button></View>
@@ -276,7 +293,26 @@ export default function LeadScreen() {
         </Text> : null}
         {lead.last_notes ? <Text style={styles.subtitle}>Notes: {lead.last_notes}</Text> : null}
       </View>
-      {!lead.do_not_contact ? <>
+      {(!lead.do_not_contact || lead.stage === 'competitor') ? <View style={styles.card}>
+        <Text style={[styles.title, { fontSize: 18 }]}>Company classification</Text>
+        <Text style={styles.subtitle}>
+          {lead.stage === 'competitor'
+            ? 'Competitor — research only. Outreach and reminders are paused.'
+            : 'This business can be kept as a competitor instead of an active sales prospect.'}
+        </Text>
+        <Button secondary disabled={saving} onPress={() => showDialog({
+          title: lead.stage === 'competitor' ? 'Reopen as prospect?' : 'Mark as competitor?',
+          message: lead.stage === 'competitor'
+            ? 'Return this business to the new-lead queue?'
+            : 'Exclude this business from sales outreach while retaining its research record?',
+          cancelLabel: 'Cancel',
+          confirmLabel: lead.stage === 'competitor' ? 'Reopen' : 'Mark competitor',
+          onConfirm: () => void updateClassification(lead.stage === 'competitor' ? 'new' : 'competitor'),
+        })}>
+          {saving ? 'Saving…' : lead.stage === 'competitor' ? 'Reopen as prospect' : 'Mark as competitor'}
+        </Button>
+      </View> : null}
+      {!lead.do_not_contact && lead.stage !== 'competitor' ? <>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
           <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
@@ -329,7 +365,7 @@ export default function LeadScreen() {
             </Button>
           </> : null}
         </View>
-      </> : <Text style={styles.error}>This lead is marked Do Not Contact.</Text>}
+      </> : <Text style={styles.subtitle}>{lead.stage === 'competitor' ? 'Competitor: no sales outreach.' : 'This lead is marked Do Not Contact.'}</Text>}
       <Text style={[styles.title, { fontSize: 20 }]}>Activity history</Text>
       {history.length === 0 ? <Text style={styles.subtitle}>No activity recorded.</Text> :
         history.map((event) => <View key={event.id} style={styles.card}>
