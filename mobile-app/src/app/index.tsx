@@ -40,8 +40,8 @@ export default function HomeScreen() {
 
   useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
 
-  // The backend can hide this option immediately after Play review simply by
-  // disabling CRM_PLAY_REVIEW_ENABLED; an old APK never contains credentials.
+  // The backend controls whether to display review access. No account
+  // credentials or privileged tokens are embedded in the Android app.
   useEffect(() => {
     if (!ready || agent) { setReviewAvailable(false); return; }
     const controller = new AbortController();
@@ -145,51 +145,91 @@ export default function HomeScreen() {
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={COLORS.primary}/>}
-      contentContainerStyle={{ padding: 15, paddingBottom: 32, gap: 10 }}
-      ListHeaderComponent={<View style={{ gap: 12 }}>
-        <Text style={[styles.title, { fontSize: 21 }]}>Good day, {agent.name.split(' ')[0]}</Text>
-        {agent.email === 'play-review@joeltechgeek.invalid' ?
-          <Text style={styles.subtitle}>Play review workspace · sample data only</Text> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {([
-            ['Leads', stats?.total], ['To call', stats?.to_call],
-            ['Follow-ups', stats?.followups_due], ['Interested', stats?.interested],
-          ] as const).map(([label, count]) => <View key={label} style={[
-            styles.card, { width: '47%', flexGrow: 1, padding: 12, gap: 5, minHeight: 74 },
-          ]}>
-            <Text style={styles.label}>{label}</Text>
-            {loading ? <View style={{ height: 22, width: 37, borderRadius: 6,
-              backgroundColor: '#DEE7EA' }}/> :
-              <Text style={{ color: COLORS.ink, fontWeight: '800', fontSize: 21 }}>{count ?? 0}</Text>}
-          </View>)}
+      contentContainerStyle={{ padding: 14, paddingBottom: 30, gap: 9 }}
+      ListHeaderComponent={<View style={{ gap: 10 }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          minHeight: 38, gap: 10,
+        }}>
+          <Text style={{
+            color: COLORS.muted, fontSize: 12, fontWeight: '800', letterSpacing: .6,
+          }}>MY WORK</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add lead"
+            hitSlop={4}
+            onPress={() => router.push('/leads/new')}
+            style={{
+              backgroundColor: COLORS.primary, borderRadius: 10, minHeight: 36,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+              paddingHorizontal: 14, gap: 6,
+            }}>
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>+</Text>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Add lead</Text>
+          </Pressable>
         </View>
-        <Button onPress={() => router.push('/leads/new')}>+ Add lead</Button>
+        <View style={{ flexDirection: 'row', gap: 9 }}>
+          {([
+            { label: 'To call', value: stats?.to_call, queue: 'to_call' },
+            { label: 'Follow-ups due', value: stats?.followups_due, queue: 'due' },
+          ] as const).map((metric) => (
+            <Pressable key={metric.queue}
+              accessibilityRole="button"
+              accessibilityLabel={metric.label + ', ' + (metric.value ?? 'loading') + ' leads'}
+              onPress={() => setQueue(metric.queue)}
+              style={[styles.card, {
+                flex: 1, minWidth: 0, minHeight: 70, paddingHorizontal: 13,
+                paddingVertical: 10, gap: 5,
+                borderColor: queue === metric.queue ? COLORS.primary : COLORS.border,
+              }]}>
+              <Text numberOfLines={1} style={[styles.label, { fontSize: 12 }]}>
+                {metric.label}
+              </Text>
+              {loading ? <View style={{
+                height: 23, width: 36, borderRadius: 6, backgroundColor: '#DEE7EA',
+              }}/> : <Text style={{
+                color: COLORS.ink, fontSize: 24, lineHeight: 27,
+                fontWeight: '800', fontVariant: ['tabular-nums'],
+              }}>{metric.value ?? 0}</Text>}
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 9 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <SelectSheet title="Work queue" value={queue}
+              options={queueOptions} onChange={setQueue}/>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <SelectSheet title="Industry" value={industry}
+              options={industryOptions} onChange={setIndustry} searchable/>
+          </View>
+        </View>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          justifyContent: 'space-between', marginTop: 2, gap: 8,
+        }}>
+          <Text style={{ color: COLORS.ink, fontSize: 16, fontWeight: '800' }}>
+            Leads{!loading && stats ? ' (' + stats.total + ')' : ''}
+          </Text>
+          <SelectSheet title="Sort" value={sort}
+            options={SORTS} onChange={setSort} compact/>
+        </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search company, contact, phone or email"
+            placeholder="Search leads"
             placeholderTextColor={COLORS.muted}
             autoCapitalize="none" autoCorrect={false}
             returnKeyType="search"
+            accessibilityLabel="Search company, contact, phone or email"
           />
-          {search ? <Pressable accessibilityRole="button" accessibilityLabel="Clear search"
-            hitSlop={10} onPress={() => setSearch('')}>
+          {search ? <Pressable accessibilityRole="button"
+            accessibilityLabel="Clear search" hitSlop={10}
+            onPress={() => setSearch('')}>
             <Text style={{ color: COLORS.muted, fontSize: 22 }}>×</Text>
           </Pressable> : null}
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <View style={{ flex: 1, minWidth: 132 }}>
-            <SelectSheet title="Work queue" value={queue} options={queueOptions} onChange={setQueue}/>
-          </View>
-          <View style={{ flex: 1, minWidth: 132 }}>
-            <SelectSheet title="Industry" value={industry} options={industryOptions}
-              onChange={setIndustry} searchable />
-          </View>
-          <View style={{ flex: 1, minWidth: 120 }}>
-            <SelectSheet title="Sort" value={sort} options={SORTS} onChange={setSort}/>
-          </View>
         </View>
         {message ? <View style={styles.card}>
           <Text style={styles.error}>{message}</Text>
