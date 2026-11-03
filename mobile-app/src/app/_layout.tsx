@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
-import { Image, Text, View, StatusBar, useColorScheme } from 'react-native';
+import { Image, Text, View, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
@@ -13,7 +14,7 @@ function Navigation() {
   const theme = useTheme();
   const headerBackground = dark ? '#0A2836' : '#FFFFFF';
   return <>
-    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} hidden={false} translucent={false} backgroundColor={headerBackground}/>
+    <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
     <Stack screenOptions={{
       headerStyle: { backgroundColor: headerBackground },
       headerTintColor: theme.ink,

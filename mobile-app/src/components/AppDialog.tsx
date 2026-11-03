@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
-import { Modal, Pressable, StatusBar, Text, View, useColorScheme } from 'react-native';
+import { Modal, Pressable, Text, View, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/lib/config';
 
 type DialogOptions = {
@@ -31,8 +32,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
     {children}
     <Modal visible={dialog !== null} transparent animationType="fade"
       statusBarTranslucent={false} onRequestClose={() => setDialog(null)}>
-      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} translucent={false}
-        backgroundColor={dark ? '#0A2836' : '#FFFFFF'}/>
+      <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Dismiss dialog"

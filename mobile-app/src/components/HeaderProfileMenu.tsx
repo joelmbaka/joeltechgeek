@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Modal, Platform, Pressable, StatusBar, Text, View, useColorScheme } from 'react-native';
+import { Modal, Platform, Pressable, Text, View, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
@@ -36,8 +37,7 @@ export function HeaderProfileMenu() {
     </Pressable>
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent={false}
       onRequestClose={() => setVisible(false)}>
-      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'}
-        backgroundColor={dark ? '#0A2836' : '#FFFFFF'} translucent={false}/>
+      <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
       <View style={{ flex: 1 }}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Close account menu"

@@ -269,29 +269,29 @@ export default function HomeScreen() {
           <Text style={styles.error}>{message}</Text>
           <Button secondary onPress={refresh}>Retry loading leads</Button>
         </View> : null}
-        {!loading && data && data.leads.length === 0 && !message ?
+        {!loading && data?.leads.length === 0 && !message ?
           <Text style={styles.subtitle}>No leads match your search or filters.</Text> : null}
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
       ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
-      ListFooterComponent={!loading && data && (data.leads.length > 0 || data.filtered_total > 0) ?
+      ListFooterComponent={!loading && data && (data?.leads.length > 0 || data?.filtered_total > 0) ?
         <View style={[styles.card, { gap: 11, marginTop: 6, padding: 15 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <View style={{ gap: 4, flexShrink: 1 }}>
               <Text style={[styles.value, { fontSize: 13, fontVariant: ['tabular-nums'] }]}>
-                Showing {offset + 1}–{offset + data.leads.length}
-                {Number.isFinite(data.filtered_total) ? ' of ' + data.filtered_total : ''}
+                Showing {offset + 1}–{offset + (data?.leads.length ?? 0)}
+                {Number.isFinite(data?.filtered_total) ? ' of ' + data?.filtered_total : ''}
               </Text>
               <Text style={styles.subtitle}>
-                {Number.isFinite(data.filtered_total)
-                  ? Math.max(0, data.filtered_total - offset - data.leads.length) + ' remaining'
-                  : data.has_more ? 'More leads available' : 'End of list'}
+                {Number.isFinite(data?.filtered_total)
+                  ? Math.max(0, (data?.filtered_total ?? 0) - offset - (data?.leads.length ?? 0)) + ' remaining'
+                  : data?.has_more ? 'More leads available' : 'End of list'}
               </Text>
             </View>
             <View style={{ backgroundColor: theme.surfaceMuted, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 7 }}>
               <Text style={[styles.label, { color: theme.ink }]}>
                 Page {Math.floor(offset / PER_PAGE) + 1}
-                {Number.isFinite(data.filtered_total) ? ' / ' + Math.ceil(data.filtered_total / PER_PAGE) : ''}
+                {Number.isFinite(data?.filtered_total) ? ' / ' + Math.ceil((data?.filtered_total ?? 0) / PER_PAGE) : ''}
               </Text>
             </View>
           </View>
@@ -301,7 +301,7 @@ export default function HomeScreen() {
                 onPress={() => setOffset((value) => Math.max(0, value - PER_PAGE))}>‹ Previous</Button>
             </View>
             <View style={{ flex: 1 }}>
-              <Button secondary disabled={!data.has_more}
+              <Button secondary disabled={!data?.has_more}
                 onPress={() => setOffset((value) => value + PER_PAGE)}>Next ›</Button>
             </View>
           </View>
