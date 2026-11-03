@@ -18,7 +18,7 @@ const roles = [
   {
     name: 'Vehicle Owner',
     Icon: Smartphone,
-    description: 'Choose from three fictional vehicles, inspect an illustrated live-location screen, play a route, simulate geofence alerts and signal loss, and raise a sample support request.',
+    description: 'Choose from three fictional vehicles, inspect an illustrated live-location screen, play a route, simulate anti-theft alerts, geofence exits and signal loss, and raise a sample support request.',
     areas: 'Track · Trips · Alerts · Help',
   },
   {
@@ -88,8 +88,8 @@ export default function VehicleTrackingDemoPage() {
         </article>
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
           <BellRing className="h-7 w-7 text-palm-green" aria-hidden />
-          <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Security events</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Simulate a geofence exit and see the event appear in the customer alert feed and monitoring desk. Nothing is sent to real devices.</p>
+          <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">Anti-theft &amp; security alerts</h2>
+          <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">Preview unexpected ignition, disturbance/towing, device tampering, suspected interference and geofence exits in the owner alert feed and monitoring desk. All events are simulated.</p>
         </article>
         <article className="rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
           <WifiOff className="h-7 w-7 text-palm-green" aria-hidden />
@@ -100,7 +100,7 @@ export default function VehicleTrackingDemoPage() {
       <section className="mt-12 rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
         <div className="flex items-center gap-3"><CircleAlert className="h-7 w-7 text-palm-green" aria-hidden /><h2 className="text-xl font-bold text-gray-900 dark:text-white">Concept boundaries</h2></div>
         <p className="mt-3 max-w-4xl text-sm leading-7 text-gray-600 dark:text-gray-300">
-          Waypoint is independent fictional software, not a Nebsam product or integration. All locations, GPS signals, routes, timestamps, alerts and support records are simulated in your browser. The map is an illustration, not a live or geographically accurate mapping service. There is no vehicle immobilization, external API, remote command, payment, push alert, emergency response or actual location collection. A production system would require verified hardware and backend integrations, authorization, telemetry monitoring, and safety testing.
+          Waypoint is independent fictional software, not a Nebsam product or integration. All locations, GPS signals, routes, timestamps, anti-theft and connectivity alerts, and support records are simulated in your browser. Security events require compatible vehicle hardware and sensor integrations in any real deployment. The map is an illustration, not a live or geographically accurate mapping service. There is no vehicle immobilization, external API, remote command, payment, push alert, emergency response or actual location collection. A production system would require verified hardware and backend integrations, authorization, telemetry monitoring, and safety testing.
         </p>
       </section>
       <div className="mt-12 flex flex-wrap items-center gap-4">

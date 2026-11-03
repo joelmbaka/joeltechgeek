@@ -6,6 +6,7 @@ if(!root)return;
 let data,role="owner",tab="track",selected="V-101",playbackStep=0,playing=false,timer=null,notice="";
 try{data=JSON.parse(localStorage.getItem(KEY)||"null");if(!C.validate(data))data=C.seed();}
 catch(_){data=C.seed();}
+if(C.ensureSecuritySamples(data)){try{localStorage.setItem(KEY,JSON.stringify(data));}catch(_){}}
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const vehicle=id=>C.get(data,id||selected);
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(_){notice="Browser storage unavailable; changes may not persist.";}};
@@ -51,6 +52,19 @@ function fleetCard(v,compact){
  '<span class="fleet-icon">'+icon(vIcon(v))+'</span><span class="fleet-label"><b>'+esc(v.plate)+'</b><small>'+esc(v.name)+' · '+esc(C.position(v).label)+'</small></span>'+
  '<span class="fleet-right">'+badge(status(v),tone(v.status))+'<small>'+esc(seen(v))+'</small></span></button>';
 }
+function securityPreview(v){
+ const latest=data.alerts.find(a=>a.vehicleId===v.id&&a.category==="security"&&a.ownerRead!==true);
+ if(!latest)return "";
+ return '<section class="owner-security-preview"><div class="security-preview-icon">!</div><div><small>VEHICLE SECURITY · UNREAD</small><h3>'+esc(latest.kind)+'</h3><p>'+esc(latest.detail)+'</p><button type="button" data-action="tab" data-id="alerts">View security alerts →</button></div></section>';
+}
+function securityScenarios(v){
+ const available=v.status==="online";
+ return '<section class="panel security-scenarios"><div class="section-heading"><h3>Anti-theft alert examples</h3>'+badge("SENSOR SIMULATION","muted")+'</div>'+
+ '<p class="panel-intro">Preview the type of warnings a vehicle owner could receive from compatible security hardware. Choose an event; the alert also appears at the Monitoring Desk.</p>'+
+ '<div class="security-actions">'+C.SECURITY_SCENARIOS.map(s=>'<button class="security-action" type="button" data-action="security" data-id="'+esc(s.id)+'" '+(available?"":"disabled")+'><span>'+({ignition:"🔑",movement:"🚙",vibration:"⚡",tamper:"🔌",interference:"📡"}[s.id]||"⚠")+'</span><strong>'+esc(s.kind)+'</strong><small>'+esc(s.requirement)+'</small></button>').join("")+'</div>'+
+ (!available?'<p class="smallprint">The selected tracker is offline. Restore its simulated connection before generating a new sensor event.</p>':'')+
+ '<p class="smallprint">These alert types depend on hardware and backend capabilities. No claim is made that any specific tracking provider supports them.</p></section>';
+}
 function ownerTrack(){
  const v=vehicle(),point=pin(v),offline=v.status==="offline";
  return title("YOUR VEHICLES","Know where it is.","See a sample location, vehicle condition and the age of its most recent update.")+
@@ -61,10 +75,11 @@ function ownerTrack(){
  '<div class="healthy-banner"><b>● Tracker connected (simulation)</b><span>Last report: '+esc(seen(v))+'</span></div>')+
  '<div class="info-grid">'+stat(offline?"Unknown":point.speed+" km/h","Speed",offline?"dim":"")+stat(offline?"Unknown":v.ignition?"On":"Off","Ignition",offline?"dim":"")+
  stat(esc(seen(v)),"Last location report",offline?"warn":"")+'</div>'+
+ securityPreview(v)+
  '<section class="panel"><div class="section-heading"><h3>Try a scenario</h3>'+badge("SIMULATED","muted")+'</div>'+
  (offline?'<p class="panel-intro">The location is stale. Restore sample connectivity to see how the app responds.</p><button class="primary full" data-action="restore" data-id="'+esc(v.id)+'">Simulate reconnection</button>':
  '<p class="panel-intro">Move a fictional vehicle, test a boundary alert or simulate a signal interruption.</p><div class="action-grid"><button class="secondary" data-action="move" data-id="'+esc(v.id)+'">↗ Move vehicle</button><button class="secondary" data-action="geofence" data-id="'+esc(v.id)+'" '+(v.geofenceOutside?"disabled":"")+'>◇ Geofence exit</button><button class="danger-outline span-2" data-action="signal" data-id="'+esc(v.id)+'">⚠ Simulate signal loss</button></div>')+
- '</section>';
+ '</section>'+securityScenarios(v);
 }
 function ownerTrips(){
  const v=vehicle(),points=C.trip(v.id),p=points[playbackStep],complete=playbackStep===points.length-1;
@@ -77,15 +92,22 @@ function ownerTrips(){
  '<p class="smallprint">This playback uses fixed fictional timestamps and locations. It is not a real GPS recording.</p></section>';
 }
 function alertCard(a,desk){
- const v=vehicle(a.vehicleId),newAlert=a.status==="new";
- return '<article class="alert-card"><div class="alert-glyph '+(a.severity==="high"?"critical":"info")+'">'+(a.severity==="high"?"!":"i")+'</div><div class="alert-copy"><div class="alert-top"><b>'+esc(a.kind)+'</b>'+badge(newAlert?"New":"Acknowledged",newAlert?"offline":"muted")+'</div>'+
+ const v=vehicle(a.vehicleId),newAlert=a.status==="new",unread=a.ownerRead!==true,security=a.category==="security";
+ return '<article class="alert-card '+(security?"security-alert ":"")+(unread&&!desk?"unread-alert":"")+'"><div class="alert-glyph '+(["high","critical"].includes(a.severity)?"critical":a.severity==="warning"?"warning":"info")+'">'+(security?"⚠":a.severity==="info"?"i":"!")+'</div><div class="alert-copy"><div class="alert-top"><b>'+esc(a.kind)+'</b>'+badge(desk?(newAlert?"New":"Acknowledged"):(unread?"Unread":"Read"),desk?(newAlert?"offline":"muted"):(unread?"offline":"muted"))+'</div>'+
  '<p>'+esc(a.detail)+'</p><div class="meta-line">'+esc(v.plate)+' · '+esc(a.at)+'</div>'+
- (desk&&newAlert?'<button class="secondary small" data-action="acknowledge" data-id="'+esc(a.id)+'">Acknowledge alert</button>':'')+'</div></article>';
+ (security&&a.requirement?'<p class="sensor-note">Requires: '+esc(a.requirement)+'</p>':"")+
+ (desk&&newAlert?'<button class="secondary small" data-action="acknowledge" data-id="'+esc(a.id)+'">Acknowledge alert</button>':
+ !desk&&unread?'<button class="secondary small" data-action="owner-read" data-id="'+esc(a.id)+'">Mark as read</button>':'')+'</div></article>';
 }
 function ownerAlerts(){
- return title("SECURITY EVENTS","Your alerts.","Important sample events across your three vehicles.")+
- '<div class="notice-quiet">These alerts are simulated. No real push notifications or emergency responses are sent.</div>'+
- (data.alerts.length?data.alerts.map(a=>alertCard(a,false)).join(""):'<div class="empty">No simulated alerts yet.</div>');
+ const security=data.alerts.filter(a=>a.category==="security");
+ const tracking=data.alerts.filter(a=>a.category!=="security");
+ return title("VEHICLE SECURITY","Your alerts.","See anti-theft warnings alongside tracking and connectivity updates.")+
+ '<div class="notice-quiet"><b>Fictional sensor alerts.</b> Ignition, towing/motion, impact, power-cut and signal-interference warnings require supported hardware and rules. No real push notifications or responses occur.</div>'+
+ '<div class="section-heading outside"><h2>Anti-theft & security</h2>'+badge(security.length+" events","offline")+'</div>'+
+ (security.length?security.map(a=>alertCard(a,false)).join(""):'<div class="empty">No anti-theft events. Use Track to simulate a security scenario.</div>')+
+ '<div class="section-heading outside"><h2>Tracking & connectivity</h2>'+badge(tracking.length+" events","muted")+'</div>'+
+ (tracking.length?tracking.map(a=>alertCard(a,false)).join(""):'<div class="empty">No tracking events.</div>');
 }
 function requestCard(t,desk){
  const v=vehicle(t.vehicleId);
@@ -114,9 +136,9 @@ function deskFleet(){
  (offline?'<div class="safety-banner"><b>Attention needed</b><p>Signal loss is visible here without misleading the customer about the current vehicle location.</p></div>':'');
 }
 function deskAlerts(){
- return title("MONITORING DESK","Security events.","Acknowledge sample geofence and connectivity alerts raised in the owner app.")+
+ return title("MONITORING DESK","Security events.","Review anti-theft, geofence and connectivity alerts raised in the customer app.")+
  '<div class="notice-quiet">Acknowledging means a staff member reviewed the demo record. It does not contact a driver or activate a real response.</div>'+
- data.alerts.map(a=>alertCard(a,true)).join("");
+ data.alerts.slice().sort((a,b)=>(b.category==="security")-(a.category==="security")).map(a=>alertCard(a,true)).join("");
 }
 function deskRequests(){
  return title("MONITORING DESK","Support queue.","Progress a customer issue from Open to In progress and Resolved.")+
@@ -127,7 +149,7 @@ const deskTabs=[["fleet","Fleet","▦"],["events","Alerts","♢"],["requests","R
 function navbar(){
  const tabs=role==="owner"?ownerTabs:deskTabs;
  return '<nav class="bottom-nav" aria-label="Demo navigation">'+tabs.map(([id,label,symbol])=>
- '<button type="button" data-action="tab" data-id="'+id+'" class="'+(tab===id?"active":"")+'" aria-current="'+(tab===id?"page":"false")+'"><span>'+symbol+'</span><small>'+label+'</small></button>').join("")+'</nav>';
+ '<button type="button" data-action="tab" data-id="'+id+'" class="'+(tab===id?"active":"")+'" aria-current="'+(tab===id?"page":"false")+'"><span>'+symbol+'</span><small>'+label+(role==="owner"&&id==="alerts"&&C.summary(data).unreadOwnerAlerts?" ("+C.summary(data).unreadOwnerAlerts+")":"")+'</small></button>').join("")+'</nav>';
 }
 let lastViewScrollKey=null;
 function render(){
@@ -146,14 +168,14 @@ function render(){
  '<label class="role-label">Perspective<select id="role-select" aria-label="Choose demo role"><option value="owner" '+(role==="owner"?"selected":"")+'>Vehicle Owner</option><option value="desk" '+(role==="desk"?"selected":"")+'>Monitoring Desk</option></select></label></header>'+
  '<div class="screen" id="tracking-screen">'+screen+'</div>'+
  navbar()+'<div class="device-home"><i></i></div></div>'+
- '<aside class="guide"><div class="kicker">TRY THESE SCENARIOS</div><h3>Track. Respond. Resolve.</h3><ol><li>Select a vehicle and explore its sample map.</li><li>Play a recorded trip.</li><li>Simulate signal loss or a geofence alert.</li><li>Submit a support request.</li><li>Switch to Monitoring Desk to respond.</li></ol>'+
+ '<aside class="guide"><div class="kicker">TRY THESE SCENARIOS</div><h3>Track. Respond. Resolve.</h3><ol><li>Select a vehicle and explore its sample map.</li><li>Play a recorded trip.</li><li>Simulate anti-theft, tamper or connectivity alerts.</li><li>Submit a support request.</li><li>Switch to Monitoring Desk to respond.</li></ol>'+
  '<button type="button" class="reset-button" data-action="reset">↺ Reset fictional data</button><a href="/demos">All software demos ↗</a><p class="fine-print">No real vehicle commands, GPS readings, backend connectivity or alerts.</p></aside></div>'+
  (notice?'<div class="flash-toast" role="status"><span>'+esc(notice)+'</span><button type="button" data-action="dismiss" aria-label="Dismiss notification">×</button></div>':"");
  if(keepScroll){const host=root.querySelector?.("#tracking-screen");if(host)host.scrollTop=previousScroll;}
  lastViewScrollKey=scrollKey;
 }
 function handleAction(action,id){
-  if(action==="dismiss"){notice="";return;}
+ if(action==="dismiss"){notice="";return;}
  if(action==="tab"){stop();tab=id;notice="";return;}
  if(action==="choose"){C.get(data,id);stop();selected=id;playbackStep=0;notice="";return;}
  if(action==="reset"){if(!window.confirm("Reset all fictional tracking data and requests?"))return;stop();data=C.seed();selected="V-101";playbackStep=0;role="owner";tab="track";persist();notice="Sample data restored.";return;}
@@ -175,7 +197,9 @@ function handleAction(action,id){
  if(action==="pause"){stop();return;}
  if(action==="restart"){stop();playbackStep=0;return;}
  if(role==="owner"){
-  if(action==="move"){C.move(data,id);notice="Fictional vehicle location advanced.";}
+  if(action==="owner-read"){C.markOwnerRead(data,id);notice="Alert marked as read.";}
+  else if(action==="security"){const a=C.triggerSecurityEvent(data,selected,id);notice=a.kind+" — simulated alert added.";}
+  else if(action==="move"){C.move(data,id);notice="Fictional vehicle location advanced.";}
   else if(action==="geofence"){C.geofence(data,id);notice="Sample geofence alert created. Check Alerts or Monitoring Desk.";}
   else if(action==="signal"){C.loseSignal(data,id);notice="Signal loss simulated. Last known location is preserved.";}
   else if(action==="restore"){C.restoreSignal(data,id);notice="Sample tracker connection restored.";}

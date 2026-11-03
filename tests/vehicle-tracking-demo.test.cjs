@@ -133,3 +133,98 @@ test("vehicle-owner actions flow into monitoring alerts and requests",()=>{
  assert.equal(JSON.parse(storage.jtg_vehicle_tracking_demo_v1).vehicles[0].status,"online");
  assert.match(root.innerHTML,/Toyota Prado/);
 });
+
+
+test("anti-theft events are visible in the owner feed and each explains the required hardware",()=>{
+ const d=C.seed();
+ const security=d.alerts.filter(a=>a.category==="security");
+ assert.ok(security.length>=2);
+ assert.ok(security.some(a=>a.kind==="Unexpected ignition"&&a.ownerRead===false));
+ assert.ok(C.summary(d).unreadOwnerAlerts>=2);
+ assert.equal(C.SECURITY_SCENARIOS.length,5);
+ for(const scenario of C.SECURITY_SCENARIOS){
+  const copy=C.seed(),before=copy.alerts.length;
+  const ev=C.triggerSecurityEvent(copy,"V-101",scenario.id);
+  assert.equal(copy.alerts.length,before+1);
+  assert.equal(copy.alerts[0].id,ev.id);
+  assert.equal(ev.category,"security");
+  assert.equal(ev.kind,scenario.kind);
+  assert.equal(ev.status,"new");
+  assert.equal(ev.ownerRead,false);
+  assert.equal(ev.requirement,scenario.requirement);
+  C.markOwnerRead(copy,ev.id);
+  assert.equal(ev.ownerRead,true);
+  assert.throws(()=>C.markOwnerRead(copy,ev.id),/already read/i);
+  C.acknowledge(copy,ev.id);
+  assert.equal(ev.status,"acknowledged");
+ }
+});
+
+test("tamper and suspected interference display last known location without inventing current position",()=>{
+ for(const kind of ["tamper","interference"]){
+  const d=C.seed(),v=C.get(d,"V-102"),p=C.position(v);
+  const alert=C.triggerSecurityEvent(d,v.id,kind);
+  assert.equal(v.status,"offline");
+  assert.deepEqual(C.position(v),p);
+  assert.equal(v.ignition,null);
+  assert.ok(v.lastSeenMinutes>0);
+  assert.equal(alert.category,"security");
+  assert.throws(()=>C.triggerSecurityEvent(d,v.id,"ignition"),/offline/i);
+ }
+ const d=C.seed();
+ assert.throws(()=>C.triggerSecurityEvent(d,"V-101","not-a-real-event"),/unknown/i);
+ assert.throws(()=>C.triggerSecurityEvent(d,"V-103","vibration"),/offline/i);
+});
+
+test("legacy localStorage records receive anti-theft examples once, preserving existing user work",()=>{
+ const d=C.seed();
+ delete d.securityExamplesV2;
+ d.alerts=d.alerts.filter(a=>a.category!=="security");
+ d.tickets[0].status="In progress";
+ const originalTicket=JSON.stringify(d.tickets[0]);
+ const oldAlertId=d.alerts[0].id;
+ const n=d.alerts.length;
+ assert.equal(C.ensureSecuritySamples(d),true);
+ assert.equal(d.alerts.length,n+2);
+ assert.ok(d.alerts.some(a=>a.id===oldAlertId));
+ assert.equal(JSON.stringify(d.tickets[0]),originalTicket);
+ assert.equal(C.ensureSecuritySamples(d),false);
+ assert.equal(d.alerts.length,n+2);
+ assert.ok(C.validate(d));
+});
+
+test("owner app exposes anti-theft preview, triggers and read actions shared with Monitoring Desk",()=>{
+ const events={},store={};
+ const root={innerHTML:"",contains:()=>true,querySelector:()=>null,addEventListener:(type,fn)=>{events[type]=fn;}};
+ const document={getElementById:()=>root};
+ const localStorage={getItem:key=>store[key]??null,setItem:(key,val)=>{store[key]=val;}};
+ const window={confirm:()=>true,addEventListener:()=>{}};
+ class FakeFormData{constructor(el){this.el=el;}get(k){return this.el[k];}}
+ new Function("document","localStorage","window","FormData","setInterval","clearInterval",
+  read("public/demos/vehicle-tracking/core.js")+"\n"+read("public/demos/vehicle-tracking/app.js")
+ )(document,localStorage,window,FakeFormData,()=>1,()=>{});
+ const click=(action,id)=>events.click({target:{closest:()=>({dataset:{action,id},disabled:false})}});
+ const role=value=>events.change({target:{id:"role-select",value}});
+ assert.match(root.innerHTML,/Anti-theft alert examples/);
+ assert.match(root.innerHTML,/Unexpected ignition/);
+ assert.match(root.innerHTML,/VEHICLE SECURITY/);
+ click("security","vibration");
+ assert.match(root.innerHTML,/Vehicle disturbance detected/);
+ let data=JSON.parse(store.jtg_vehicle_tracking_demo_v1);
+ assert.equal(data.alerts[0].category,"security");
+ const alertId=data.alerts[0].id;
+ click("tab","alerts");
+ assert.match(root.innerHTML,/Anti-theft & security/);
+ assert.match(root.innerHTML,/Tracking & connectivity/);
+ assert.match(root.innerHTML,/Mark as read/);
+ click("owner-read",alertId);
+ data=JSON.parse(store.jtg_vehicle_tracking_demo_v1);
+ assert.equal(data.alerts[0].ownerRead,true);
+ assert.equal(data.alerts[0].status,"new","customer reading does not acknowledge for monitoring");
+ role("desk");click("tab","events");
+ assert.match(root.innerHTML,/Vehicle disturbance detected/);
+ assert.match(root.innerHTML,/Acknowledge alert/);
+ click("acknowledge",alertId);
+ data=JSON.parse(store.jtg_vehicle_tracking_demo_v1);
+ assert.equal(data.alerts[0].status,"acknowledged");
+});

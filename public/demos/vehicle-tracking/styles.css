@@ -154,3 +154,23 @@ button.small{min-height:32px;padding:7px 10px;margin-top:9px;font-size:10px}
 .flash-toast{position:fixed;z-index:100;bottom:24px;left:50%;transform:translateX(-50%);width:min(420px,calc(100vw - 24px));padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:11px;background:#153a42;color:white;box-shadow:0 14px 36px #133d454a;font-size:12px;line-height:1.6}
 .flash-toast button{border:0;background:transparent;color:inherit;font-size:20px;font-weight:850;min-width:28px;min-height:28px}
 @media(max-width:560px){.flash-toast{bottom:86px}}
+
+/* Owner-facing anti-theft preview and scenario controls. */
+.owner-security-preview{display:flex;gap:11px;padding:13px;margin:14px 0;border-radius:13px;background:#fff3e7;border:1px solid #ebd4b7;color:#754b25}
+.security-preview-icon{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:10px;background:#b77537;color:white;font-weight:900;font-size:17px}
+.owner-security-preview small{font-size:9px;font-weight:900;letter-spacing:1px;color:#a36930}
+.owner-security-preview h3{font-size:13px;margin-top:4px}
+.owner-security-preview p{font-size:10px;line-height:1.55;margin-top:5px;color:#87684a}
+.owner-security-preview button{padding:0;border:0;margin-top:8px;font-size:11px;font-weight:850;color:#946024;background:transparent;cursor:pointer}
+.security-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.security-action{display:flex;flex-direction:column;gap:5px;text-align:left;align-items:flex-start;border:1px solid #dbe7e3;border-radius:11px;background:#f8fcfa;padding:11px;min-height:91px}
+.security-action:hover:enabled{border-color:#79c5b6;background:#effaf4}
+.security-action span{font-size:19px}
+.security-action strong{font-size:11px;line-height:1.35}
+.security-action small{font-size:9px;color:#82999b;line-height:1.45}
+.security-scenarios .badge{font-size:8px}
+.security-scenarios .smallprint{margin-top:10px}
+.security-alert{border-left:3px solid #ce9050}
+.unread-alert{background:#fffdf9}
+.alert-glyph.warning{background:#fff5dc;color:#a77a27}
+.sensor-note{margin-top:8px!important;font-size:9px!important;color:#8b9b96!important;line-height:1.5}
