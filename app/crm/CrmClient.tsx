@@ -64,12 +64,12 @@ function timeLabel(str: string) {
   });
 }
 function isToCall(lead: Lead) {
-  return !lead.do_not_contact && !['won', 'lost'].includes(lead.stage) &&
+  return !lead.do_not_contact && !['won', 'lost', 'competitor'].includes(lead.stage) &&
     (!lead.last_contacted_at ||
       (!lead.next_action_at && ['number_unavailable','no_answer','busy','switched_off','wrong_number'].includes(lead.last_outcome || '')));
 }
 function isDue(lead: Lead) {
-  if (lead.do_not_contact || ['won', 'lost'].includes(lead.stage) || !lead.next_action_at)
+  if (lead.do_not_contact || ['won', 'lost', 'competitor'].includes(lead.stage) || !lead.next_action_at)
     return false;
   if (lead.next_action_due_at) return Date.parse(lead.next_action_due_at) <= Date.now();
   const zone = lead.next_action_timezone || 'Africa/Nairobi';
@@ -120,7 +120,9 @@ async function api<T>(path: string, method = 'GET', payload?: unknown): Promise<
   return body as T;
 }
 function StageBadge({ lead }: { lead: Lead }) {
-  const cls = lead.do_not_contact || ['lost','do_not_contact'].includes(lead.stage)
+  const cls = lead.stage === 'competitor'
+    ? 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200'
+    : lead.do_not_contact || ['lost','do_not_contact'].includes(lead.stage)
     ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
     : lead.stage === 'won' || isInterested(lead)
       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
@@ -129,7 +131,7 @@ function StageBadge({ lead }: { lead: Lead }) {
         : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
   return (
     <span className={'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ' + cls}>
-      {lead.do_not_contact ? 'Do not contact' : label(lead.stage)}
+      {lead.stage === 'competitor' ? 'Competitor' : lead.do_not_contact ? 'Do not contact' : label(lead.stage)}
     </span>
   );
 }
@@ -169,7 +171,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          {lead.phone && !lead.do_not_contact && (
+          {lead.phone && !lead.do_not_contact && lead.stage !== 'competitor' && (
             <a href={'tel:' + lead.phone.replace(/[^+\d]/g, '')}
               className="inline-flex h-10 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
               <Phone className="h-4 w-4" /> Call
@@ -182,7 +184,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
         </div>
         <button type="button" onClick={() => onOpen(lead)}
           className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-          {lead.do_not_contact ? 'View' : 'Update'} <ChevronRight className="h-4 w-4" />
+          {lead.do_not_contact || lead.stage === 'competitor' ? 'View' : 'Update'} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
     </article>
@@ -200,6 +202,8 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingClassification, setSavingClassification] = useState(false);
+  const [classificationError, setClassificationError] = useState('');
   const [error, setError] = useState('');
   const [planFromCall, setPlanFromCall] = useState(false);
 
@@ -228,11 +232,24 @@ function LeadDialog({ lead, onClose, onSaved }: {
   }, [lead.id]);
   useEffect(() => {
     function escape(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !(saving || savingFollowup || completing)) onClose();
+      if (event.key === 'Escape' && !(saving || savingFollowup || completing || savingClassification)) onClose();
     }
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
-  }, [onClose, saving, savingFollowup, completing]);
+  }, [onClose, saving, savingFollowup, completing, savingClassification]);
+
+
+  async function updateClassification(status: 'competitor' | 'new') {
+    if (savingClassification) return;
+    setSavingClassification(true);
+    setClassificationError('');
+    try {
+      await api('/api/agent-crm/leads/' + lead.id + '/classification', 'PATCH', { status });
+      await onSaved();
+      onClose();
+    } catch (err) { setClassificationError(errText(err)); }
+    finally { setSavingClassification(false); }
+  }
 
   async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -318,7 +335,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 sm:items-center sm:p-5"
       role="presentation" onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !(saving || savingFollowup || completing)) onClose();
+        if (e.target === e.currentTarget && !(saving || savingFollowup || completing || savingClassification)) onClose();
       }}>
       <section role="dialog" aria-modal="true" aria-labelledby="lead-title"
         className="max-h-[96dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl dark:bg-slate-950 sm:max-h-[90dvh] sm:rounded-2xl sm:p-7">
@@ -354,9 +371,31 @@ function LeadDialog({ lead, onClose, onSaved }: {
           </div>
         )}
 
-        {lead.do_not_contact ? (
-          <p className="mt-5 rounded-xl bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950 dark:text-rose-200">
-            Do Not Contact: this lead is now read-only.
+        {!lead.do_not_contact || lead.stage === 'competitor' ? (
+          <section className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm dark:border-violet-800 dark:bg-violet-950/20">
+            <p className="font-semibold">
+              {lead.stage === 'competitor'
+                ? 'Competitor — research record, not an active sales prospect'
+                : 'Company classification'}
+            </p>
+            <p className="mt-1 text-slate-600 dark:text-slate-300">
+              {lead.stage === 'competitor'
+                ? 'Excluded from calls, outreach queues and follow-up reminders. The company remains searchable under its industry.'
+                : 'Mark an industry competitor without logging a call or marking it as a lost sale.'}
+            </p>
+            {classificationError && <p role="alert" className="mt-2 text-rose-700 dark:text-rose-300">{classificationError}</p>}
+            <button type="button" disabled={savingClassification}
+              onClick={() => void updateClassification(lead.stage === 'competitor' ? 'new' : 'competitor')}
+              className="mt-3 min-h-10 rounded-xl border border-violet-300 bg-white px-4 text-xs font-semibold text-violet-800 disabled:opacity-60 dark:border-violet-700 dark:bg-violet-900/40 dark:text-violet-100">
+              {savingClassification ? 'Saving…' : lead.stage === 'competitor' ? 'Reopen as prospect' : 'Mark as competitor'}
+            </button>
+          </section>
+        ) : null}
+        {lead.do_not_contact || lead.stage === 'competitor' ? (
+          <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            {lead.stage === 'competitor'
+              ? 'Competitive intelligence only. Outreach and reminders are paused.'
+              : 'Do Not Contact: this lead is now read-only.'}
           </p>
         ) : (
           <>
