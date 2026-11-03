@@ -17,6 +17,7 @@
     "test:cargo-demo": "node --test tests/cargo-demo.test.cjs",
     "test:security-demo": "node --test tests/security-demo.test.cjs",
     "test:fire-safety-demo": "node --test tests/fire-safety-demo.test.cjs",
+    "test:restaurant-demo": "node --test tests/restaurant-demo.test.cjs",
     "test:play-review": "node --test tests/play-review-gate.test.cjs"
   },
   "dependencies": {

@@ -323,3 +323,36 @@ No actual records, diagnoses, medical advice, clinical decision support, laborat
 - Persistence: browser localStorage key jtech-security-demo-v1, reset control. No server database, GPS permissions, camera permissions, maps, push notifications, real security dispatch, claims of real personnel, or real security operations.
 - Real-world future requirements: audited role authentication, on-duty location consent, minimization and retention, reliable SOS escalation, offline sync, genuine camera evidence handling, and server-side tamper-resistant logs. This demo does not supply these.
 - Verification: tests/security-demo.test.cjs validates core constraints, simulated state transitions, shared role views, XSS escaping, persistence and breakpoints. Run full Next build and actual browser/mobile visual QA separately before merging or deploying.
+
+
+## Restaurant ordering & delivery — SliceLane demo (November 3, 2026)
+
+- Overview: /demos/restaurant (indexable, branded to JoelTechGeek site)
+- Interactive app: /demos/restaurant/demo.html (noindex, fictional brand SliceLane)
+- Source: public/demos/restaurant/core.js, app.js, styles.css and demo.html
+- Tests: tests/restaurant-demo.test.cjs, npm run test:restaurant-demo
+
+Follows the same browser-local, no-login, no-backend convention as the existing industry demos. No production database, POS, payment integration, geocoding, courier API, customer communications, real restaurant inventory or customer identity is used. Never call this a live deployed system.
+
+### Two roles, one shared sample order store
+
+- Customer — Menu / Basket / Orders. Choose a fictional branch, add dishes, adjust quantities, tap on a *locally illustrated* Nairobi area map to pin a sample location (no geolocation permission), and view a delivery quote. A new pin automatically selects the closest of three fictional branches; the customer may switch branches and observe quote/range changes. Simulated M-Pesa checkout validates a sample Kenyan mobile number but NEVER saves the phone number, sends an STK prompt, or touches a payment gateway. Checkout creates a fictional order and clears the basket.
+- Restaurant Operations — Orders / Menu. Update order status Received → Preparing → Ready for dispatch → Out for delivery → Delivered. Toggle menu availability; sold-out items block new customer basket checkout. Order details and current status are immediately visible when switching back to Customer.
+
+### Delivery fee calculation
+
+The fictional branch points and illustrated map bounding box are defined in core.js, with direct, **straight-line Haversine distance**, not road-network distance. Fee = KES 120 + KES 45 per estimated kilometre, rounded up to KES 10, with sample branch delivery radius limited to 12 km. There is no address reverse geocoding, map tile provider, live location or routing/ETA. The figure is an illustrative quote only, **not a real Jajemelo or courier delivery price**. All people, orders, prices, branch locations, inventory settings, payment statuses and menu items are fictional.
+
+### Acceptance scenario
+
+1. Open /demos/restaurant and launch the static demo.
+2. As Customer, add BBQ Chicken Pizza and Seasoned Fries. Open Basket.
+3. Tap the illustrated map; verify a location pin, auto-selected nearest sample branch, calculated distance and sample delivery fee. Select another branch to watch the fee change. A farther pin can fall outside the selected branch's zone and block checkout.
+4. Enter the prefilled fictional phone 0722000011; simulate M-Pesa checkout. Verify the basket clears and an order appears in Customer Orders. Confirm NO real payment or phone notification occurred.
+5. Switch to Restaurant Operations; find the same new order and advance it through all stages. Customer Orders reflects the latest status.
+6. Switch to Operations Menu and mark a pizza sold out. In Customer Menu, that dish cannot be added or checked out until restored.
+7. Refresh; orders and menu availability should remain browser-local. Reset to restore the seeded record and item availability.
+8. Test 375, 768 and 1440px viewports, keyboard/focus use, order lifecycle, invalid phone, missing location, out-of-coverage delivery, basket quantity limits and network requests.
+
+Run npm run test:restaurant-demo, npx tsc --noEmit, npx eslint ., npm run build; perform manual browser viewport and network checks prior to production deployment. Other demos and native mobile app code are unaffected.
+
