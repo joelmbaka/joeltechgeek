@@ -25,31 +25,43 @@ const proven = [
     title: 'FinTech, PropTech & accounting workflows',
     body: 'RentPayor combines property operations with financial and accounting state: rent invoices, M-Pesa collection, automatic invoice reconciliation, partial balances, tenant credits, receipts, leases, units, tenants, and payment history.',
     href: '/rentpayor',
+    serviceHref: '/services/payment-integrations',
+    serviceLabel: 'M-Pesa and reconciliation services',
   },
   {
     title: 'Education & school-fee platforms',
     body: 'SchoolPey combines Android parent access and web school administration with term fee schedules, student and guardian records, invoicing, M-Pesa collection, receipts and reconciliation.',
     href: '/schoolpey',
+    serviceHref: '/services/web-app-development',
+    serviceLabel: 'Business systems development',
   },
   {
     title: 'Construction & project operations',
     body: 'Milliol Construction Manager is an Android-only solution for site progress, work items, procurement, stock and financial reporting.',
     href: '/milliol',
+    serviceHref: '/services/web-app-development',
+    serviceLabel: 'Custom operations software',
   },
   {
     title: 'Healthcare & HMIS',
     body: 'CliviQue HMIS connects patient registration, clinical departments, inpatient/outpatient workflows, billing, facility operations, permissions, and facility-bound M-Pesa patient payments.',
     href: '/clivique-hmis',
+    serviceHref: '/services/web-app-development',
+    serviceLabel: 'Web apps and dashboards',
   },
   {
     title: 'Logistics, transport & operational finance',
     body: 'Macsim Cargo covers loads, reservations, drivers, fleet, trip operations, documents, administration, finance, Daraja collection funding, and guarded B2C driver payouts.',
     href: '/macsim',
+    serviceHref: '/services/web-app-development',
+    serviceLabel: 'Custom business systems',
   },
   {
     title: 'Voice, consumer SaaS & applied AI',
     body: 'JournPad is a voice-first journaling product spanning audio capture, transcription, AI-assisted organization, goals, reminders, playback, subscriptions, and production mobile release.',
     href: '/journpad',
+    serviceHref: '/services/react-native-app-development',
+    serviceLabel: 'Mobile app development',
   },
 ];
 
@@ -81,7 +93,10 @@ export default function IndustriesPage() {
           <article key={item.title} className="rounded-3xl border border-gray-200 bg-white p-7 dark:border-gray-800 dark:bg-gray-900/70">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h2>
             <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{item.body}</p>
-            <Link href={item.href} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-palm-green hover:underline">See case study <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold">
+              <Link href={item.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">See case study <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+              <Link href={item.serviceHref} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.serviceLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+            </div>
           </article>
         ))}
       </section>
