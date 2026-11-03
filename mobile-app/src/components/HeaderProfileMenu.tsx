@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Modal, Pressable, Text, View, useColorScheme } from 'react-native';
 import { useAuth } from '@/lib/AuthProvider';
 import { COLORS } from '@/lib/config';
+import { AgentAvatar } from './AgentAvatar';
 
 export function HeaderProfileMenu() {
   const { agent } = useAuth();
@@ -12,7 +13,6 @@ export function HeaderProfileMenu() {
   if (!agent) return null;
 
   const displayName = (agent.name || agent.email || 'Agent').trim();
-  const initial = displayName.slice(0, 1).toUpperCase();
   const dark = scheme === 'dark';
 
   return <>
@@ -33,15 +33,7 @@ export function HeaderProfileMenu() {
           fontSize: 13, fontWeight: '700', flexShrink: 1 }}>
         {displayName}
       </Text>
-      <View style={{
-        width: 32, height: 32, borderRadius: 16,
-        borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#E6F5EF',
-        justifyContent: 'center', alignItems: 'center',
-      }}>
-        <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.primaryDark }}>
-          {initial}
-        </Text>
-      </View>
+      <AgentAvatar name={displayName} pictureUrl={agent.picture_url} size={32} />
     </Pressable>
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent={false}
       onRequestClose={() => setVisible(false)}>

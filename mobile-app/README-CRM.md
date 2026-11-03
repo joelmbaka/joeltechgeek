@@ -6,7 +6,7 @@ NetInfo, push-token registration, or background polling.
 
 ## Deployment order
 
-1. Previous mobile authentication tables are already deployed. Apply the new additive migration migrations/2026-11-02-agent-crm-google-oauth-states.sql to Portfolio Neon.
+1. Previous mobile authentication tables are already deployed. Apply the additive migrations `migrations/2026-11-02-agent-crm-google-oauth-states.sql` and `migrations/2026-11-03-agent-crm-google-avatar.sql` to Portfolio Neon before deploying the updated backend.
 2. Register https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback as an Authorized redirect URI on the existing Google Web OAuth client.
 3. Deploy backend Google OAuth start/callback/exchange endpoints from the mobile branch.
 4. Run npm ci, npx tsc --noEmit, npx expo lint, npx expo install --check and npx expo run:android --device.
@@ -28,7 +28,7 @@ cannot learn about a follow-up cancelled on the web until it reconnects.
 
 ## Acceptance checklist
 
-- Registered Google agent can sign in, restore session, log out.
+- Registered Google agent can sign in, restore session, log out. The verified Google profile photo appears in the header and Profile page after sign-in and session restoration; missing or invalid photos fall back to initials.
 - Unregistered/disabled agent cannot read another agent's leads.
 - Web cookie CRM still works; API writes still reject cross-origin cookies.
 - Search locates leads outside the first 1,000 rows.

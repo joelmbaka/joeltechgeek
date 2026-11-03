@@ -19,7 +19,7 @@ const sections = [
     paragraphs: [
       'Website enquiries: details you choose to send us, such as your name, email address, phone number, company and message.',
       'Sales agent applications: name, email, telephone/WhatsApp number, town or county, optional background and notes, consent and application source.',
-      'CRM accounts: your registered agent name, email and, if provided, phone number. Google sign-in is used to verify your email identity and determine whether you have access.',
+      'CRM accounts: your registered agent name, email and, if provided, phone number. Google sign-in verifies your email identity and determines whether you have access; if provided by Google, your profile picture URL is saved and used to show your avatar in the CRM.',
       'CRM lead records: company and contact names, job roles, business phone numbers, email addresses, websites, locations, lead sources, outreach notes, call outcomes, next actions and follow-up dates. These may include information provided by agents or obtained from publicly available business sources.',
       'Technical information: authentication and session records, security and rate-limit information, and website traffic and performance information processed by our hosting and analytics services.',
     ],

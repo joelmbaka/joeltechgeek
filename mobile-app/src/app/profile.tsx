@@ -2,6 +2,7 @@ import { Alert, Linking, Pressable, Text, View } from 'react-native';
 import { Page, styles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
 import { COLORS } from '@/lib/config';
+import { AgentAvatar } from '@/components/AgentAvatar';
 
 function DetailRow({ title, value }: { title: string; value: string }) {
   return <View style={{ paddingVertical: 13, gap: 5 }}>
@@ -20,13 +21,7 @@ export default function ProfileScreen() {
   };
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-      <View style={{ width: 50, height: 50, borderRadius: 25,
-        backgroundColor: '#E6F5EF', borderColor: COLORS.border, borderWidth: 1,
-        justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: COLORS.primaryDark, fontWeight: '900', fontSize: 20 }}>
-          {(agent.name || agent.email).slice(0, 1).toUpperCase()}
-        </Text>
-      </View>
+      <AgentAvatar name={agent.name || agent.email} pictureUrl={agent.picture_url} size={50} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.value, { fontSize: 18 }]}>{agent.name}</Text>
         <Text numberOfLines={1} style={styles.subtitle}>{agent.email}</Text>

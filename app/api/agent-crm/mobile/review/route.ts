@@ -29,7 +29,8 @@ export async function POST() {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     const match = await client.query<Agent>(
-      `SELECT id::text AS id, full_name AS name, email, phone
+      `SELECT id::text AS id, full_name AS name, email, phone,
+              google_picture_url AS picture_url
          FROM public.sales_agent_applications
          WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
            AND status = 'approved'

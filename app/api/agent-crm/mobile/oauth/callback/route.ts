@@ -94,6 +94,7 @@ export async function GET(request: Request) {
   }
 
   let email: string;
+  let googlePictureUrl: string | null = null;
   try {
     const { payload } = await jwtVerify(idToken, googleKeys, {
       audience: clientId,
@@ -114,6 +115,18 @@ export async function GET(request: Request) {
       return backToApp('error', 'invalid_response');
     }
     email = payload.email.trim().toLowerCase();
+    // Google's verified ID token may contain a profile image URL. Never
+    // accept arbitrary hosts as an avatar source on the mobile client.
+    if (typeof payload.picture === 'string' && payload.picture.length <= 2048) {
+      try {
+        const picture = new URL(payload.picture);
+        if (picture.protocol === 'https:' &&
+            (picture.hostname === 'googleusercontent.com' ||
+              picture.hostname.endsWith('.googleusercontent.com'))) {
+          googlePictureUrl = picture.toString();
+        }
+      } catch { /* The picture claim is optional; use initials instead. */ }
+    }
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_IDENTITY]', error);
     return backToApp('error', 'invalid_response');
@@ -129,6 +142,13 @@ export async function GET(request: Request) {
     const agent = found.rows[0];
     if (!agent) return backToApp('error', 'account_not_invited');
 
+    // Persist the verified Google photo URL on the approved agent so refreshes
+    // and future app launches can display it without another Google sign-in.
+    // No photo bytes or third-party image storage service are involved.
+    await getCrmPool().query(
+      'UPDATE public.sales_agent_applications SET google_picture_url = $1 WHERE id = $2::uuid',
+      [googlePictureUrl, agent.id],
+    );
     const handoff = randomToken();
     await getCrmPool().query(
       `INSERT INTO public.crm_mobile_auth_codes

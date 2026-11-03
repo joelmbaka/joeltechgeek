@@ -50,8 +50,8 @@ export function validateAccessToken(value: string): { sid: string; agentId: stri
 export async function getActiveMobileAgent(token: string): Promise<Agent | null> {
   const identity = validateAccessToken(token);
   if (!identity) return null;
-  const row = await getCrmPool().query<{ id: string; name: string; email: string; phone: string | null }>(
-    `SELECT a.id::text AS id, a.full_name AS name, a.email, a.phone
+  const row = await getCrmPool().query<{ id: string; name: string; email: string; phone: string | null; picture_url: string | null }>(
+    `SELECT a.id::text AS id, a.full_name AS name, a.email, a.phone, a.google_picture_url AS picture_url
        FROM public.crm_mobile_sessions s
        JOIN public.sales_agent_applications a ON a.id = s.agent_id
        WHERE s.id = $1::uuid AND s.agent_id = $2::uuid
@@ -64,8 +64,8 @@ export async function getActiveMobileAgent(token: string): Promise<Agent | null>
   return row.rows[0] || null;
 }
 export async function getActiveAgentById(id: string, client: PoolClient): Promise<Agent | null> {
-  const found = await client.query<{ id: string; name: string; email: string; phone: string | null }>(
-    `SELECT id::text, full_name AS name, email, phone
+  const found = await client.query<{ id: string; name: string; email: string; phone: string | null; picture_url: string | null }>(
+    `SELECT id::text, full_name AS name, email, phone, google_picture_url AS picture_url
        FROM public.sales_agent_applications
        WHERE id = $1::uuid AND crm_access_enabled IS TRUE AND status <> 'declined'
          AND (lower(email) <> $2 OR $3::boolean)
