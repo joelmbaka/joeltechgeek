@@ -13,13 +13,14 @@ import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
+import { useDailyMantra } from '@/lib/dailyMantra';
 import type { Lead, LeadList } from '@/lib/types';
 
 const PER_PAGE = 25;
-function todayLabel(): string {
+function todayLabel(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
-  }).format(new Date()).replace(',', '');
+  }).format(date).replace(',', '');
 }
 const SORTS: SelectOption[] = [
   { value: 'recommended', label: 'Recommended' },
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
   const showDialog = useAppDialog();
+  const { mantra, now } = useDailyMantra();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -189,7 +191,7 @@ export default function HomeScreen() {
             style={{
               color: theme.muted, fontSize: 12, fontWeight: '800',
               letterSpacing: .1, flexShrink: 1,
-            }}>Today&apos;s Focus · {todayLabel()}</Text>
+            }}>Today&apos;s Focus · {todayLabel(now)}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
@@ -240,15 +242,19 @@ export default function HomeScreen() {
               options={industryOptions} onChange={setIndustry} searchable/>
           </View>
         </View>
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          justifyContent: 'space-between', marginTop: 2, gap: 8,
-        }}>
-          <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '800' }}>
-            Lead directory
+        <View style={{ gap: 8, marginTop: 2 }}>
+          <Text accessibilityRole="header" numberOfLines={1}
+            adjustsFontSizeToFit minimumFontScale={0.75}
+            style={{
+              color: theme.ink, fontSize: 18, fontWeight: '900',
+              letterSpacing: .25,
+            }}>
+            {mantra}
           </Text>
-          <SelectSheet title="Sort" value={sort}
-            options={SORTS} onChange={setSort} compact/>
+          <View style={{ alignItems: 'flex-end' }}>
+            <SelectSheet title="Sort" value={sort}
+              options={SORTS} onChange={setSort} compact/>
+          </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
