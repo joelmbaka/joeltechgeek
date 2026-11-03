@@ -32,7 +32,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
       industry.length > 100) return badInput('Invalid filter.');
 
   const due = "(next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))))";
-  const active = "NOT do_not_contact AND stage NOT IN ('won','lost')";
+  const active = "NOT do_not_contact AND stage NOT IN ('won','lost','competitor')";
   const filters: string[] = ['agent_id = $1'];
   const args: unknown[] = [agentId];
   const bind = (value: unknown) => { args.push(value); return '$' + args.length; };
@@ -72,8 +72,8 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
       db.query<{ total: number }>('SELECT count(*)::int AS total FROM public.crm_leads WHERE ' + where, countArgs),
       db.query<LeadStats>(
         'SELECT count(*)::int AS total, ' +
-        "count(*) FILTER (WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2,last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact AND stage NOT IN ('won','lost'))::int AS to_call, " +
-        'count(*) FILTER (WHERE ' + due + " AND NOT do_not_contact AND stage NOT IN ('won','lost'))::int AS followups_due, " +
+        "count(*) FILTER (WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2,last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact AND stage NOT IN ('won','lost','competitor'))::int AS to_call, " +
+        'count(*) FILTER (WHERE ' + due + " AND NOT do_not_contact AND stage NOT IN ('won','lost','competitor'))::int AS followups_due, " +
         "count(*) FILTER (WHERE stage IN ('interested','meeting','proposal','negotiation'))::int AS interested, " +
         "count(*) FILTER (WHERE stage = 'meeting')::int AS meetings, " +
         "count(*) FILTER (WHERE stage = 'won')::int AS won " +
@@ -117,11 +117,11 @@ export async function GET(request: Request) {
         `SELECT count(*)::int AS total,
            count(*) FILTER (
              WHERE (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2, last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number'))) AND NOT do_not_contact
-               AND stage NOT IN ('won','lost')
+               AND stage NOT IN ('won','lost','competitor')
            )::int AS to_call,
            count(*) FILTER (
              WHERE next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) AND NOT do_not_contact
-               AND stage NOT IN ('won','lost')
+               AND stage NOT IN ('won','lost','competitor')
            )::int AS followups_due,
            count(*) FILTER (
              WHERE stage IN ('interested','meeting','proposal','negotiation')
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
   const priority = values.priority || 'normal';
   const stageValue = values.stage || 'new';
   if (!['high', 'normal', 'low'].includes(priority)) return badInput('Invalid priority.');
-  if (!LEAD_STAGES.includes(stageValue as LeadStage) || stageValue === 'do_not_contact') {
+  if (!LEAD_STAGES.includes(stageValue as LeadStage) || stageValue === 'do_not_contact' || stageValue === 'competitor') {
     return badInput('Invalid lead stage.');
   }
   const outcome = values.outcome || null;
