@@ -90,8 +90,13 @@ export default function HomeScreen() {
     fetchPage(new AbortController().signal);
   };
   const openLead = (id: string) => {
-    // Clear while leaving the list. When Android back-navigation refocuses
-    // this screen, the next fetch uses the unfiltered query immediately.
+    // Prepare the list's loading state BEFORE navigating. The underlying
+    // screen remains mounted in the stack; when Android Back returns, users
+    // immediately see skeleton cards, not stale results or an empty viewport.
+    setLoading(true);
+    setData(null);
+    setMessage(null);
+    // Returning from a searched lead should show the ordinary lead list.
     setSearch('');
     setOffset(0);
     router.push({ pathname: '/leads/[id]', params: { id } });
@@ -194,8 +199,11 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>No leads match your search or filters.</Text> : null}
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
+      // Keep skeletons inside the list's scrollable content while data is
+      // cleared for a fresh request. As a footer they could be off-screen
+      // after restoring the previous scroll offset on back navigation.
+      ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : null}
       ListFooterComponent={<View style={{ gap: 12, paddingTop: 5 }}>
-        {loading ? <LeadCardSkeleton count={5}/> : null}
         {!loading && data ? <>
           <Text style={styles.subtitle}>
             Page {Math.floor(offset / PER_PAGE) + 1} · {data.leads.length} leads shown

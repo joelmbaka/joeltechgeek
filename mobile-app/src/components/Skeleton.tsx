@@ -27,7 +27,8 @@ export function LeadCardSkeleton({ count = 5 }: { count?: number }) {
   return <View accessible accessibilityLabel="Loading leads" style={{ gap: 10 }}>
     {Array.from({ length: count }, (_, index) => <View key={index}
       style={{ borderRadius: 16, backgroundColor: COLORS.white,
-        borderColor: COLORS.border, borderWidth: 1, padding: 16, gap: 12 }}>
+        borderColor: COLORS.border, borderWidth: 1, padding: 16,
+        minHeight: 132, gap: 12 }}>
       <Bar width="72%" height={18} pulse={pulse}/>
       <Bar width="54%" height={13} pulse={pulse}/>
       <Bar width="38%" height={13} pulse={pulse}/>
