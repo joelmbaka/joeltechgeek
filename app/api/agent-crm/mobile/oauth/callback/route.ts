@@ -14,6 +14,18 @@ const googleKeys = createRemoteJWKSet(
 );
 
 type StateRow = { code_verifier: string; nonce: string; app_challenge: string };
+
+/** Only accept HTTPS images from Google's profile-image domain. */
+function verifiedGooglePicture(candidate: unknown): string | null {
+  if (typeof candidate !== 'string' || candidate.length > 2048) return null;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'https:' ||
+        (url.hostname !== 'googleusercontent.com' &&
+          !url.hostname.endsWith('.googleusercontent.com'))) return null;
+    return url.toString();
+  } catch { return null; }
+}
 function backToApp(key: 'code' | 'error', value: string) {
   // The destination is a hardcoded app scheme, never a request-supplied URL.
   const url = APP_CALLBACK + '?' + key + '=' + encodeURIComponent(value);
@@ -66,6 +78,7 @@ export async function GET(request: Request) {
   if (!clientId || !clientSecret) return backToApp('error', 'configuration_error');
 
   let idToken: string;
+  let googleAccessToken: string | null = null;
   try {
     const params = new URLSearchParams({
       client_id: clientId,
@@ -83,17 +96,21 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) return backToApp('error', 'provider_error');
-    const body = await response.json() as { id_token?: unknown };
+    const body = await response.json() as { id_token?: unknown; access_token?: unknown };
     if (typeof body.id_token !== 'string' || !body.id_token) {
       return backToApp('error', 'invalid_response');
     }
     idToken = body.id_token;
+    if (typeof body.access_token === 'string' && body.access_token.length <= 8192) {
+      googleAccessToken = body.access_token;
+    }
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_GOOGLE]', error);
     return backToApp('error', 'provider_error');
   }
 
   let email: string;
+  let googleSubject: string;
   let googlePictureUrl: string | null = null;
   try {
     const { payload } = await jwtVerify(idToken, googleKeys, {
@@ -115,21 +132,37 @@ export async function GET(request: Request) {
       return backToApp('error', 'invalid_response');
     }
     email = payload.email.trim().toLowerCase();
-    // Google's verified ID token may contain a profile image URL. Never
-    // accept arbitrary hosts as an avatar source on the mobile client.
-    if (typeof payload.picture === 'string' && payload.picture.length <= 2048) {
-      try {
-        const picture = new URL(payload.picture);
-        if (picture.protocol === 'https:' &&
-            (picture.hostname === 'googleusercontent.com' ||
-              picture.hostname.endsWith('.googleusercontent.com'))) {
-          googlePictureUrl = picture.toString();
-        }
-      } catch { /* The picture claim is optional; use initials instead. */ }
-    }
+    googleSubject = payload.sub;
+    googlePictureUrl = verifiedGooglePicture(payload.picture);
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_IDENTITY]', error);
     return backToApp('error', 'invalid_response');
+  }
+
+  // Some Google ID tokens omit the optional picture claim. Request it from
+  // UserInfo using the just-issued OAuth access token. The response must
+  // match the *verified* ID token identity; it cannot authorize an account.
+  if (!googlePictureUrl && googleAccessToken) {
+    try {
+      const userInfoResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+        headers: { Authorization: 'Bearer ' + googleAccessToken },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(4000),
+      });
+      if (userInfoResponse.ok) {
+        const info = await userInfoResponse.json() as {
+          sub?: unknown; email?: unknown; email_verified?: unknown; picture?: unknown;
+        };
+        if (info.sub === googleSubject &&
+            typeof info.email === 'string' &&
+            info.email.trim().toLowerCase() === email &&
+            info.email_verified === true) {
+          googlePictureUrl = verifiedGooglePicture(info.picture);
+        }
+      }
+    } catch {
+      // Optional avatar lookup must never block a valid Google sign-in.
+    }
   }
 
   try {
@@ -142,13 +175,14 @@ export async function GET(request: Request) {
     const agent = found.rows[0];
     if (!agent) return backToApp('error', 'account_not_invited');
 
-    // Persist the verified Google photo URL on the approved agent so refreshes
-    // and future app launches can display it without another Google sign-in.
-    // No photo bytes or third-party image storage service are involved.
-    await getCrmPool().query(
-      'UPDATE public.sales_agent_applications SET google_picture_url = $1 WHERE id = $2::uuid',
-      [googlePictureUrl, agent.id],
-    );
+    // Preserve any existing photo if Google omits the optional picture claim.
+    // We store only the verified Google URL, never the image or access token.
+    if (googlePictureUrl) {
+      await getCrmPool().query(
+        'UPDATE public.sales_agent_applications SET google_picture_url = $1 WHERE id = $2::uuid',
+        [googlePictureUrl, agent.id],
+      );
+    }
     const handoff = randomToken();
     await getCrmPool().query(
       `INSERT INTO public.crm_mobile_auth_codes
