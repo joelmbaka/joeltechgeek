@@ -15,7 +15,11 @@ import type { Lead, LeadDetails, LeadEvent } from '@/lib/types';
 import { OUTCOMES, outcomeLabel } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
-const outcomeOptions = OUTCOMES.map(([value, label]) => ({ value, label }));
+// This is an administrative classification, not a call outcome sent to the outreach API.
+const outcomeOptions = [
+  ...OUTCOMES.map(([value, label]) => ({ value, label })),
+  { value: 'mark_competitor', label: 'Mark as competitor' },
+];
 
 function LabelValue({ label, value }: { label: string; value: string | null }) {
   const styles = useUIStyles();
@@ -293,31 +297,39 @@ export default function LeadScreen() {
         </Text> : null}
         {lead.last_notes ? <Text style={styles.subtitle}>Notes: {lead.last_notes}</Text> : null}
       </View>
-      {(!lead.do_not_contact || lead.stage === 'competitor') ? <View style={styles.card}>
-        <Text style={[styles.title, { fontSize: 18 }]}>Company classification</Text>
+      {lead.stage === 'competitor' ? <View style={styles.card}>
+        <Text style={[styles.title, { fontSize: 18 }]}>Competitor — outreach paused</Text>
         <Text style={styles.subtitle}>
-          {lead.stage === 'competitor'
-            ? 'Competitor — research only. Outreach and reminders are paused.'
-            : 'This business can be kept as a competitor instead of an active sales prospect.'}
+          Retained for industry research. Calls and follow-up reminders are disabled.
         </Text>
         <Button secondary disabled={saving} onPress={() => showDialog({
-          title: lead.stage === 'competitor' ? 'Reopen as prospect?' : 'Mark as competitor?',
-          message: lead.stage === 'competitor'
-            ? 'Return this business to the new-lead queue?'
-            : 'Exclude this business from sales outreach while retaining its research record?',
+          title: 'Reopen as prospect?',
+          message: 'Return this business to the new-lead queue?',
           cancelLabel: 'Cancel',
-          confirmLabel: lead.stage === 'competitor' ? 'Reopen' : 'Mark competitor',
-          onConfirm: () => void updateClassification(lead.stage === 'competitor' ? 'new' : 'competitor'),
+          confirmLabel: 'Reopen',
+          onConfirm: () => void updateClassification('new'),
         })}>
-          {saving ? 'Saving…' : lead.stage === 'competitor' ? 'Reopen as prospect' : 'Mark as competitor'}
+          {saving ? 'Saving…' : 'Reopen as prospect'}
         </Button>
       </View> : null}
       {!lead.do_not_contact && lead.stage !== 'competitor' ? <>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
           <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
-            placeholder="Select outcome"
-            onChange={(value) => edit(() => setOutcome(value))}/>
+            disabled={saving} placeholder="Select outcome"
+            onChange={(value) => {
+              if (value === 'mark_competitor') {
+                showDialog({
+                  title: 'Mark as competitor?',
+                  message: 'Keep this company for research, but exclude it from outreach and reminders. No call will be recorded.',
+                  cancelLabel: 'Cancel',
+                  confirmLabel: 'Mark as competitor',
+                  onConfirm: () => void updateClassification('competitor'),
+                });
+                return;
+              }
+              edit(() => setOutcome(value));
+            }}/>
           <Field label="Conversation notes" value={notes}
             onChangeText={(value) => edit(() => setNotes(value))} multiline/>
           <Pressable onPress={() => edit(() => setOptOut(!optOut))}
