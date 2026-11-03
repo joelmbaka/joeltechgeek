@@ -2,7 +2,7 @@ export type Agent = { id: string; name: string; email: string; phone?: string | 
 
 export type LeadStage =
   | 'new' | 'contacted' | 'interested' | 'meeting' | 'proposal'
-  | 'negotiation' | 'won' | 'lost' | 'nurture' | 'do_not_contact';
+  | 'negotiation' | 'won' | 'lost' | 'nurture' | 'competitor' | 'do_not_contact';
 
 // Outreach defaults to a phone call. Email is a distinct outcome only when
 // the agent actually sent an email, not a replacement for call attempts.
@@ -47,7 +47,7 @@ export function callOutcomeLabel(value: string): string {
 
 export const LEAD_STAGES: LeadStage[] = [
   'new', 'contacted', 'interested', 'meeting', 'proposal',
-  'negotiation', 'won', 'lost', 'nurture', 'do_not_contact',
+  'negotiation', 'won', 'lost', 'nurture', 'competitor', 'do_not_contact',
 ];
 
 export const RETRY_CALL_OUTCOMES = [
