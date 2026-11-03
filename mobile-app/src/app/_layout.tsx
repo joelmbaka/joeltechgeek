@@ -25,6 +25,7 @@ function Navigation() {
         headerShown: !!agent,
         headerTitleAlign: 'left',
         headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             source={dark ? require('../../assets/images/header-logo-dark.png') : require('../../assets/images/header-logo.png')}

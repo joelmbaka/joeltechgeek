@@ -16,11 +16,9 @@ export function HeaderProfileMenu() {
   if (!agent) return null;
 
   const displayName = (agent.name || agent.email || 'Agent').trim();
-  // Non-translucent Android modals begin below the system status bar.
-  // An Android native-stack header is 56dp high; keep the menu below it.
-  // On iOS modal coordinates include the top safe-area inset.
-  // Android modals may include or exclude the status-bar area depending on
-  // OS version. Reserve the full status-bar + native-header height.
+  // Keep the popover below the native header, including the status bar.
+  // Android modal coordinate origins vary by OS; use a conservative offset.
+  // iOS uses the safe-area inset plus the navigation header height.
   const menuTop = Platform.OS === 'android' ? 88 : insets.top + 52;
   return <>
     <Pressable

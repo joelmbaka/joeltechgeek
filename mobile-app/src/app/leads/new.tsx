@@ -38,7 +38,10 @@ export default function AddLead() {
   useFreshOnFocus(loadIndustries, [loadIndustries]);
 
   const save = async () => {
-    if (!company.trim() || !industry) { setError('Company and industry are required.'); return; }
+    if (!company.trim() || !industry || !country.trim() || !priority) {
+      setError('Enter a company and country, then choose an industry and priority.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
