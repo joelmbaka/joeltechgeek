@@ -103,7 +103,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (typeof notes !== 'string' || notes.length > 2500 ||
       typeof nextAction !== 'string' || nextAction.length > 300 ||
       (stageOverride !== undefined && (typeof stageOverride !== 'string' ||
-        !LEAD_STAGES.some((s) => s === stageOverride)))) {
+        !LEAD_STAGES.some((s) => s === stageOverride) || stageOverride === 'competitor'))) {
     return response('Please check the notes, next action, and stage.', 400);
   }
   if (dueDate && !optOut && !nextAction.trim()) {
@@ -124,9 +124,9 @@ export async function PATCH(request: Request, { params }: Params) {
       await client.query('ROLLBACK');
       return response('Lead not found.', 404);
     }
-    if (current.do_not_contact) {
+    if (current.do_not_contact || current.stage === 'competitor') {
       await client.query('ROLLBACK');
-      return response('This lead is marked Do Not Contact.', 409);
+      return response('This record is excluded from outreach.', 409);
     }
 
     const stage = optOut ? 'do_not_contact' :
