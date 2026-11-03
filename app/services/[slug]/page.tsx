@@ -74,7 +74,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">{service.summary}</p>
         <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">{service.description}</p>
         <Link href="/contact" className="mt-7 inline-flex min-h-12 items-center rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90">
-          Discuss this service <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+          {service.ctaLabel ?? 'Discuss this service'} <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
         </Link>
       </header>
 
@@ -109,6 +109,21 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         </ol>
       </section>
 
+      {service.buyerExamples && (
+        <section className="mt-16" aria-labelledby="business-examples-title">
+          <h2 id="business-examples-title" className="text-3xl font-bold text-gray-900 dark:text-white">Business workflows this service can support</h2>
+          <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Illustrative project scopes, tailored to your requirements and existing systems.</p>
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            {service.buyerExamples.map((example) => (
+              <article key={example.title} className="rounded-2xl border border-gray-200 p-6 dark:border-gray-800">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{example.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-300">{example.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="mt-16">
         <h2 className="text-3xl font-bold">Real work behind this capability</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
@@ -128,6 +143,33 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         </div>
       </section>
 
+      {service.relatedDemos && (
+        <section className="mt-16 rounded-3xl bg-gray-50 p-7 dark:bg-gray-900/50 sm:p-9">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Try related interactive concepts</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-gray-600 dark:text-gray-300">
+            These are fictional browser-based demonstrations of business workflows, not commissioned client deployments.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold">
+            {service.relatedDemos.map((demo) => (
+              <Link key={demo.href} href={demo.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">
+                {demo.label} <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+      {service.relatedServices && (
+        <section className="mt-12">
+          <h2 className="text-xl font-semibold">Related development services</h2>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold">
+            {service.relatedServices.map((related) => (
+              <Link key={related.href} href={related.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">
+                {related.label} <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="mt-12 text-sm text-gray-500 dark:text-gray-400">
         <Link href="/work" className="font-semibold text-palm-green hover:underline">Browse the complete portfolio</Link>
       </div>
