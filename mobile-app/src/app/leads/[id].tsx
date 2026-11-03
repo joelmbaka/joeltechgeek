@@ -20,7 +20,6 @@ const outcomeOptions = OUTCOMES.map(([value, label]) => ({ value, label }));
 function LabelValue({ label, value }: { label: string; value: string | null }) {
   const styles = useUIStyles();
   const theme = useTheme();
-  const showDialog = useAppDialog();
   if (!value) return null;
   return <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
     <Text style={[styles.label, { minWidth: 64, marginTop: 2 }]}>{label}:</Text>
@@ -45,6 +44,7 @@ function whatsappNumber(phone: string, country: string) {
 export default function LeadScreen() {
   const styles = useUIStyles();
   const theme = useTheme();
+  const showDialog = useAppDialog();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { agent } = useAuth();

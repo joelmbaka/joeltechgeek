@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Modal, Platform, Pressable, StatusBar as NativeStatusBar, Text, View, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Modal, Platform, Pressable, StatusBar, Text, View, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
 import { AgentAvatar } from './AgentAvatar';
@@ -11,47 +11,33 @@ export function HeaderProfileMenu() {
   const router = useRouter();
   const dark = useColorScheme() === 'dark';
   const theme = useTheme();
-  const anchor = useRef<View>(null);
+  const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
-  const [menuTop, setMenuTop] = useState(62);
   if (!agent) return null;
 
   const displayName = (agent.name || agent.email || 'Agent').trim();
-  const showMenu = () => {
-    // measureInWindow includes the status bar. Non-translucent Android modals
-    // begin below it, so subtract the inset to avoid overlapping the header.
-    if (!anchor.current) { setVisible(true); return; }
-    anchor.current.measureInWindow((_x, y, _width, height) => {
-      setMenuTop(Math.max(0, y + height - (Platform.OS === 'android' ? (NativeStatusBar.currentHeight || 0) : 0) + 8));
-      setVisible(true);
-    });
-  };
+  // Non-translucent Android modals begin below the system status bar.
+  // An Android native-stack header is 56dp high; keep the menu below it.
+  // On iOS modal coordinates include the top safe-area inset.
+  const menuTop = Platform.OS === 'android' ? 66 : insets.top + 52;
   return <>
-    <View ref={anchor} collapsable={false}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open account menu for ${displayName}`}
-        hitSlop={8}
-        onPress={showMenu}
-        style={{
-          marginRight: 7, height: 40, maxWidth: 172, borderRadius: 22,
-          borderWidth: 1, borderColor: theme.border,
-          backgroundColor: theme.white,
-          flexDirection: 'row', alignItems: 'center',
-          paddingLeft: 10, paddingRight: 4, gap: 8,
-        }}>
-        <Text numberOfLines={1} ellipsizeMode="tail"
-          style={{ color: theme.ink,
-            fontSize: 13, fontWeight: '700', flexShrink: 1 }}>
-          {displayName}
-        </Text>
-        <AgentAvatar name={displayName} pictureUrl={agent.picture_url} size={32} />
-      </Pressable>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open account menu"
+      hitSlop={8}
+      onPress={() => setVisible(true)}
+      style={{
+        marginRight: 8, width: 40, height: 40, borderRadius: 22,
+        borderWidth: 1, borderColor: theme.border,
+        backgroundColor: theme.white,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+      <AgentAvatar name={displayName} pictureUrl={agent.picture_url} size={34} />
+    </Pressable>
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent={false}
       onRequestClose={() => setVisible(false)}>
-      <StatusBar style={dark ? 'light' : 'dark'} translucent={false}
-        backgroundColor={dark ? '#0A2836' : '#FFFFFF'}/>
+      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'}
+        backgroundColor={dark ? '#0A2836' : '#FFFFFF'} translucent={false}/>
       <View style={{ flex: 1 }}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Close account menu"
@@ -69,7 +55,8 @@ export function HeaderProfileMenu() {
             accessibilityRole="button"
             onPress={() => { setVisible(false); router.push('/profile'); }}
             style={{ flexDirection: 'row', alignItems: 'center',
-              paddingHorizontal: 16, paddingVertical: 15, minHeight: 50, justifyContent: 'space-between' }}>
+              paddingHorizontal: 16, paddingVertical: 15,
+              minHeight: 50, justifyContent: 'space-between' }}>
             <Text style={{ color: theme.ink, fontWeight: '700' }}>Profile</Text>
             <Text style={{ color: theme.muted, fontSize: 17 }}>›</Text>
           </Pressable>

@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
-import { Image, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Image, Text, View, StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
@@ -14,7 +13,7 @@ function Navigation() {
   const theme = useTheme();
   const headerBackground = dark ? '#0A2836' : '#FFFFFF';
   return <>
-    <StatusBar style={dark ? 'light' : 'dark'} hidden={false} translucent={false} backgroundColor={headerBackground}/>
+    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} hidden={false} translucent={false} backgroundColor={headerBackground}/>
     <Stack screenOptions={{
       headerStyle: { backgroundColor: headerBackground },
       headerTintColor: theme.ink,
@@ -25,13 +24,17 @@ function Navigation() {
         title: '',
         headerShown: !!agent,
         headerTitleAlign: 'left',
-        // eslint-disable-next-line jsx-a11y/alt-text
-        headerTitle: () => <Image
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          source={dark ? require('../../assets/images/header-logo-dark.png') : require('../../assets/images/header-logo.png')}
-          style={{ width: 34, height: 34 }}
-          resizeMode="contain"
-          accessibilityLabel="JoelTechGeek" />,
+        headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={dark ? require('../../assets/images/header-logo-dark.png') : require('../../assets/images/header-logo.png')}
+            style={{ width: 30, height: 30 }}
+            resizeMode="contain"
+            accessibilityLabel="JoelTechGeek" />
+          <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>
+            JoelTechGeek CRM
+          </Text>
+        </View>,
         headerBackVisible: false,
         headerLeft: () => null,
         headerRight: () => <HeaderProfileMenu />,
