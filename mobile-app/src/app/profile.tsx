@@ -1,4 +1,4 @@
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
 import { Page, styles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
 import { COLORS } from '@/lib/config';
@@ -39,6 +39,24 @@ export default function ProfileScreen() {
       <DetailRow title="Email" value={agent.email}/>
       <View style={{ height: 1, backgroundColor: COLORS.border }}/>
       <DetailRow title="Phone" value={agent.phone || 'Not provided'}/>
+    </View>
+    <Text style={styles.label}>PRIVACY</Text>
+    <View style={[styles.card, { padding: 0 }]}>
+      <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
+        .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
+        style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
+          justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontWeight: '700', color: COLORS.primaryDark }}>Privacy Policy</Text>
+        <Text style={{ color: COLORS.muted, fontSize: 20 }}>›</Text>
+      </Pressable>
+      <View style={{ height: 1, backgroundColor: COLORS.border }}/>
+      <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=JoelTechGeek%20CRM%20account%20and%20data%20deletion')
+        .catch(() => Alert.alert('Email unavailable', 'Please email mbakajoe26@gmail.com to request deletion.'))}
+        style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
+          justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontWeight: '700', color: COLORS.ink }}>Request account/data deletion</Text>
+        <Text style={{ color: COLORS.muted, fontSize: 20 }}>›</Text>
+      </Pressable>
     </View>
     <Text style={styles.label}>ACCESS</Text>
     <View style={[styles.card, { padding: 0 }]}>

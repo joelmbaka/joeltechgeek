@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Linking, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Busy, Button, styles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
@@ -123,6 +123,14 @@ export default function HomeScreen() {
         </Button>
         <Text style={styles.subtitle}>Explore the CRM with fictional sample leads.</Text>
       </> : null}
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="Read Privacy Policy"
+        onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
+          .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
+        style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}>
+        <Text style={{ color: COLORS.primaryDark, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Privacy Policy</Text>
+      </Pressable>
     </View>
   </SafeAreaView>;
 

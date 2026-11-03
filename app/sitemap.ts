@@ -29,6 +29,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/demos/healthcare`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/security`, lastModified: new Date('2026-11-02'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/contact`, lastModified: CAREERS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.88 },
+    { url: `${base}/privacy`, lastModified: new Date('2026-11-03'), changeFrequency: 'yearly', priority: 0.4 },
   ];
 
   const serviceRoutes: MetadataRoute.Sitemap = services.map((service) => ({
