@@ -161,5 +161,9 @@ export async function signOutSession(): Promise<void> {
   if (token) await fetch(API_BASE_URL + '/api/agent-crm/mobile/logout', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: token }),
-  }).catch(() => {});
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {
+    // The local refresh credential has already been erased. Offline sign-out
+    // must never remain stuck on a loading screen.
+  });
 }

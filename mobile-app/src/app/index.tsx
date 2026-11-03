@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, FlatList, Image, Linking, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
+import { FlatList, Image, Linking, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
+import { useAppDialog } from '@/components/AppDialog';
+import { LoadingState } from '@/components/LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Busy, Button, useUIStyles } from '@/components/ui';
+import { Button, useUIStyles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
 import { LeadCardSkeleton } from '@/components/Skeleton';
 import { PriorityChip } from '@/components/PriorityChip';
@@ -36,6 +38,7 @@ export default function HomeScreen() {
   const brandScheme = useColorScheme();
   const theme = useTheme();
   const styles = useUIStyles();
+  const showDialog = useAppDialog();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -123,10 +126,7 @@ export default function HomeScreen() {
   };
 
   if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      <BrandMark dark={brandScheme === 'dark'}/>
-      <Busy label="Restoring your session…"/>
-    </View>
+    <LoadingState label="Restoring your session…" fullScreen/>
   </SafeAreaView>;
   if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ flex: 1, padding: 22, justifyContent: 'center', alignItems: 'center' }}>
@@ -147,7 +147,7 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="link" accessibilityLabel="Read Privacy Policy"
           onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
-            .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
+            .catch(() => showDialog({ title: 'Privacy Policy unavailable', message: 'Unable to open the link. You can read the policy at joeltechgeek.com/privacy.' }))}
           style={{ minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ color: theme.primaryDark, fontSize: 13, fontWeight: '700' }}>Privacy Policy</Text>
         </Pressable>

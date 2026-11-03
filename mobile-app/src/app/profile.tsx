@@ -1,4 +1,6 @@
-import { Alert, Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAppDialog } from '@/components/AppDialog';
 import { Page, useUIStyles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
@@ -14,14 +16,17 @@ function DetailRow({ title, value }: { title: string; value: string }) {
 export default function ProfileScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
-  const { agent, logout } = useAuth();
+  const { agent } = useAuth();
+  const router = useRouter();
+  const showDialog = useAppDialog();
   if (!agent) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
-  const signOut = () => {
-    Alert.alert('Sign out?', 'You will need to choose your Google account to return.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', onPress: () => void logout() },
-    ]);
-  };
+  const signOut = () => showDialog({
+    title: 'Sign out of CRM?',
+    message: 'Your session on this device will end. To access your workspace again, sign in with your authorized Google account.',
+    cancelLabel: 'Stay signed in',
+    confirmLabel: 'Sign out',
+    onConfirm: () => router.replace('/signing-out'),
+  });
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
       <AgentAvatar name={agent.name || agent.email} pictureUrl={agent.picture_url} size={50} />
@@ -41,7 +46,7 @@ export default function ProfileScreen() {
     <Text style={styles.label}>PRIVACY</Text>
     <View style={[styles.card, { padding: 0 }]}>
       <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
-        .catch(() => Alert.alert('Unable to open', 'Please visit joeltechgeek.com/privacy in your browser.'))}
+        .catch(() => showDialog({ title: 'Privacy Policy unavailable', message: 'Unable to open the link. You can read the policy at joeltechgeek.com/privacy.' }))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '700', color: theme.primaryDark }}>Privacy Policy</Text>
@@ -49,7 +54,7 @@ export default function ProfileScreen() {
       </Pressable>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
       <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=JoelTechGeek%20CRM%20account%20and%20data%20deletion')
-        .catch(() => Alert.alert('Email unavailable', 'Please email mbakajoe26@gmail.com to request deletion.'))}
+        .catch(() => showDialog({ title: 'Email app unavailable', message: 'Please email mbakajoe26@gmail.com to request account or data deletion.' }))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '700', color: theme.ink }}>Request account/data deletion</Text>

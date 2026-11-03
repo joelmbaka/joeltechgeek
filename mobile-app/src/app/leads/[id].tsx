@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
+import { useAppDialog } from '@/components/AppDialog';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
 import { NativeSchedulePicker } from '@/components/NativeSchedulePicker';
@@ -19,6 +20,7 @@ const outcomeOptions = OUTCOMES.map(([value, label]) => ({ value, label }));
 function LabelValue({ label, value }: { label: string; value: string | null }) {
   const styles = useUIStyles();
   const theme = useTheme();
+  const showDialog = useAppDialog();
   if (!value) return null;
   return <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
     <Text style={[styles.label, { minWidth: 64, marginTop: 2 }]}>{label}:</Text>
@@ -174,11 +176,11 @@ export default function LeadScreen() {
     if (!lead?.phone || lead.do_not_contact) return;
     const number = whatsappNumber(lead.phone, lead.country);
     if (!number) {
-      Alert.alert('Phone format', 'Save the contact number with its international country code to use WhatsApp.');
+      showDialog({ title: 'Phone number needs updating', message: 'Add the international country code to the contact’s phone number to open WhatsApp.' });
       return;
     }
     void Linking.openURL('https://wa.me/' + number).catch(() => {
-      Alert.alert('WhatsApp unavailable', 'Unable to open WhatsApp for this number.');
+      showDialog({ title: 'WhatsApp unavailable', message: 'Unable to open WhatsApp for this contact. Please check that WhatsApp is installed and try again.' });
     });
   };
   if (!agent) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
@@ -261,10 +263,13 @@ export default function LeadScreen() {
           </Pressable>
           <Button disabled={saving} onPress={() => {
             if (optOut) {
-              Alert.alert('Mark Do Not Contact?', 'Future calls and actions will be blocked.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Confirm', onPress: () => void save('call') },
-              ]);
+              showDialog({
+                title: 'Mark as Do Not Contact?',
+                message: 'This lead will be excluded from future outreach and follow-up actions. You can still view its history.',
+                cancelLabel: 'Keep active',
+                confirmLabel: 'Mark Do Not Contact',
+                onConfirm: () => void save('call'),
+              });
             } else void save('call');
           }}>{saving ? 'Saving…' : 'Save call outcome'}</Button>
         </View>

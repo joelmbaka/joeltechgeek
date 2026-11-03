@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LoadingState } from './LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
 
@@ -66,9 +67,5 @@ export function Field({ label, value, onChangeText, placeholder, multiline = fal
   </View>;
 }
 export function Busy({ label = 'Loading from server…' }: { label?: string }) {
-  const styles = useUIStyles();
-  const theme = useTheme();
-  return <View style={{ padding: 24, alignItems: 'center', gap: 10 }}>
-    <ActivityIndicator color={theme.primary}/><Text style={styles.subtitle}>{label}</Text>
-  </View>;
+  return <LoadingState label={label}/>;
 }

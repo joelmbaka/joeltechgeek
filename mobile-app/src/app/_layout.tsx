@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
+import { AppDialogProvider } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 
 function Navigation() {
@@ -36,6 +37,7 @@ function Navigation() {
         headerRight: () => <HeaderProfileMenu />,
       }}/>
       <Stack.Screen name="profile" options={{ title: 'Profile' }}/>
+      <Stack.Screen name="signing-out" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}/>
       <Stack.Screen name="auth-callback" options={{ title: 'Google sign-in' }}/>
       <Stack.Screen name="leads/new" options={{ title: 'Add lead' }}/>
       <Stack.Screen name="leads/[id]" options={{ title: 'Lead details' }}/>
@@ -48,7 +50,9 @@ export default function RootLayout() {
   const backgroundColor = scheme === 'dark' ? '#0A2836' : '#FFFFFF';
   return <SafeAreaProvider style={{ flex: 1, backgroundColor }}>
     <AuthProvider>
-      <Navigation />
+      <AppDialogProvider>
+        <Navigation />
+      </AppDialogProvider>
     </AuthProvider>
   </SafeAreaProvider>;
 }

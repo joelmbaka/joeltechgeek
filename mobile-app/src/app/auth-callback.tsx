@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text } from 'react-native';
-import { Page, Busy, Button, useUIStyles } from '@/components/ui';
+import { Text, View } from 'react-native';
+import { Page, Button, useUIStyles } from '@/components/ui';
+import { LoadingState } from '@/components/LoadingState';
 import { exchangeGoogleCode, getAgent } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
@@ -40,10 +41,27 @@ export default function AuthCallback() {
     return () => { active = false; };
   }, [code, authError, router]);
 
-  return <Page>
-    {error ? <>
-      <Text style={styles.error}>{error}</Text>
-      <Button onPress={() => router.replace('/')}>Choose another Google account</Button>
-    </> : <Busy label="Completing Google sign-in…"/>}
+  return <Page scroll={false}>
+    {error ? <LoadingError message={error} retry={() => router.replace('/')}/> :
+      <LoadingState label="Completing Google sign-in…" fullScreen/>}
   </Page>;
+}
+
+function LoadingError({ message, retry }: { message: string; retry: () => void }) {
+  const styles = useUIStyles();
+  return <LoadingErrorContent message={message} retry={retry} textColor={styles.error.color}/>;
+}
+function LoadingErrorContent({ message, retry, textColor }: {
+  message: string; retry: () => void; textColor: string;
+}) {
+  return <TextAndRetry message={message} retry={retry} textColor={textColor}/>;
+}
+function TextAndRetry({ message, retry, textColor }: {
+  message: string; retry: () => void; textColor: string;
+}) {
+  return <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 18 }}>
+    <Text style={{ color: textColor, fontSize: 15, textAlign: 'center' }}>{message}</Text>
+    <Button onPress={retry}>Choose another Google account</Button>
+  </View>;
+}
 }
