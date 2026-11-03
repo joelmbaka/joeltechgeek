@@ -24,7 +24,7 @@ export function useUIStyles() {
       paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
     buttonText: { color: theme.onPrimary, fontWeight: '800', fontSize: 14 },
     secondary: { backgroundColor: theme.white, borderWidth: 1, borderColor: theme.border },
-    secondaryText: { color: theme.ink, fontWeight: '700' },
+    secondaryText: { color: theme.primaryDark, fontWeight: '700' },
   }), [theme]);
 }
 export function Page({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
@@ -44,9 +44,15 @@ export function Button({ children, onPress, disabled = false, secondary = false 
   children: ReactNode; onPress: () => void; disabled?: boolean; secondary?: boolean;
 }) {
   const styles = useUIStyles();
+  const theme = useTheme();
   return <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled}
-    style={[styles.button, secondary && styles.secondary, disabled && { opacity: .45 }]}>
-    <Text style={[styles.buttonText, secondary && styles.secondaryText]}>{children}</Text>
+    accessibilityState={{ disabled }}
+    style={[styles.button, secondary && styles.secondary, disabled && {
+      backgroundColor: theme.surfaceMuted, borderColor: theme.border,
+      borderWidth: 1, opacity: 1,
+    }]}>
+    <Text style={[styles.buttonText, secondary && styles.secondaryText,
+      disabled && { color: theme.muted }]}>{children}</Text>
   </Pressable>;
 }
 export function Field({ label, value, onChangeText, placeholder, multiline = false,

@@ -16,6 +16,11 @@ import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import type { Lead, LeadList } from '@/lib/types';
 
 const PER_PAGE = 25;
+function todayLabel(): string {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  }).format(new Date()).replace(',', '');
+}
 const SORTS: SelectOption[] = [
   { value: 'recommended', label: 'Recommended' },
   { value: 'recent', label: 'Recently updated' },
@@ -157,15 +162,15 @@ export default function HomeScreen() {
 
   const stats = loading ? null : data?.stats || null;
   const queueOptions: SelectOption[] = [
-    { value: 'all', label: 'All leads', count: stats?.total },
-    { value: 'to_call', label: 'To call', count: stats?.to_call },
-    { value: 'due', label: 'Follow-ups due', count: stats?.followups_due },
-    { value: 'interested', label: 'Interested', count: stats?.interested },
+    { value: 'all', label: 'All leads' },
+    { value: 'to_call', label: 'To call' },
+    { value: 'due', label: 'Follow-ups due' },
+    { value: 'interested', label: 'Interested' },
   ];
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All industries', count: stats?.total },
+    { value: 'all', label: 'All industries' },
     ...(data?.industries || (industry === 'all' ? [] : [industry])).map((name) => ({
-      value: name, label: name, count: data?.industry_counts?.[name],
+      value: name, label: name,
     })),
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
@@ -182,7 +187,7 @@ export default function HomeScreen() {
         }}>
           <Text style={{
             color: theme.muted, fontSize: 12, fontWeight: '800', letterSpacing: .6,
-          }}>TODAY’S FOCUS</Text>
+          }}>{todayLabel()}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
@@ -238,7 +243,7 @@ export default function HomeScreen() {
           justifyContent: 'space-between', marginTop: 2, gap: 8,
         }}>
           <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '800' }}>
-            Leads{!loading && data ? ' (' + (data.filtered_total ?? data.stats.total) + ')' : ''}
+            Lead directory
           </Text>
           <SelectSheet title="Sort" value={sort}
             options={SORTS} onChange={setSort} compact/>

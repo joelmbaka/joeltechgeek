@@ -22,7 +22,7 @@ export default function AddLead() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
-  const [priority, setPriority] = useState('normal');
+  const [priority, setPriority] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +74,7 @@ export default function AddLead() {
       keyboardType="email-address" autoCapitalize="none"/>
     <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none"/>
     <SelectSheet title="Priority" value={priority} onChange={setPriority}
+      placeholder="Select priority"
       options={[
         { value: 'normal', label: 'Normal' },
         { value: 'high', label: 'High' },
@@ -81,7 +82,8 @@ export default function AddLead() {
       ]}/>
     <Field label="Initial notes" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    <Button disabled={busy} onPress={() => void save()}>
+    <Button disabled={busy || !company.trim() || !industry || !country.trim() || !priority}
+      onPress={() => void save()}>
       {busy ? 'Saving…' : 'Create lead'}
     </Button>
   </Page>;

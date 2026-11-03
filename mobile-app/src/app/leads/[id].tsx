@@ -53,7 +53,7 @@ export default function LeadScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [outcome, setOutcome] = useState('no_answer');
+  const [outcome, setOutcome] = useState('');
   const [notes, setNotes] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [date, setDate] = useState('');
@@ -90,11 +90,15 @@ export default function LeadScreen() {
           setEmail(data.lead.email || '');
         }
         if (!dirty.current) {
-          setNextAction(data.lead.next_action || '');
-          setDate(data.lead.next_action_at || '');
-          setTime(data.lead.next_action_time?.slice(0, 5) || '');
+          // Blank forms prevent accidentally re-submitting a historical outcome
+          // or replacing a scheduled follow-up with stale existing values.
+          setOutcome('');
+          setNextAction('');
+          setDate('');
+          setTime('');
           setNotes('');
           setCompletionNotes('');
+          setOptOut(false);
         }
       })
       .catch((reason: unknown) => {
@@ -115,8 +119,20 @@ export default function LeadScreen() {
     next_action_time: time.trim() || null,
     next_action_timezone: timezone,
   });
+  const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact;
+  const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact;
+  const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim();
+  const contactChanged = !!lead && (
+    contactName !== (lead.contact_name || '') ||
+    contactRole !== (lead.contact_role || '') ||
+    phone !== (lead.phone || '') ||
+    email !== (lead.email || '')
+  );
   const save = async (kind: 'call' | 'followup' | 'complete') => {
     if (!lead || !id) return;
+    if (kind === 'call' && !canSaveCall) return;
+    if (kind === 'followup' && !canSaveFollowup) return;
+    if (kind === 'complete' && !canComplete) return;
     if (date && !nextAction.trim()) {
       setError('Choose a next action for the selected date.');
       return;
@@ -136,13 +152,26 @@ export default function LeadScreen() {
           next_action_timezone: timezone }
         : schedule();
       const payload = kind === 'call'
-        ? { outcome, notes, ...schedule(), do_not_contact: optOut }
+        // Logging a call must not erase an existing follow-up. Edits to
+        // scheduling are submitted through the separate Follow-up section.
+        ? { outcome, notes,
+          next_action: lead.next_action || '',
+          next_action_at: lead.next_action_at || null,
+          next_action_time: lead.next_action_time?.slice(0, 5) || null,
+          next_action_timezone: lead.next_action_timezone || timezone,
+          do_not_contact: optOut }
         : kind === 'complete'
           ? { notes: completionNotes, ...completionSchedule }
           : schedule();
       await apiFetch(path, { method, body: JSON.stringify(payload) });
       dirty.current = false;
       setOptOut(false);
+      setOutcome('');
+      setNotes('');
+      setNextAction('');
+      setDate('');
+      setTime('');
+      setCompletionNotes('');
       reload();
       if (agent) void reconcileReminders(agent).catch(() => {});
     } catch (reason) {
@@ -190,7 +219,7 @@ export default function LeadScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel="Edit contact"
           onPress={showContactEditor}
           style={{ minWidth: 42, minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 27 }}>✎</Text>
+          <Text style={{ color: theme.primaryDark, fontWeight: '800', fontSize: 14 }}>Edit</Text>
         </Pressable> : undefined,
     }}/>
     {loading ? <LeadDetailSkeleton/> : null}
@@ -220,7 +249,7 @@ export default function LeadScreen() {
           <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address"/>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Button disabled={saving} onPress={() => void saveContact()}>
+              <Button disabled={saving || !contactChanged} onPress={() => void saveContact()}>
                 {saving ? 'Saving…' : 'Save'}
               </Button>
             </View>
@@ -251,6 +280,7 @@ export default function LeadScreen() {
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
           <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
+            placeholder="Select outcome"
             onChange={(value) => edit(() => setOutcome(value))}/>
           <Field label="Conversation notes" value={notes}
             onChangeText={(value) => edit(() => setNotes(value))} multiline/>
@@ -261,7 +291,7 @@ export default function LeadScreen() {
               {optOut ? '☑' : '□'} Mark Do Not Contact
             </Text>
           </Pressable>
-          <Button disabled={saving} onPress={() => {
+          <Button disabled={!canSaveCall} onPress={() => {
             if (optOut) {
               showDialog({
                 title: 'Mark as Do Not Contact?',
@@ -286,15 +316,15 @@ export default function LeadScreen() {
               onChange={(value) => edit(() => setTime(value))}/>
           </View>
           <Text style={styles.subtitle}>
-            Date-only follow-ups appear in the due queue without scheduling an alarm.
+            Add a next action and date to save a follow-up. Time is optional.
           </Text>
-          <Button secondary disabled={saving} onPress={() => void save('followup')}>
+          <Button disabled={!canSaveFollowup} onPress={() => void save('followup')}>
             Save follow-up
           </Button>
           {lead.next_action ? <>
             <Field label="Completion notes" value={completionNotes}
               multiline onChangeText={(value) => edit(() => setCompletionNotes(value))}/>
-            <Button secondary disabled={saving} onPress={() => void save('complete')}>
+            <Button secondary disabled={!canComplete} onPress={() => void save('complete')}>
               Mark action completed
             </Button>
           </> : null}
