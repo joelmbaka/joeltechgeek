@@ -42,21 +42,22 @@ export async function PATCH(request: Request, { params }: Params) {
     await client.query('BEGIN');
     const locked = await client.query<{
       do_not_contact: boolean;
+      stage: string;
       next_action: string | null;
       next_action_at: string | null;
       next_action_time: string | null;
       next_action_timezone: string | null;
     }>(
-      `SELECT do_not_contact, next_action, next_action_at::text,
+      `SELECT do_not_contact, stage, next_action, next_action_at::text,
          next_action_time::text, next_action_timezone
        FROM public.crm_leads WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
       [id, access.agent.id],
     );
     const current = locked.rows[0];
     if (!current) { await client.query('ROLLBACK'); return fail('Lead not found.', 404); }
-    if (current.do_not_contact) {
+    if (current.do_not_contact || current.stage === 'competitor') {
       await client.query('ROLLBACK');
-      return fail('This lead is marked Do Not Contact.', 409);
+      return fail('This record is excluded from outreach follow-ups.', 409);
     }
     const unchanged = current.next_action === action &&
       current.next_action_at === schedule.next_action_at &&
