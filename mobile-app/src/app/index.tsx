@@ -185,9 +185,11 @@ export default function HomeScreen() {
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           minHeight: 38, gap: 10,
         }}>
-          <Text style={{
-            color: theme.muted, fontSize: 12, fontWeight: '800', letterSpacing: .6,
-          }}>{todayLabel()}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}
+            style={{
+              color: theme.muted, fontSize: 12, fontWeight: '800',
+              letterSpacing: .1, flexShrink: 1,
+            }}>Today's Focus · {todayLabel()}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
@@ -305,7 +307,7 @@ export default function HomeScreen() {
                 onPress={() => setOffset((value) => value + PER_PAGE)}>Next ›</Button>
             </View>
           </View>
-        </View> : null}
+        </View> : undefined}
     />
   </SafeAreaView>;
 }
