@@ -23,7 +23,7 @@ function todayLabel(date: Date): string {
   }).format(date).replace(',', '');
 }
 const SORTS: SelectOption[] = [
-  { value: 'recommended', label: 'Recommended' },
+  { value: 'recommended', label: 'Default' },
   { value: 'recent', label: 'Recently updated' },
   { value: 'company', label: 'Company A–Z' },
   { value: 'priority', label: 'Priority' },
@@ -242,19 +242,20 @@ export default function HomeScreen() {
               options={industryOptions} onChange={setIndustry} searchable/>
           </View>
         </View>
-        <View style={{ gap: 8, marginTop: 2 }}>
-          <Text accessibilityRole="header" numberOfLines={1}
-            adjustsFontSizeToFit minimumFontScale={0.75}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          justifyContent: 'space-between', gap: 8, marginTop: 2,
+        }}>
+          <Text accessibilityRole="header" numberOfLines={2}
+            adjustsFontSizeToFit minimumFontScale={0.8}
             style={{
-              color: theme.ink, fontSize: 18, fontWeight: '900',
-              letterSpacing: .25,
+              color: theme.ink, fontSize: 17, fontWeight: '900',
+              letterSpacing: .2, flex: 1, minWidth: 0,
             }}>
             {mantra}
           </Text>
-          <View style={{ alignItems: 'flex-end' }}>
-            <SelectSheet title="Sort" value={sort}
-              options={SORTS} onChange={setSort} compact/>
-          </View>
+          <SelectSheet title="Sort" value={sort}
+            options={SORTS} onChange={setSort} compact/>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
