@@ -199,7 +199,7 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>No leads match your search or filters.</Text> : null}
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
-      ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : null}
+      ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
       ListFooterComponent={<View style={{ gap: 12, paddingTop: 5 }}>
         {!loading && data ? <>
           <Text style={styles.subtitle}>
