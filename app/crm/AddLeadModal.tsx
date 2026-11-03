@@ -200,7 +200,7 @@ export function AddLeadModal({
                 Lead stage
                 <select className={fieldClass} value={form.stage}
                   onChange={(event) => change('stage', event.target.value)}>
-                  {LEAD_STAGES.filter((stage) => stage !== 'do_not_contact').map((stage) => (
+                  {LEAD_STAGES.filter((stage) => stage !== 'do_not_contact' && stage !== 'competitor').map((stage) => (
                     <option key={stage} value={stage}>{title(stage)}</option>
                   ))}
                 </select>
