@@ -61,6 +61,9 @@ export default function HomeScreen() {
   const [reviewAvailable, setReviewAvailable] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
   const requestVersion = useRef(0);
+  const listRef = useRef<FlatList<Lead>>(null);
+  const listHeaderHeight = useRef(0);
+  const pendingPageScroll = useRef(false);
 
   useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
 
@@ -108,6 +111,22 @@ export default function HomeScreen() {
   }, [agent?.id, offset, debounced, queue, industry, sort]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
+
+  // Keep pagination anchored at the first lead rather than the previous page's footer.
+  // FlatList includes the dashboard/search header before its rows, so offset 0
+  // would put users above the leads instead of at the first record.
+  const scrollToFirstLead = () => {
+    listRef.current?.scrollToOffset({
+      offset: listHeaderHeight.current + 14 + 9, // content top padding + row gap
+      animated: false,
+    });
+  };
+  const changePage = (nextOffset: number) => {
+    if (nextOffset === offset) return;
+    pendingPageScroll.current = true;
+    scrollToFirstLead();
+    setOffset(nextOffset);
+  };
 
   const refresh = () => {
     setRefreshing(true);
@@ -177,12 +196,21 @@ export default function HomeScreen() {
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <FlatList
+      ref={listRef}
       data={loading ? [] : (data?.leads || [])}
+      onContentSizeChange={() => {
+        // The new page's rows must be laid out before the final scroll correction.
+        if (pendingPageScroll.current && !loading && data?.offset === offset) {
+          pendingPageScroll.current = false;
+          scrollToFirstLead();
+        }
+      }}
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary}/>}
       contentContainerStyle={{ padding: 14, paddingBottom: 30, gap: 9 }}
-      ListHeaderComponent={<View style={{ gap: 10 }}>
+      ListHeaderComponent={<View style={{ gap: 10 }}
+        onLayout={(event) => { listHeaderHeight.current = event.nativeEvent.layout.height; }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           minHeight: 38, gap: 10,
@@ -307,11 +335,11 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Button secondary disabled={offset === 0}
-                onPress={() => setOffset((value) => Math.max(0, value - PER_PAGE))}>‹ Previous</Button>
+                onPress={() => changePage(Math.max(0, offset - PER_PAGE))}>‹ Previous</Button>
             </View>
             <View style={{ flex: 1 }}>
               <Button secondary disabled={!data?.has_more}
-                onPress={() => setOffset((value) => value + PER_PAGE)}>Next ›</Button>
+                onPress={() => changePage(offset + PER_PAGE)}>Next ›</Button>
             </View>
           </View>
         </View> : undefined}
