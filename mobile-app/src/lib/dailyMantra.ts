@@ -21,6 +21,8 @@ const MANTRAS = [
 ] as const;
 
 const DAY_MS = 86_400_000;
+// Day 1 of the agreed sequence: Tuesday, November 3, 2026.
+const CYCLE_START_DAY = Math.floor(Date.UTC(2026, 10, 3) / DAY_MS);
 const BOUNDARY_HOURS = [0, 7, 12, 17] as const;
 
 function dayIndex(date: Date): number {
@@ -29,7 +31,7 @@ function dayIndex(date: Date): number {
   const serial = Math.floor(Date.UTC(
     date.getFullYear(), date.getMonth(), date.getDate(),
   ) / DAY_MS);
-  return ((serial % MANTRAS.length) + MANTRAS.length) % MANTRAS.length;
+  return (((serial - CYCLE_START_DAY) % MANTRAS.length) + MANTRAS.length) % MANTRAS.length;
 }
 
 export function getDailyMantra(date: Date): string {
