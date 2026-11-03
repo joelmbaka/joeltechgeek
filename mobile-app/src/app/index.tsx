@@ -274,7 +274,7 @@ export default function HomeScreen() {
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
       ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
-      ListFooterComponent={!loading && data && (data?.leads.length > 0 || data?.filtered_total > 0) ?
+      ListFooterComponent={!loading && data && ((data?.leads.length ?? 0) > 0 || (data?.filtered_total ?? 0) > 0) ?
         <View style={[styles.card, { gap: 11, marginTop: 6, padding: 15 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <View style={{ gap: 4, flexShrink: 1 }}>
