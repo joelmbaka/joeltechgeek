@@ -32,6 +32,9 @@ export default function LeadScreen() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);
   const [contacts, setContacts] = useState<LeadContact[]>([]);
+  const [editingIdentity, setEditingIdentity] = useState(false);
+  const [identityTitle, setIdentityTitle] = useState('');
+  const [identityCompany, setIdentityCompany] = useState('');
   // null = use the automatic choice, '' = explicitly company/unspecified.
   const [callContactChoice, setCallContactChoice] = useState<string | null>(null);
   const [followupContactChoice, setFollowupContactChoice] = useState<string | null>(null);
@@ -84,6 +87,31 @@ export default function LeadScreen() {
   }, [agent?.id, id]);
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
+  const beginIdentityEdit = () => {
+    if (!lead) return;
+    setIdentityTitle(lead.lead_title);
+    setIdentityCompany(lead.company_name);
+    setEditingIdentity(true);
+    setError(null);
+  };
+  const saveIdentity = async () => {
+    if (!lead || !id || saving || !identityTitle.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/identity', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          lead_title: identityTitle.trim(),
+          company_name: identityCompany.trim(),
+        }),
+      });
+      setEditingIdentity(false);
+      reload();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update lead details.');
+    } finally { setSaving(false); }
+  };
 
   const primaryContactId = contacts.find((c) => c.is_primary)?.id || contacts[0]?.id || '';
   const validChoice = (choice: string | null, fallback: string) =>
@@ -197,8 +225,28 @@ export default function LeadScreen() {
       {!lead ? <Button secondary onPress={reload}>Retry loading lead</Button> : null}
     </View> : null}
     {lead ? <>
-      <Text style={styles.title}>{lead.company_name}</Text>
+      <Text style={styles.title}>{lead.lead_title}</Text>
+      {lead.company_name && lead.company_name.toLowerCase() !== lead.lead_title.toLowerCase() ?
+        <Text style={styles.subtitle}>Company: {lead.company_name}</Text> : null}
       <Text style={styles.subtitle}>{lead.industry ? lead.industry + ' · ' : ''}{lead.stage.replace(/_/g, ' ')}</Text>
+      {!editingIdentity ? <Pressable accessibilityRole="button" onPress={beginIdentityEdit}
+        style={{ paddingVertical: 10, alignSelf: 'flex-start' }}>
+        <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>Edit lead details</Text>
+      </Pressable> : <View style={styles.card}>
+        <Text style={[styles.title, { fontSize: 18 }]}>Edit lead details</Text>
+        <Field label="Lead title *" value={identityTitle} onChangeText={setIdentityTitle}/>
+        <Field label="Company name (optional)" value={identityCompany} onChangeText={setIdentityCompany}/>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button disabled={saving || !identityTitle.trim()} onPress={() => void saveIdentity()}>
+              {saving ? 'Saving…' : 'Save details'}
+            </Button>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button secondary disabled={saving} onPress={() => setEditingIdentity(false)}>Cancel</Button>
+          </View>
+        </View>
+      </View>}
       <LeadContacts lead={lead} contacts={contacts} onRefresh={reload}/>
       <View style={styles.card}>
         <Text style={styles.label}>Last outcome</Text>

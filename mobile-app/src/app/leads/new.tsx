@@ -13,6 +13,7 @@ export default function AddLead() {
   const router = useRouter();
   const { agent } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
+  const [leadTitle, setLeadTitle] = useState('');
   const [company, setCompany] = useState('');
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('Kenya');
@@ -46,8 +47,8 @@ export default function AddLead() {
   };
 
   const save = async () => {
-    if (!company.trim() || !country.trim() || !priority) {
-      setError('Enter a company and country, then choose an industry and priority.');
+    if (!leadTitle.trim() || !country.trim() || !priority) {
+      setError('Enter a lead title and country, then choose a priority.');
       return;
     }
     setBusy(true);
@@ -56,7 +57,7 @@ export default function AddLead() {
       const result = await apiFetch<{ ok: true; lead: Lead }>('/api/agent-crm/leads', {
         method: 'POST',
         body: JSON.stringify({
-          company_name: company.trim(), industry, country: country.trim(),
+          lead_title: leadTitle.trim(), company_name: company.trim(), industry, country: country.trim(),
           city, contact_name: contact, contact_role: role, phone, email, website,
           priority, notes,
         }),
@@ -69,7 +70,8 @@ export default function AddLead() {
 
   return <Page>
     <Text style={styles.title}>New lead</Text>
-    <Field label="Company name *" value={company} onChangeText={setCompany}/>
+    <Field label="Lead title *" value={leadTitle} onChangeText={setLeadTitle}/>
+    <Field label="Company name (optional)" value={company} onChangeText={setCompany}/>
     <SelectSheet
       title="Business category (optional)" value={industry}
       placeholder="No category"
@@ -93,7 +95,7 @@ export default function AddLead() {
       ]}/>
     <Field label="Initial notes" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    <Button disabled={busy || !company.trim() || !country.trim() || !priority}
+    <Button disabled={busy || !leadTitle.trim() || !country.trim() || !priority}
       onPress={() => void save()}>
       {busy ? 'Saving…' : 'Create lead'}
     </Button>
