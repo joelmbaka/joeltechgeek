@@ -722,7 +722,7 @@ export function CrmClient() {
       if (queue === 'interested' && !isInterested(lead)) return false;
       const term = query.trim().toLowerCase();
       return !term || [lead.company_name, lead.contact_name, lead.city,
-        lead.phone, lead.industry, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
+        lead.phone, lead.industry, lead.contacts_search, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
     });
     if (sortBy === 'recommended') return matches; // Existing server ordering.
     const byCompany = (a: Lead, b: Lead) => a.company_name.localeCompare(b.company_name);

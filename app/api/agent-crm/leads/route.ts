@@ -10,6 +10,10 @@ import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followu
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Search text of all contacts. Existing lead columns remain primary-contact snapshots.
+const CONTACT_SEARCH_COLUMN = `(SELECT string_agg(concat_ws(' ', c.name, c.phone, c.email), ' ')
+  FROM public.crm_lead_contacts c WHERE c.lead_id = crm_leads.id) AS contacts_search`;
+
 
 /** A paginated, server-searchable response for Android. Web GET remains unchanged. */
 async function getPagedLeads(params: URLSearchParams, agentId: string) {
@@ -50,7 +54,11 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         'contact_name ILIKE ' + p + " ESCAPE '!' OR " +
         'phone ILIKE ' + p + " ESCAPE '!' OR " +
         'email ILIKE ' + p + " ESCAPE '!' OR " +
-        'industry ILIKE ' + p + " ESCAPE '!')");
+        'industry ILIKE ' + p + " ESCAPE '!' OR " +
+        'EXISTS (SELECT 1 FROM public.crm_lead_contacts c WHERE c.lead_id=crm_leads.id ' +
+        "AND (coalesce(c.name,'') ILIKE " + p + " ESCAPE '!' OR " +
+        "coalesce(c.phone,'') ILIKE " + p + " ESCAPE '!' OR " +
+        "coalesce(c.email,'') ILIKE " + p + " ESCAPE '!')))");
     }
   }
   const order: Record<string,string> = {
@@ -68,7 +76,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     const lim = bind(limit + 1);
     const off = bind(offset);
     const [leads, filteredCount, summary, industryRows] = await Promise.all([
-      db.query<Lead>('SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE ' +
+      db.query<Lead>('SELECT ' + LEAD_COLUMNS + ', ' + CONTACT_SEARCH_COLUMN + ' FROM public.crm_leads WHERE ' +
         where + ' ORDER BY ' + order[sort] + ' LIMIT ' + lim + ' OFFSET ' + off, args),
       db.query<{ total: number }>('SELECT count(*)::int AS total FROM public.crm_leads WHERE ' + where, countArgs),
       db.query<LeadStats>(
@@ -107,7 +115,7 @@ export async function GET(request: Request) {
     const db = getCrmPool();
     const [leadsResult, statsResult] = await Promise.all([
       db.query<Lead>(
-        'SELECT ' + LEAD_COLUMNS +
+        'SELECT ' + LEAD_COLUMNS + ', ' + CONTACT_SEARCH_COLUMN +
         ' FROM public.crm_leads WHERE agent_id = $1 ' +
         "ORDER BY CASE WHEN next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) THEN 0 " +
         'WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, ' +

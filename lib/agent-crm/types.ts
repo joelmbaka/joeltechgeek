@@ -88,6 +88,7 @@ export type Lead = {
   website: string | null;
   contact_name: string | null;
   contact_role: string | null;
+  contacts_search?: string | null;
   phone: string | null;
   email: string | null;
   existing_system: string | null;
