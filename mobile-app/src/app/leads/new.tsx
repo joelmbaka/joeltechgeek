@@ -13,7 +13,6 @@ export default function AddLead() {
   const router = useRouter();
   const { agent } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
-  const [leadTitle, setLeadTitle] = useState('');
   const [company, setCompany] = useState('');
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('Kenya');
@@ -46,18 +45,18 @@ export default function AddLead() {
     return result.category;
   };
 
+  const canCreate = !busy && Boolean(company.trim() || contact.trim()) &&
+    Boolean(country.trim()) && Boolean(priority) &&
+    (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
   const save = async () => {
-    if (!leadTitle.trim() || !country.trim() || !priority) {
-      setError('Enter a lead title and country, then choose a priority.');
-      return;
-    }
+    if (!canCreate) return;
     setBusy(true);
     setError(null);
     try {
       const result = await apiFetch<{ ok: true; lead: Lead }>('/api/agent-crm/leads', {
         method: 'POST',
         body: JSON.stringify({
-          lead_title: leadTitle.trim(), company_name: company.trim(), industry, country: country.trim(),
+          company_name: company.trim(), industry, country: country.trim(),
           city, contact_name: contact, contact_role: role, phone, email, website,
           priority, notes,
         }),
@@ -70,8 +69,9 @@ export default function AddLead() {
 
   return <Page>
     <Text style={styles.title}>New lead</Text>
-    <Field label="Lead title *" value={leadTitle} onChangeText={setLeadTitle}/>
-    <Field label="Company name (optional)" value={company} onChangeText={setCompany}/>
+    <Text style={styles.subtitle}>Company or contact name required.</Text>
+    <Field label="Company name" value={company} onChangeText={setCompany}/>
+    <Field label="Primary contact name" value={contact} onChangeText={setContact}/>
     <SelectSheet
       title="Business category (optional)" value={industry}
       placeholder="No category"
@@ -80,7 +80,6 @@ export default function AddLead() {
     />
     <Field label="Country *" value={country} onChangeText={setCountry}/>
     <Field label="City" value={city} onChangeText={setCity}/>
-    <Field label="Contact name" value={contact} onChangeText={setContact}/>
     <Field label="Contact role" value={role} onChangeText={setRole}/>
     <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
     <Field label="Email" value={email} onChangeText={setEmail}
@@ -95,7 +94,7 @@ export default function AddLead() {
       ]}/>
     <Field label="Initial notes" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    <Button disabled={busy || !leadTitle.trim() || !country.trim() || !priority}
+    <Button disabled={!canCreate}
       onPress={() => void save()}>
       {busy ? 'Saving…' : 'Create lead'}
     </Button>

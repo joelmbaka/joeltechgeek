@@ -142,19 +142,20 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-white/10 dark:bg-[#0E1D2A] dark:hover:border-emerald-700 sm:p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold leading-snug text-slate-950 dark:text-white">{lead.lead_title}</h3>
+          <h3 className="text-base font-semibold leading-snug text-slate-950 dark:text-white">
+            {lead.company_name || lead.contact_name || 'Unnamed lead'}
+          </h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {[lead.company_name && lead.company_name.toLowerCase() !== lead.lead_title.toLowerCase()
-              ? lead.company_name : null,
-              lead.industry, lead.city, lead.country !== 'Kenya' ? lead.country : null]
-              .filter(Boolean).join(' · ') || 'No company or category'}
+            {[lead.industry, lead.city, lead.country !== 'Kenya' ? lead.country : null]
+              .filter(Boolean).join(' · ') || 'No category'}
           </p>
         </div>
         <StageBadge lead={lead} />
       </div>
-      {lead.contact_name && (
+      {lead.contact_name && (lead.company_name || lead.contact_role) && (
         <p className="mt-3 text-sm text-slate-700 dark:text-slate-300">
-          <strong>{lead.contact_name}</strong>{lead.contact_role ? ' · ' + lead.contact_role : ''}
+          {lead.company_name && <strong>{lead.contact_name}</strong>}
+          {lead.contact_role ? (lead.company_name ? ' · ' : '') + lead.contact_role : ''}
         </p>
       )}
       {lead.problem_summary && (
@@ -204,7 +205,6 @@ function LeadDialog({ lead, onClose, onSaved }: {
   });
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
-  const [leadTitle, setLeadTitle] = useState(lead.lead_title);
   const [companyName, setCompanyName] = useState(lead.company_name);
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [savingIdentity, setSavingIdentity] = useState(false);
@@ -294,15 +294,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
   async function saveIdentity(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!leadTitle.trim() || savingIdentity) return;
+    if (savingIdentity || !(companyName.trim() || primaryContact?.name?.trim() || (contacts === null && lead.contact_name?.trim()))) return;
     setSavingIdentity(true);
     setIdentityError('');
     try {
       const updated = await api<{ ok: boolean; lead: Lead }>(
         '/api/agent-crm/leads/' + lead.id + '/identity', 'PATCH',
-        { lead_title: leadTitle, company_name: companyName },
+        { company_name: companyName },
       );
-      setLeadTitle(updated.lead.lead_title);
       setCompanyName(updated.lead.company_name);
       setEditingIdentity(false);
       await onSaved();
@@ -416,10 +415,9 @@ function LeadDialog({ lead, onClose, onSaved }: {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{lead.industry || "No category"}</p>
-            <h2 id="lead-title" className="mt-1 text-xl font-bold">{leadTitle}</h2>
-            {companyName && companyName.toLowerCase() !== leadTitle.toLowerCase() && (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Company: {companyName}</p>
-            )}
+            <h2 id="lead-title" className="mt-1 text-xl font-bold">
+              {companyName || primaryContact?.name || lead.contact_name || 'Unnamed lead'}
+            </h2>
             <p className="mt-1 text-xs text-slate-500">{primaryDisplay || 'Contact not identified'}
               {primaryPhone ? ' · ' + primaryPhone : ''}</p>
           </div>
@@ -436,19 +434,17 @@ function LeadDialog({ lead, onClose, onSaved }: {
           </button>
           {editingIdentity && (
             <form onSubmit={(event) => void saveIdentity(event)}
-              className="mt-3 grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 dark:border-emerald-900 dark:bg-emerald-950/20 sm:grid-cols-2">
-              <label className="text-xs font-semibold">
-                Lead title *
-                <input autoFocus className={input} maxLength={180} required
-                  value={leadTitle} onChange={(event) => setLeadTitle(event.target.value)}/>
-              </label>
-              <label className="text-xs font-semibold">
-                Company / business (optional)
-                <input className={input} maxLength={180}
+              className="mt-3 space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+              <p className="text-xs text-slate-500">Company or contact name required.</p>
+              <label className="block text-xs font-semibold">
+                Company name
+                <input autoFocus className={input} maxLength={180}
                   value={companyName} onChange={(event) => setCompanyName(event.target.value)}/>
               </label>
-              {identityError && <p role="alert" className="text-xs text-rose-700 sm:col-span-2">{identityError}</p>}
-              <button type="submit" disabled={savingIdentity || !leadTitle.trim()}
+              <p className="text-xs text-slate-500">Edit the primary contact name in Contacts below.</p>
+              {identityError && <p role="alert" className="text-xs text-rose-700">{identityError}</p>}
+              <button type="submit" disabled={savingIdentity ||
+                !(companyName.trim() || primaryContact?.name?.trim() || (contacts === null && lead.contact_name?.trim()))}
                 className="rounded-xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-2">
                 {savingIdentity ? 'Saving…' : 'Save lead details'}
               </button>
@@ -826,13 +822,14 @@ export function CrmClient() {
       if (queue === 'due' && !isDue(lead)) return false;
       if (queue === 'interested' && !isInterested(lead)) return false;
       const term = query.trim().toLowerCase();
-      return !term || [lead.lead_title, lead.company_name, lead.contact_name, lead.city,
+      return !term || [lead.company_name, lead.contact_name, lead.city,
         lead.phone, lead.industry, lead.contacts_search, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
     });
     if (sortBy === 'recommended') return matches; // Existing server ordering.
     const byCompany = (a: Lead, b: Lead) =>
       (a.company_name ? 0 : 1) - (b.company_name ? 0 : 1) ||
-      a.company_name.localeCompare(b.company_name) || a.lead_title.localeCompare(b.lead_title);
+      a.company_name.localeCompare(b.company_name) ||
+      (a.contact_name || '').localeCompare(b.contact_name || '');
     const byFollowup = (a: Lead, b: Lead) => {
       const byDate = (a.next_action_at ?? '9999-12-31')
         .localeCompare(b.next_action_at ?? '9999-12-31');
@@ -991,7 +988,7 @@ export function CrmClient() {
                 <span className="sr-only">Search leads</span>
                 <Search className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                 <input value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search lead, company, contact or location"
+                  placeholder="Search company, contact or location"
                   className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] pl-10 pr-3 text-sm text-[#0A2836] outline-none placeholder:text-slate-400 focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40" />
               </label>
               <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Filter by business category"

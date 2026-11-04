@@ -33,7 +33,6 @@ export default function LeadScreen() {
   const [history, setHistory] = useState<LeadEvent[]>([]);
   const [contacts, setContacts] = useState<LeadContact[]>([]);
   const [editingIdentity, setEditingIdentity] = useState(false);
-  const [identityTitle, setIdentityTitle] = useState('');
   const [identityCompany, setIdentityCompany] = useState('');
   // null = use the automatic choice, '' = explicitly company/unspecified.
   const [callContactChoice, setCallContactChoice] = useState<string | null>(null);
@@ -89,20 +88,18 @@ export default function LeadScreen() {
   const reload = () => load(new AbortController().signal);
   const beginIdentityEdit = () => {
     if (!lead) return;
-    setIdentityTitle(lead.lead_title);
     setIdentityCompany(lead.company_name);
     setEditingIdentity(true);
     setError(null);
   };
   const saveIdentity = async () => {
-    if (!lead || !id || saving || !identityTitle.trim()) return;
+    if (!lead || !id || saving || !(identityCompany.trim() || lead.contact_name?.trim())) return;
     setSaving(true);
     setError(null);
     try {
       await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/identity', {
         method: 'PATCH',
         body: JSON.stringify({
-          lead_title: identityTitle.trim(),
           company_name: identityCompany.trim(),
         }),
       });
@@ -225,20 +222,19 @@ export default function LeadScreen() {
       {!lead ? <Button secondary onPress={reload}>Retry loading lead</Button> : null}
     </View> : null}
     {lead ? <>
-      <Text style={styles.title}>{lead.lead_title}</Text>
-      {lead.company_name && lead.company_name.toLowerCase() !== lead.lead_title.toLowerCase() ?
-        <Text style={styles.subtitle}>Company: {lead.company_name}</Text> : null}
+      <Text style={styles.title}>{lead.company_name || lead.contact_name || 'Unnamed lead'}</Text>
       <Text style={styles.subtitle}>{lead.industry ? lead.industry + ' · ' : ''}{lead.stage.replace(/_/g, ' ')}</Text>
       {!editingIdentity ? <Pressable accessibilityRole="button" onPress={beginIdentityEdit}
         style={{ paddingVertical: 10, alignSelf: 'flex-start' }}>
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>Edit lead details</Text>
       </Pressable> : <View style={styles.card}>
         <Text style={[styles.title, { fontSize: 18 }]}>Edit lead details</Text>
-        <Field label="Lead title *" value={identityTitle} onChangeText={setIdentityTitle}/>
-        <Field label="Company name (optional)" value={identityCompany} onChangeText={setIdentityCompany}/>
+        <Text style={styles.subtitle}>Company or contact name required.</Text>
+        <Field label="Company name" value={identityCompany} onChangeText={setIdentityCompany}/>
+        <Text style={styles.subtitle}>Edit the primary contact name in Contacts below.</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Button disabled={saving || !identityTitle.trim()} onPress={() => void saveIdentity()}>
+            <Button disabled={saving || !(identityCompany.trim() || lead.contact_name?.trim())} onPress={() => void saveIdentity()}>
               {saving ? 'Saving…' : 'Save details'}
             </Button>
           </View>

@@ -289,7 +289,7 @@ export default function HomeScreen() {
             placeholderTextColor={theme.muted}
             autoCapitalize="none" autoCorrect={false}
             returnKeyType="search"
-            accessibilityLabel="Search lead title, company, contact, phone or email"
+            accessibilityLabel="Search company, contact, phone or email"
           />
           {search ? <Pressable accessibilityRole="button"
             accessibilityLabel="Clear search" hitSlop={10}
@@ -346,14 +346,15 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
   const theme = useTheme();
   const styles = useUIStyles();
   return <Pressable accessibilityRole="button"
-    accessibilityLabel={'Open ' + lead.lead_title} onPress={onPress} style={styles.card}>
+    accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')} onPress={onPress} style={styles.card}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.lead_title}</Text>
+      <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.company_name || lead.contact_name || 'Unnamed lead'}</Text>
       <PriorityChip priority={lead.priority}/>
     </View>
-    {lead.company_name && lead.company_name.toLowerCase() !== lead.lead_title.toLowerCase() ?
-      <Text style={styles.subtitle}>{lead.company_name}</Text> : null}
-    <Text style={styles.subtitle}>{lead.contact_name || 'No contact'}{lead.industry ? ' · ' + lead.industry : ''}</Text>
+    <Text style={styles.subtitle}>
+      {lead.company_name ? (lead.contact_name || 'No contact') : (lead.contact_role || 'No company')}
+      {lead.industry ? ' · ' + lead.industry : ''}
+    </Text>
     {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
     <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
       backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,

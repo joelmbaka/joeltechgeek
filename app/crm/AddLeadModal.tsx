@@ -6,7 +6,6 @@ import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, LEAD_STAGES } from '@/lib/agent-crm/types';
 
 type FormState = {
-  lead_title: string;
   company_name: string;
   industry: string;
   country: string;
@@ -30,7 +29,7 @@ type FormState = {
 };
 
 const defaults: FormState = {
-  lead_title: '', company_name: '', industry: '', country: 'Kenya', city: '',
+  company_name: '', industry: '', country: 'Kenya', city: '',
   contact_name: '', contact_role: '', phone: '', email: '', website: '',
   existing_system: '', problem_summary: '', qualification_reason: '',
   source_url: '', priority: 'normal', stage: 'new', outcome: '',
@@ -55,6 +54,12 @@ export function AddLeadModal({
   const [newCategory, setNewCategory] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState('');
+  const hasName = Boolean(form.company_name.trim() || form.contact_name.trim());
+  const validEmail = !form.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const validFollowup = (!form.next_action_at || Boolean(form.next_action.trim())) &&
+    (!form.next_action_time || Boolean(form.next_action_at));
+  const canCreate = !saving && !categoryBusy && hasName && Boolean(form.country.trim()) &&
+    Boolean(form.priority) && validEmail && validFollowup;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -108,7 +113,7 @@ export function AddLeadModal({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (!canCreate) return;
     if (form.next_action_at && !form.next_action.trim()) {
       setError('Enter a next action for the follow-up date.');
       return;
@@ -195,17 +200,20 @@ export function AddLeadModal({
         <form onSubmit={(event) => void submit(event)} className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-5 px-5 py-5 sm:px-7">
             <div className="grid gap-4 sm:grid-cols-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 sm:col-span-2">
+                Company or contact name required.
+              </p>
               <label className={labelClass}>
-                Lead title <span className="text-rose-600">*</span>
-                <input required autoFocus className={fieldClass} maxLength={180}
-                  placeholder="e.g. Fleet tracking rollout" value={form.lead_title}
-                  onChange={(event) => change('lead_title', event.target.value)} />
-              </label>
-              <label className={labelClass}>
-                Company / business <span className="text-xs font-normal text-slate-500">(optional)</span>
-                <input className={fieldClass} maxLength={180}
+                Company name
+                <input autoFocus className={fieldClass} maxLength={180}
                   placeholder="e.g. ABC Logistics" value={form.company_name}
                   onChange={(event) => change('company_name', event.target.value)} />
+              </label>
+              <label className={labelClass}>
+                Primary contact name
+                <input className={fieldClass} maxLength={150}
+                  placeholder="e.g. John Mwangi" value={form.contact_name}
+                  onChange={(event) => change('contact_name', event.target.value)} />
               </label>
               <div>
                 <label className={labelClass} htmlFor="new-lead-category">Business category (optional)</label>
@@ -240,7 +248,6 @@ export function AddLeadModal({
                 {categoryError && <p role="alert" className="mt-2 text-xs text-rose-700">{categoryError}</p>}
               </div>
               <label className={labelClass}>Phone / WhatsApp {input('phone', '07... or +254...', 40)}</label>
-              <label className={labelClass}>Contact name {input('contact_name', 'Person to call', 150)}</label>
               <label className={labelClass}>Contact role {input('contact_role', 'Owner, manager, director...', 120)}</label>
               <label className={labelClass}>
                 Email
@@ -359,7 +366,7 @@ export function AddLeadModal({
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
               Cancel
             </button>
-            <button type="submit" disabled={saving || !form.lead_title.trim()}
+            <button type="submit" disabled={!canCreate}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-5 text-sm font-semibold text-white transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Add lead'}
             </button>
