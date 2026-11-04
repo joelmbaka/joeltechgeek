@@ -7,7 +7,7 @@ import { exchangeGoogleCode, getUser } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
   access_denied: 'Google sign-in was cancelled.',
-  account_not_invited: 'This Google account is not registered for CRM access. Choose another account.',
+  account_not_invited: 'This sign-in request is no longer supported. Please retry with Google.',
   google_email_unverified: 'This Google email address is not verified.',
   configuration_error: 'Google sign-in is not configured on the server.',
   provider_error: 'Google sign-in could not be completed.',

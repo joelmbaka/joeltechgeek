@@ -4,7 +4,7 @@ import { useAppDialog } from '@/components/AppDialog';
 import { Page, useUIStyles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
-import { AgentAvatar } from '@/components/AgentAvatar';
+import { UserAvatar } from '@/components/UserAvatar';
 
 function DetailRow({ title, value }: { title: string; value: string }) {
   const styles = useUIStyles();
@@ -29,7 +29,7 @@ export default function ProfileScreen() {
   });
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-      <AgentAvatar name={user.name || user.email} pictureUrl={user.picture_url} size={50} />
+      <UserAvatar name={user.name || user.email} pictureUrl={user.picture_url} size={50} />
       <View style={{ flex: 1 }}>
         <Text style={[styles.value, { fontSize: 18 }]}>{user.name}</Text>
         <Text numberOfLines={1} style={styles.subtitle}>{user.email}</Text>

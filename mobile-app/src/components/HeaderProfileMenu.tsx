@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
-import { AgentAvatar } from './AgentAvatar';
+import { UserAvatar } from './UserAvatar';
 
 export function HeaderProfileMenu() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export function HeaderProfileMenu() {
         backgroundColor: theme.white,
         alignItems: 'center', justifyContent: 'center',
       }}>
-      <AgentAvatar name={displayName} pictureUrl={user.picture_url} size={34} />
+      <UserAvatar name={displayName} pictureUrl={user.picture_url} size={34} />
     </Pressable>
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent={false}
       onRequestClose={() => setVisible(false)}>
