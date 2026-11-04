@@ -1,68 +1,52 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { pathToFileURL } = require('node:url');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const m = import(pathToFileURL(path.join(__dirname, '../lib/agent-crm/lead-identity.ts')).href);
 
-const getModule = import(pathToFileURL(path.join(__dirname, '../lib/agent-crm/lead-identity.ts')).href);
-
-test('creates a titled opportunity without a company', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.deepEqual(normalizeLeadIdentity({lead_title:'  Website redesign ', company_name:''}), {
-    ok: true, identity: {lead_title:'Website redesign', company_name:''},
-  });
+test('company-only lead is valid', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.deepEqual(normalizeLeadIdentity({company_name:' ABC Logistics ',contact_name:''}),
+    {ok:true,identity:{company_name:'ABC Logistics',contact_name:''}});
 });
-
-test('allows the same company for independent opportunities', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  const a = normalizeLeadIdentity({lead_title:'Fleet monitoring', company_name:'ABC Logistics'});
-  const b = normalizeLeadIdentity({lead_title:'Driver portal', company_name:'ABC Logistics'});
-  assert.equal(a.ok, true);
-  assert.equal(b.ok, true);
-  assert.notEqual(a.identity.lead_title, b.identity.lead_title);
-  assert.equal(a.identity.company_name, b.identity.company_name);
+test('contact-only lead is valid', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.deepEqual(normalizeLeadIdentity({company_name:'',contact_name:' John Mwangi '}),
+    {ok:true,identity:{company_name:'',contact_name:'John Mwangi'}});
 });
-
-test('legacy Android clients can still create leads with company only', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.deepEqual(normalizeLeadIdentity({company_name:'  BlazeShield  '}, {allowLegacyTitle:true}), {
-    ok: true, identity: {lead_title:'BlazeShield', company_name:'BlazeShield'},
-  });
+test('both company and contact are valid', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.equal(normalizeLeadIdentity({company_name:'ABC',contact_name:'John'}).ok,true);
 });
-
-test('explicit empty title is not silently replaced by company', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.equal(normalizeLeadIdentity({lead_title:' ', company_name:'ABC'}, {allowLegacyTitle:true}).ok, false);
+test('neither name is invalid', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.deepEqual(normalizeLeadIdentity({company_name:' ',contact_name:'  '}),
+    {ok:false,error:'Company or contact name required.'});
 });
-
-test('requires an opportunity title for edits', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  for (const input of [{company_name:'ABC'}, {lead_title:'   ',company_name:'ABC'},
-    {lead_title:null,company_name:'ABC'}]) {
-    assert.equal(normalizeLeadIdentity(input).ok, false);
-  }
+test('role/phone/email do not count as an identifying name', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.equal(normalizeLeadIdentity({company_name:'',contact_name:'',phone:'0712345678',contact_role:'Manager',email:'x@y.com'}).ok,false);
 });
-
-test('trims company and title while keeping their original case', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.deepEqual(normalizeLeadIdentity({lead_title:'  B2B Pilot  ',company_name:'  ACME Ltd  '}),{
-    ok:true, identity:{lead_title:'B2B Pilot',company_name:'ACME Ltd'},
-  });
+test('legacy company-only payload remains supported', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.equal(normalizeLeadIdentity({company_name:'Legacy Company'}).ok,true);
 });
-
-test('rejects strings exceeding field limits', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.equal(normalizeLeadIdentity({lead_title:'A'.repeat(181)}).ok,false);
-  assert.equal(normalizeLeadIdentity({lead_title:'Valid',company_name:'X'.repeat(181)}).ok,false);
+test('same company with multiple prospective leads remains valid in API parsing', async () => {
+  const { normalizeLeadIdentity } = await m;
+  const a = normalizeLeadIdentity({company_name:'ABC',contact_name:'A'});
+  const b = normalizeLeadIdentity({company_name:'ABC',contact_name:'B'});
+  assert.equal(a.ok,true);assert.equal(b.ok,true);
 });
-
-test('rejects invalid company types', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.equal(normalizeLeadIdentity({lead_title:'Valid',company_name:{value:'ABC'}}).ok,false);
+test('name lengths and types are checked', async () => {
+  const { normalizeLeadIdentity } = await m;
+  assert.equal(normalizeLeadIdentity({company_name:'x'.repeat(181),contact_name:'A'}).ok,false);
+  assert.equal(normalizeLeadIdentity({company_name:'x',contact_name:'a'.repeat(151)}).ok,false);
+  assert.equal(normalizeLeadIdentity({company_name:5,contact_name:'A'}).ok,false);
+  assert.equal(normalizeLeadIdentity({company_name:'A',contact_name:{name:'B'}}).ok,false);
 });
-
-test('permits omitted or null company and normalizes to empty string', async () => {
-  const { normalizeLeadIdentity } = await getModule;
-  assert.deepEqual(normalizeLeadIdentity({lead_title:'Project A',company_name:null}),{
-    ok:true, identity:{lead_title:'Project A',company_name:''},
-  });
+test('display name prefers company then contact', async () => {
+  const { leadDisplayName } = await m;
+  assert.equal(leadDisplayName({company_name:'ABC',contact_name:'John'}),'ABC');
+  assert.equal(leadDisplayName({company_name:'',contact_name:'John'}),'John');
+  assert.equal(leadDisplayName({company_name:'',contact_name:''}),'Unnamed lead');
 });

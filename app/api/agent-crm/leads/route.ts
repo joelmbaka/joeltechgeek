@@ -51,8 +51,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     for (const term of search.split(' ').slice(0, 8)) {
       const pattern = '%' + term.replace(/[!%_]/g, (char) => '!' + char) + '%';
       const p = bind(pattern);
-      filters.push('(lead_title ILIKE ' + p + " ESCAPE '!' OR " +
-        'company_name ILIKE ' + p + " ESCAPE '!' OR " +
+      filters.push('(company_name ILIKE ' + p + " ESCAPE '!' OR " +
         'contact_name ILIKE ' + p + " ESCAPE '!' OR " +
         'phone ILIKE ' + p + " ESCAPE '!' OR " +
         'email ILIKE ' + p + " ESCAPE '!' OR " +
@@ -66,7 +65,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
   const order: Record<string,string> = {
     recommended: 'CASE WHEN ' + due + ' THEN 0 WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC, id DESC',
     recent: 'updated_at DESC, id DESC',
-    company: "NULLIF(lower(btrim(company_name)), '') ASC NULLS LAST, lower(lead_title) ASC, id ASC",
+    company: "NULLIF(lower(btrim(company_name)), '') ASC NULLS LAST, lower(coalesce(contact_name,'')) ASC, id ASC",
     priority: "CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, updated_at DESC, id DESC",
     followup: 'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, id ASC',
   };
@@ -216,7 +215,7 @@ export async function POST(request: Request) {
     values[name as keyof typeof limits] = raw.trim();
   }
 
-  const identity = normalizeLeadIdentity(body, { allowLegacyTitle: true });
+  const identity = normalizeLeadIdentity(body);
   if (!identity.ok) return badInput(identity.error);
   if (!values.country) return badInput('Country is required.');
   const priority = values.priority || 'normal';
@@ -263,20 +262,18 @@ export async function POST(request: Request) {
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
       'next_action_time', 'next_action_timezone', 'next_action_due_at', 'last_contacted_at',
-      'lead_title',
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
       access.agent.id, identity.identity.company_name, values.industry, values.country,
       nullIfEmpty(values.city), nullIfEmpty(values.website),
-      nullIfEmpty(values.contact_name), nullIfEmpty(values.contact_role),
+      nullIfEmpty(identity.identity.contact_name), nullIfEmpty(values.contact_role),
       nullIfEmpty(values.phone), nullIfEmpty(values.email),
       nullIfEmpty(values.existing_system), nullIfEmpty(values.problem_summary),
       nullIfEmpty(values.qualification_reason), nullIfEmpty(values.source_url),
       priority, stage, outcome, nullIfEmpty(values.notes),
       nullIfEmpty(values.next_action), dueDate,
       schedule.next_action_time, schedule.next_action_timezone, outcome ? new Date() : null,
-      identity.identity.lead_title,
     ];
 
     const markers = params.map((_, index) => '$' + (index + 1));
@@ -293,11 +290,11 @@ export async function POST(request: Request) {
     // Persist the first contact in the dedicated table, preserving legacy
     // fields on the lead as the primary contact snapshot for older clients.
     let primaryContactId: string | null = null;
-    if ([values.contact_name, values.contact_role, values.phone, values.email].some(Boolean)) {
+    if ([identity.identity.contact_name, values.contact_role, values.phone, values.email].some(Boolean)) {
       const contact = await client.query<{ id: string }>(
         `INSERT INTO public.crm_lead_contacts (lead_id, name, role, phone, email, is_primary)
           VALUES ($1, $2, $3, $4, $5, true) RETURNING id::text`,
-        [id, nullIfEmpty(values.contact_name), nullIfEmpty(values.contact_role),
+        [id, nullIfEmpty(identity.identity.contact_name), nullIfEmpty(values.contact_role),
           nullIfEmpty(values.phone), nullIfEmpty(values.email)],
       );
       primaryContactId = contact.rows[0]?.id ?? null;
@@ -320,7 +317,7 @@ export async function POST(request: Request) {
         [id, access.agent.id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
           primaryContactId, primaryContactId
-            ? (values.contact_name || values.phone || values.email || values.contact_role || 'Contact')
+            ? (identity.identity.contact_name || values.phone || values.email || values.contact_role || 'Contact')
             : null],
       );
     }

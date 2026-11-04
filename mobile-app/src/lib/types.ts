@@ -1,6 +1,6 @@
 export type Agent = { id: string; name: string; email: string; phone?: string | null; picture_url?: string | null };
 export type Lead = {
-  id: string; lead_title: string; company_name: string; industry: string; country: string;
+  id: string; company_name: string; industry: string; country: string;
   city: string | null; website: string | null; contact_name: string | null;
   contact_role: string | null; phone: string | null; email: string | null;
   existing_system: string | null; problem_summary: string | null;

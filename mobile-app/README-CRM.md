@@ -4,9 +4,9 @@ Scope: Android first, using the existing Next.js /api/agent-crm routes and the
 Portfolio Neon database. No FastAPI, local CRM DB, AsyncStorage, TanStack Query,
 NetInfo, push-token registration, or background polling.
 
-## Phase 3: opportunity titles and optional company names
+## Phase 3 correction: company or primary contact name
 
-Run `migrations/2026-11-04-agent-crm-lead-opportunities.sql` before deploying Phase 3 APIs and clients. Its final `DROP INDEX` statement removes the legacy company/category uniqueness restriction; seek explicit approval for that production index removal. The migration adds `lead_title`, backfills titles from existing company names, and preserves all contact/outcome/follow-up records. `company_name` remains a non-null text column storing `''` when a company is not known. A shared company directory is intentionally deferred. New leads require a title, while old app builds can still submit `company_name` only; the API uses it as the title. PATCH `/api/agent-crm/leads/[id]/identity` edits title and optional company without changing stage or agent ownership.
+The `lead_title` concept was removed from the API and clients. Company and primary contact names are individually optional but **at least one is required** to create a lead. Both forms show “Company or contact name required.” and disable Create until that rule, country, priority, and follow-up fields are valid. Lead cards use company when present, otherwise primary contact. `PATCH /api/agent-crm/leads/[id]/identity` now edits company only, blocking empty company when primary contact name is absent; primary contact edits remain in the contact management API. Keep the unused production `lead_title` column until the updated web API has been deployed and verified. After authorization, run `migrations/2026-11-04-agent-crm-lead-opportunities.sql` to remove that column, its index, and the old company/category uniqueness index. No existing lead IDs or history records should be deleted.
 
 ## Phase 2 extension: contact attribution for calls and follow-ups
 

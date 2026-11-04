@@ -81,7 +81,6 @@ export type LeadContact = {
 
 export type Lead = {
   id: string;
-  lead_title: string;
   company_name: string;
   industry: string;
   country: string;
