@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { getCrmPool } from '@/lib/agent-crm/db';
 import { mintMobileSession, mobileJson } from '@/lib/agent-crm/mobile-auth';
 import { PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled } from '@/lib/agent-crm/play-review';
-import type { Agent } from '@/lib/agent-crm/types';
+import type { CrmUser } from '@/lib/agent-crm/users';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,17 +28,13 @@ export async function POST() {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const match = await client.query<Agent>(
-      `SELECT id::text AS id, full_name AS name, email, phone,
-              google_picture_url AS picture_url
-         FROM public.sales_agent_applications
-         WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
-           AND status = 'approved'
-         LIMIT 1`,
+    const match = await client.query<CrmUser>(
+      `SELECT id::text, full_name AS name, email, phone, picture_url
+         FROM public.crm_users WHERE lower(email) = $1 AND is_active=true LIMIT 1`,
       [PLAY_REVIEW_AGENT_EMAIL],
     );
-    const agent = match.rows[0];
-    if (!agent) {
+    const user = match.rows[0];
+    if (!user) {
       await client.query('ROLLBACK');
       return mobileJson({ error: 'Review workspace is not initialized.' }, 503);
     }
@@ -47,9 +43,9 @@ export async function POST() {
       await client.query('ROLLBACK');
       return mobileJson({ error: 'Review access is disabled.' }, 403);
     }
-    const tokens = await mintMobileSession(client, agent.id);
+    const tokens = await mintMobileSession(client, user.id);
     await client.query('COMMIT');
-    return mobileJson({ ok: true, agent, ...tokens });
+    return mobileJson({ ok: true, user, agent: user, ...tokens });
   } catch (error) {
     if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('[CRM_PLAY_REVIEW]', error);

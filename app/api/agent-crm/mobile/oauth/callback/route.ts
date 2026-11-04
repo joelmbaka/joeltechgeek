@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { getCrmPool } from '@/lib/agent-crm/db';
 import { digestToken, randomToken } from '@/lib/agent-crm/mobile-auth';
+import { findOrCreateCrmUser } from '@/lib/agent-crm/users';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -116,6 +117,7 @@ export async function GET(request: Request) {
 
   let email: string;
   let googleSubject: string;
+  let googleName: string | null = null;
   let googlePictureUrl: string | null = null;
   try {
     const { payload } = await jwtVerify(idToken, googleKeys, {
@@ -138,6 +140,7 @@ export async function GET(request: Request) {
     }
     email = payload.email.trim().toLowerCase();
     googleSubject = payload.sub;
+    googleName = typeof payload.name === 'string' ? payload.name : null;
     googlePictureUrl = verifiedGooglePicture(payload.picture);
   } catch (error) {
     console.error('[CRM_OAUTH_CALLBACK_IDENTITY]', error);
@@ -171,33 +174,24 @@ export async function GET(request: Request) {
   }
 
   try {
-    const found = await getCrmPool().query<{ id: string }>(
-      `SELECT id::text FROM public.sales_agent_applications
-        WHERE lower(email) = $1 AND crm_access_enabled IS TRUE
-          AND status <> 'declined' LIMIT 1`,
-      [email],
-    );
-    const agent = found.rows[0];
-    if (!agent) return backToApp('error', 'account_not_invited', state);
-
-    // Preserve any existing photo if Google omits the optional picture claim.
-    // We store only the verified Google URL, never the image or access token.
-    if (googlePictureUrl) {
-      await getCrmPool().query(
-        'UPDATE public.sales_agent_applications SET google_picture_url = $1 WHERE id = $2::uuid',
-        [googlePictureUrl, agent.id],
-      );
-    }
+    // Verified Google identities are self-registered. Imported legacy IDs
+    // are reused on the first verified Google sign-in by email.
+    const user = await findOrCreateCrmUser({
+      googleSub: googleSubject,
+      email,
+      name: googleName,
+      pictureUrl: googlePictureUrl,
+    });
     const handoff = randomToken();
     await getCrmPool().query(
       `INSERT INTO public.crm_mobile_auth_codes
-         (code_hash, agent_id, challenge, expires_at)
+         (code_hash, user_id, challenge, expires_at)
        VALUES ($1, $2::uuid, $3, now() + interval '2 minutes')`,
-      [digestToken(handoff), agent.id, row.app_challenge],
+      [digestToken(handoff), user.id, row.app_challenge],
     );
     return backToApp('code', handoff, state);
   } catch (error) {
-    console.error('[CRM_OAUTH_CALLBACK_AGENT]', error);
+    console.error('[CRM_OAUTH_CALLBACK_USER]', error);
     return backToApp('error', 'provider_error', state);
   }
 }

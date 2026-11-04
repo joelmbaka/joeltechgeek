@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { getCrmPool } from '@/lib/agent-crm/db';
-import { digestToken, getActiveAgentById, mintMobileSession, mobileJson, pkceChallenge } from '@/lib/agent-crm/mobile-auth';
+import { digestToken, getActiveUserById, mintMobileSession, mobileJson, pkceChallenge } from '@/lib/agent-crm/mobile-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const found = await client.query<{ agent_id: string; challenge: string }>(
-      `SELECT agent_id::text, challenge FROM public.crm_mobile_auth_codes
+    const found = await client.query<{ user_id: string; challenge: string }>(
+      `SELECT user_id::text, challenge FROM public.crm_mobile_auth_codes
        WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now() FOR UPDATE`,
       [digestToken(body.code)],
     );
@@ -30,15 +30,15 @@ export async function POST(request: Request) {
       await client.query('ROLLBACK');
       return mobileJson({ error: 'Google sign-in expired. Please start again.' }, 401);
     }
-    const agent = await getActiveAgentById(found.rows[0].agent_id, client);
-    if (!agent) {
+    const user = await getActiveUserById(found.rows[0].user_id, client);
+    if (!user) {
       await client.query('ROLLBACK');
       return mobileJson({ error: 'This Google account is no longer authorized.' }, 403);
     }
     await client.query('UPDATE public.crm_mobile_auth_codes SET used_at = now() WHERE code_hash = $1', [digestToken(body.code)]);
-    const tokens = await mintMobileSession(client, agent.id);
+    const tokens = await mintMobileSession(client, user.id);
     await client.query('COMMIT');
-    return mobileJson({ ok: true, agent, ...tokens });
+    return mobileJson({ ok: true, user, agent: user, ...tokens }); // Legacy 'agent' alias for published apps
   } catch (error) {
     if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('[CRM_OAUTH_EXCHANGE]', error);
