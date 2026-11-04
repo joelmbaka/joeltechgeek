@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
 import { useAppDialog } from '@/components/AppDialog';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
@@ -11,7 +11,8 @@ import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
-import type { Lead, LeadDetails, LeadEvent } from '@/lib/types';
+import type { Lead, LeadContact, LeadDetails, LeadEvent } from '@/lib/types';
+import { LeadContacts } from '@/components/LeadContacts';
 import { OUTCOMES, outcomeLabel } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
@@ -20,30 +21,6 @@ const outcomeOptions = [
   ...OUTCOMES.map(([value, label]) => ({ value, label })),
   { value: 'mark_competitor', label: 'Mark as competitor' },
 ];
-
-function LabelValue({ label, value }: { label: string; value: string | null }) {
-  const styles = useUIStyles();
-  const theme = useTheme();
-  if (!value) return null;
-  return <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-    <Text style={[styles.label, { minWidth: 64, marginTop: 2 }]}>{label}:</Text>
-    <Text selectable style={[styles.subtitle, { color: theme.ink, flex: 1 }]}>{value}</Text>
-  </View>;
-}
-
-/** wa.me expects international country code, without the leading +. */
-function whatsappNumber(phone: string, country: string) {
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return null;
-  if (phone.trim().startsWith('+')) return digits;
-  if (country.toLowerCase() === 'kenya') {
-    if (digits.startsWith('0') && digits.length === 10) return '254' + digits.slice(1);
-    if (digits.startsWith('254') && digits.length === 12) return digits;
-    if (digits.length === 9 && /^[17]/.test(digits)) return '254' + digits;
-  }
-  // Do not silently invent a country code for other markets.
-  return null;
-}
 
 export default function LeadScreen() {
   const styles = useUIStyles();
@@ -54,6 +31,7 @@ export default function LeadScreen() {
   const { agent } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);
+  const [contacts, setContacts] = useState<LeadContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,17 +42,9 @@ export default function LeadScreen() {
   const [time, setTime] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
   const [optOut, setOptOut] = useState(false);
-  const [editingContact, setEditingContact] = useState(false);
-  const [contactName, setContactName] = useState('');
-  const [contactRole, setContactRole] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const dirty = useRef(false);
   const requestVersion = useRef(0);
-  const editingContactRef = useRef(false);
   const edit = (apply: () => void) => { dirty.current = true; apply(); };
-  const showContactEditor = () => { editingContactRef.current = true; setEditingContact(true); };
-  const hideContactEditor = () => { editingContactRef.current = false; setEditingContact(false); };
 
   const load = useCallback((signal: AbortSignal) => {
     if (!agent || !id) return;
@@ -87,12 +57,7 @@ export default function LeadScreen() {
         if (signal.aborted || version !== requestVersion.current) return;
         setLead(data.lead);
         setHistory(data.history);
-        if (!editingContactRef.current) {
-          setContactName(data.lead.contact_name || '');
-          setContactRole(data.lead.contact_role || '');
-          setPhone(data.lead.phone || '');
-          setEmail(data.lead.email || '');
-        }
+        setContacts(data.contacts);
         if (!dirty.current) {
           // Blank forms prevent accidentally re-submitting a historical outcome
           // or replacing a scheduled follow-up with stale existing values.
@@ -126,12 +91,6 @@ export default function LeadScreen() {
   const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim() && !lead?.do_not_contact && lead?.stage !== 'competitor';
-  const contactChanged = !!lead && (
-    contactName !== (lead.contact_name || '') ||
-    contactRole !== (lead.contact_role || '') ||
-    phone !== (lead.phone || '') ||
-    email !== (lead.email || '')
-  );
   const save = async (kind: 'call' | 'followup' | 'complete') => {
     if (!lead || !id) return;
     if (kind === 'call' && !canSaveCall) return;
@@ -200,49 +159,8 @@ export default function LeadScreen() {
     } finally { setSaving(false); }
   };
 
-  const saveContact = async () => {
-    if (!id) return;
-    setError(null);
-    setSaving(true);
-    try {
-      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/contact', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          contact_name: contactName, contact_role: contactRole, phone, email,
-        }),
-      });
-      hideContactEditor();
-      reload();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Contact update failed.');
-    } finally { setSaving(false); }
-  };
-  const call = () => {
-    if (!lead?.phone || lead.do_not_contact || lead.stage === 'competitor') return;
-    const number = lead.phone.replace(/[^\d+]/g, '');
-    if (number) void Linking.openURL('tel:' + number);
-  };
-  const whatsApp = () => {
-    if (!lead?.phone || lead.do_not_contact || lead.stage === 'competitor') return;
-    const number = whatsappNumber(lead.phone, lead.country);
-    if (!number) {
-      showDialog({ title: 'Phone number needs updating', message: 'Add the international country code to the contact’s phone number to open WhatsApp.' });
-      return;
-    }
-    void Linking.openURL('https://wa.me/' + number).catch(() => {
-      showDialog({ title: 'WhatsApp unavailable', message: 'Unable to open WhatsApp for this contact. Please check that WhatsApp is installed and try again.' });
-    });
-  };
   if (!agent) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
   return <Page>
-    <Stack.Screen options={{
-      headerRight: () => lead && !lead.do_not_contact && lead.stage !== 'competitor' ?
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit contact"
-          onPress={showContactEditor}
-          style={{ minWidth: 42, minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: theme.primaryDark, fontWeight: '800', fontSize: 14 }}>Edit</Text>
-        </Pressable> : undefined,
-    }}/>
     {loading ? <LeadDetailSkeleton/> : null}
     {error ? <View style={styles.card}>
       <Text style={styles.error}>{error}</Text>
@@ -251,41 +169,7 @@ export default function LeadScreen() {
     {lead ? <>
       <Text style={styles.title}>{lead.company_name}</Text>
       <Text style={styles.subtitle}>{lead.industry ? lead.industry + ' · ' : ''}{lead.stage.replace(/_/g, ' ')}</Text>
-      <View style={styles.card}>
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.value, { fontSize: 17 }]}>
-              {lead.contact_name || 'Contact not specified'}
-            </Text>
-            {lead.contact_role ? <Text style={styles.subtitle}>{lead.contact_role}</Text> : null}
-          </View>
-        </View>
-        <LabelValue label="Phone" value={lead.phone}/>
-        <LabelValue label="Email" value={lead.email}/>
-        <LabelValue label="Website" value={lead.website}/>
-        {editingContact ? <>
-          <Field label="Name" value={contactName} onChangeText={setContactName}/>
-          <Field label="Role" value={contactRole} onChangeText={setContactRole}/>
-          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
-          <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address"/>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Button disabled={saving || !contactChanged} onPress={() => void saveContact()}>
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button secondary onPress={hideContactEditor}>Cancel</Button>
-            </View>
-          </View>
-        </> : null}
-        {lead.phone && !lead.do_not_contact && lead.stage !== 'competitor' ? <View style={{
-          flexDirection: 'row', gap: 9, marginTop: 6,
-        }}>
-          <View style={{ flex: 1 }}><Button onPress={call}>Call</Button></View>
-          <View style={{ flex: 1 }}><Button secondary onPress={whatsApp}>WhatsApp</Button></View>
-        </View> : null}
-      </View>
+      <LeadContacts lead={lead} contacts={contacts} onRefresh={reload}/>
       <View style={styles.card}>
         <Text style={styles.label}>Last outcome</Text>
         <Text style={styles.value}>{outcomeLabel(lead.last_outcome)}</Text>
