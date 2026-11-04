@@ -81,9 +81,9 @@ export const STAGE_OPTIONS = [
   'new','contacted','interested','meeting','proposal','negotiation','won','lost','nurture',
 ] as const;
 export function suggestedStage(previous: string, outcome: string): string {
+  if (['won','lost','competitor','do_not_contact'].includes(previous)) return previous;
   if (outcome === 'onboarding_completed') return 'won';
   if (outcome === 'not_interested') return 'lost';
-  if (['won','lost','competitor','do_not_contact'].includes(previous)) return previous;
   const rank:Record<string,number> = {new:0,contacted:1,nurture:1,interested:2,
     meeting:3,proposal:4,negotiation:5};
   const advance = (target:string) => (rank[previous] ?? 10)<(rank[target] ?? 0) ? target:previous;

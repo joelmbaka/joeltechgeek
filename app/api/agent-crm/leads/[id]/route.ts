@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: Params) {
                 notes, next_action, next_action_at::text AS next_action_at,
                 NULL::text AS next_action_time, NULL::text AS next_action_timezone,
                 NULL::uuid AS contact_id, NULL::text AS contact_name_snapshot,
-                CASE WHEN outcome='email_requested' THEN 'email' ELSE 'call' END::text AS channel,
+                NULL::text AS channel,
                 created_at
          FROM public.crm_lead_updates
          WHERE lead_id = $1 AND agent_id = $2

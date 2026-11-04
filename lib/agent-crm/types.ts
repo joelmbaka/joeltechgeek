@@ -81,11 +81,10 @@ export const RETRY_CALL_OUTCOMES = [
   'number_unavailable','switched_off','no_answer','busy','wrong_number',
 ] as const;
 export function stageForOutcome(previous: LeadStage, outcome: ActivityOutcome): LeadStage {
-  if (previous === 'competitor' || previous === 'do_not_contact') return previous;
+  // Only an explicit stage override can reopen a completed lead.
+  if (['competitor','do_not_contact','won','lost'].includes(previous)) return previous;
   if (outcome === 'onboarding_completed') return 'won';
   if (outcome === 'not_interested') return 'lost';
-  // Routine messages and calls never reopen closed leads or move active leads backwards.
-  if (previous === 'won' || previous === 'lost') return previous;
   const rank: Partial<Record<LeadStage,number>> = {
     new:0, contacted:1, nurture:1, interested:2, meeting:3, proposal:4, negotiation:5,
   };
