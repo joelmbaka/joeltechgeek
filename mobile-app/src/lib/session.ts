@@ -5,7 +5,7 @@ import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { API_BASE_URL } from './config';
-import type { Agent } from './types';
+import type { CrmUser } from './types';
 
 // Milliol-style OAuth: a temporary Google browser session, independent of
 // Auth.js website cookies, followed by a one-time code exchange in the app.
@@ -13,41 +13,41 @@ WebBrowser.maybeCompleteAuthSession();
 const SESSION_KEY = 'crm.android.refresh.v1';
 const PKCE_KEY = 'crm.android.oauth.verifier.v1';
 let access: string | null = null;
-let agent: Agent | null = null;
-let refreshing: Promise<Agent | null> | null = null;
+let user: CrmUser | null = null;
+let refreshing: Promise<CrmUser | null> | null = null;
 let signingIn: Promise<void> | null = null;
-const exchanges = new Map<string, Promise<Agent>>();
-const listeners = new Set<(value: Agent | null) => void>();
+const exchanges = new Map<string, Promise<CrmUser>>();
+const listeners = new Set<(value: CrmUser | null) => void>();
 
 export function getAccessToken() { return access; }
-export function getAgent() { return agent; }
-export function subscribeSession(cb: (value: Agent | null) => void) {
+export function getUser() { return user; }
+export function subscribeSession(cb: (value: CrmUser | null) => void) {
   listeners.add(cb);
   return () => { listeners.delete(cb); };
 }
-function publish(value: Agent | null, token: string | null) {
+function publish(value: CrmUser | null, token: string | null) {
   access = token;
-  agent = value;
+  user = value;
   listeners.forEach((cb) => cb(value));
 }
-type Tokens = { ok: true; agent: Agent; access_token: string; refresh_token: string };
+type Tokens = { ok: true; user?: CrmUser; agent?: CrmUser; access_token: string; refresh_token: string };
 async function saveSession(value: Tokens) {
   await SecureStore.setItemAsync(SESSION_KEY, value.refresh_token, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
-  publish(value.agent, value.access_token);
+  publish(value.user ?? value.agent ?? null, value.access_token);
 }
-export async function restoreSession(): Promise<Agent | null> {
+export async function restoreSession(): Promise<CrmUser | null> {
   return refreshSession();
 }
-export async function refreshSession(): Promise<Agent | null> {
+export async function refreshSession(): Promise<CrmUser | null> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     const oldToken = await SecureStore.getItemAsync(SESSION_KEY);
     if (!oldToken) { publish(null, null); return null; }
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/refresh', {
+      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/refresh', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: oldToken }),
       });
@@ -60,7 +60,7 @@ export async function refreshSession(): Promise<Agent | null> {
     if (!response.ok) throw new Error('Could not restore the session. Please retry.');
     const value = await response.json() as Tokens;
     await saveSession(value);
-    return value.agent;
+    return value.user ?? value.agent ?? null;
   })();
   try { return await refreshing; } finally { refreshing = null; }
 }
@@ -95,7 +95,7 @@ export async function startGoogleSignIn(): Promise<void> {
     const returnUrl = Linking.createURL('auth-callback', {
       scheme, isTripleSlashed: true,
     });
-    const url = new URL('/api/agent-crm/mobile/oauth/start', API_BASE_URL);
+    const url = new URL('/api/user-crm/mobile/oauth/start', API_BASE_URL);
     url.searchParams.set('redirect_uri', returnUrl);
     url.searchParams.set('challenge', challenge);
     let result: WebBrowser.WebBrowserAuthSessionResult;
@@ -112,7 +112,7 @@ export async function startGoogleSignIn(): Promise<void> {
   try { await signingIn; } finally { signingIn = null; }
 }
 
-export function exchangeGoogleCode(code: string): Promise<Agent> {
+export function exchangeGoogleCode(code: string): Promise<CrmUser> {
   const existing = exchanges.get(code);
   if (existing) return existing;
   const work = (async () => {
@@ -120,7 +120,7 @@ export function exchangeGoogleCode(code: string): Promise<Agent> {
     if (!verifier) throw new Error('Google sign-in expired. Please try again.');
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/oauth/exchange', {
+      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/oauth/exchange', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, verifier }),
       });
@@ -129,11 +129,11 @@ export function exchangeGoogleCode(code: string): Promise<Agent> {
     }
     const value = await response.json().catch(() => ({})) as Tokens & { error?: string };
     if (!response.ok) throw new Error(value.error || 'Google sign-in failed.');
-    if (!value.agent || !value.access_token || !value.refresh_token)
+    if (!(value.user ?? value.agent) || !value.access_token || !value.refresh_token)
       throw new Error('The CRM returned an invalid sign-in response.');
     await saveSession(value);
     await SecureStore.deleteItemAsync(PKCE_KEY);
-    return value.agent;
+    return (value.user ?? value.agent)!;
   })();
   exchanges.set(code, work);
   void work.finally(() => { exchanges.delete(code); }).catch(() => {});
@@ -142,15 +142,15 @@ export function exchangeGoogleCode(code: string): Promise<Agent> {
 
 let reviewSigningIn: Promise<void> | null = null;
 /**
- * Review access is granted only to the server's separate demo agent. Never
- * encode Joel's credentials, agent ID or an administrator token in the APK.
+ * Review access is granted only to the server's separate demo user. Never
+ * encode Joel's credentials, user ID or an administrator token in the APK.
  */
 export async function startPlayReviewSignIn(): Promise<void> {
   if (reviewSigningIn) return reviewSigningIn;
   reviewSigningIn = (async () => {
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
+      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -159,7 +159,7 @@ export async function startPlayReviewSignIn(): Promise<void> {
     }
     const body = await response.json().catch(() => ({})) as Partial<Tokens> & { error?: string };
     if (!response.ok) throw new Error(body.error || 'Review access is unavailable.');
-    if (!body.agent || !body.access_token || !body.refresh_token) {
+    if (!(body.user ?? body.agent) || !body.access_token || !body.refresh_token) {
       throw new Error('The CRM returned an incomplete review session.');
     }
     await saveSession(body as Tokens);
@@ -177,7 +177,7 @@ export async function signOutSession(): Promise<void> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      await fetch(API_BASE_URL + '/api/agent-crm/mobile/logout', {
+      await fetch(API_BASE_URL + '/api/user-crm/mobile/logout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: token }),
         signal: controller.signal,

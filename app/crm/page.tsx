@@ -3,8 +3,8 @@ import { CrmClient } from './CrmClient';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
-  title: 'Sales Agent CRM | JoelTechGeek Systems',
-  description: 'Private workspace for registered JoelTechGeek sales agents.',
+  title: 'Personal CRM | JoelTechGeek Systems',
+  description: 'Private sales CRM for individuals. Sign in with Google to track leads and follow-ups.',
   robots: { index: false, follow: false, nocache: true },
 };
 

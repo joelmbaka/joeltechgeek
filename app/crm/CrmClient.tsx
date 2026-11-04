@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcome } from '@/lib/agent-crm/types';
-import type { Agent, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
+import type { CrmUser, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { AddLeadModal } from './AddLeadModal';
@@ -18,7 +18,7 @@ type Queue = 'all' | 'to_call' | 'due' | 'interested';
 type LeadSort = 'recommended' | 'follow_up' | 'priority' | 'company' | 'industry' | 'recent';
 type Response = {
   ok: boolean;
-  agent: Agent;
+  user: CrmUser;
   leads: Lead[];
   stats: LeadStats;
   has_more: boolean;
@@ -800,7 +800,7 @@ export function CrmClient() {
       else if (status === 401) {
         const accessDenied = new URLSearchParams(window.location.search).get('error') === 'AccessDenied';
         setView(accessDenied ? 'denied' : 'signed-out');
-        if (accessDenied) setError('Only registered sales agents can access this CRM.');
+        if (accessDenied) setError('Unable to access your personal CRM. Please sign in again.');
         else setError('');
       } else {
         setError(errText(err));
@@ -894,16 +894,16 @@ export function CrmClient() {
             <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] font-bold tracking-wide text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-900/25 dark:text-emerald-300 sm:hidden">CRM</span>
             <div className="hidden border-l border-slate-200 pl-4 dark:border-white/15 sm:block">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#059669] dark:text-[#34D399]">Sales CRM</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Agent workspace</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Personal CRM</p>
             </div>
           </div>
           {view === 'ready' && (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
               <div className="hidden items-center gap-2.5 sm:flex">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-700/50">
-                  {(data?.agent.name || 'A').trim().slice(0, 1).toUpperCase()}
+                  {(data?.user.name || 'A').trim().slice(0, 1).toUpperCase()}
                 </span>
-                <span className="max-w-32 truncate text-xs font-semibold text-[#0A2836] dark:text-slate-200">{data?.agent.name}</span>
+                <span className="max-w-32 truncate text-xs font-semibold text-[#0A2836] dark:text-slate-200">{data?.user.name}</span>
               </div>
               <button type="button" onClick={() => void refresh(true)} disabled={refreshing} title="Refresh leads"
                 aria-label="Refresh leads" className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200">
@@ -941,9 +941,9 @@ export function CrmClient() {
               </h2>
               <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {view === 'denied'
-                  ? 'Use the Google account you entered on your JoelTechGeek sales-agent application.'
+                  ? 'Sign in with Google to access your personal CRM.'
                   : view === 'error' ? 'We could not load your leads. Check the connection and try again.'
-                    : 'Sign in with your registered Google account to manage leads and follow-ups.'}
+                    : 'Continue with Google to create an account or open your CRM.'}
               </p>
               {error && <p className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200" role="alert">{error}</p>}
               <button type="button" onClick={() => void signIn()} disabled={googleLoading}
@@ -959,7 +959,7 @@ export function CrmClient() {
               {view === 'error' && <button type="button" onClick={() => void refresh()}
                 className="mt-4 text-sm font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Retry connection</button>}
               <p className="mt-7 border-t border-slate-100 pt-5 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Access is limited to registered JoelTechGeek sales agents.
+                New to JoelTechGeek CRM? Your account will be created automatically.
               </p>
             </div>
           </section>
@@ -974,7 +974,7 @@ export function CrmClient() {
             </div>
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                {data?.agent.name || 'Agent'}&apos;s workspace
+                {data?.user.name || 'My'}&apos;s CRM
               </span>
               <button type="button" onClick={() => setAdding(true)}
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
@@ -1041,7 +1041,7 @@ export function CrmClient() {
           </div>
           {data?.has_more && (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Showing the first 1,000 leads. Pagination will be needed before this agent exceeds 1,000.
+              Showing the first 1,000 leads. Pagination will be needed before this account exceeds 1,000.
             </p>
           )}
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
