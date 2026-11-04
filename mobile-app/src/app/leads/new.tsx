@@ -22,7 +22,7 @@ export default function AddLead() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
-  const [priority, setPriority] = useState('');
+  const [priority, setPriority] = useState('normal');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
