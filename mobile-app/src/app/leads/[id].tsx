@@ -398,7 +398,7 @@ export default function LeadScreen() {
       {history.length === 0 ? <Text style={styles.subtitle}>No activity recorded.</Text> :
         history.map((event) => <View key={event.id} style={styles.card}>
           <Text style={styles.value}>{event.event_type === 'outreach'
-            ? activityChannelLabel(event.channel, event.outcome) + ' activity'
+            ? (event.channel ? activityChannelLabel(event.channel, event.outcome) + ' activity' : 'Outreach')
             : event.event_type.replace(/_/g,' ')}</Text>
           <Text style={styles.subtitle}>{new Date(event.created_at).toLocaleString()}</Text>
           {event.contact_name_snapshot ? <Text style={styles.subtitle}>
