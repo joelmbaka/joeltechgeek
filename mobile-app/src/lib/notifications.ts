@@ -27,7 +27,7 @@ export async function reconcileReminders(user: CrmUser) {
   if (!(await Notifications.getPermissionsAsync()).granted) return;
   const result = await apiFetch<{
     ok: boolean; reminders: { id: string; next_action_due_at: string }[];
-  }>('/api/user-crm/followups/upcoming');
+  }>('/api/agent-crm/followups/upcoming');
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   const desired = new Map(result.reminders.map((r) =>
     [r.id + ':' + new Date(r.next_action_due_at).getTime(), r]));
@@ -35,7 +35,7 @@ export async function reconcileReminders(user: CrmUser) {
 
   for (const notification of existing) {
     const data = notification.content.data;
-    if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) continue; // migrate old scheduled reminders
+    if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id || !data) continue; // migrate old scheduled reminders
     const key = String(data.lead_id) + ':' + String(data.due);
     if (!desired.has(key) || have.has(key)) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);

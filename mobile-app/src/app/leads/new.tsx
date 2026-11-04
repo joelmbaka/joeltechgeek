@@ -29,7 +29,7 @@ export default function AddLead() {
 
   const loadIndustries = useCallback((signal: AbortSignal) => {
     if (!user) return;
-    void apiFetch<{ ok: true; categories: string[] }>('/api/user-crm/categories', { signal })
+    void apiFetch<{ ok: true; categories: string[] }>('/api/agent-crm/categories', { signal })
       .then((result) => { if (!signal.aborted) setIndustries(result.categories); })
       .catch((reason: unknown) => {
         if (!signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load industries.');
@@ -38,7 +38,7 @@ export default function AddLead() {
   useFreshOnFocus(loadIndustries, [loadIndustries]);
 
   const createCategory = async (name: string): Promise<string> => {
-    const result = await apiFetch<{ ok: true; category: string }>('/api/user-crm/categories', {
+    const result = await apiFetch<{ ok: true; category: string }>('/api/agent-crm/categories', {
       method: 'POST', body: JSON.stringify({ name }),
     });
     setIndustries((current) => [...new Set([...current, result.category])].sort((a, b) => a.localeCompare(b)));
@@ -53,7 +53,7 @@ export default function AddLead() {
     setBusy(true);
     setError(null);
     try {
-      const result = await apiFetch<{ ok: true; lead: Lead }>('/api/user-crm/leads', {
+      const result = await apiFetch<{ ok: true; lead: Lead }>('/api/agent-crm/leads', {
         method: 'POST',
         body: JSON.stringify({
           company_name: company.trim(), industry, country: country.trim(),

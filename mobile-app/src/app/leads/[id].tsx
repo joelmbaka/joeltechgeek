@@ -60,7 +60,7 @@ export default function LeadScreen() {
     setLoading(true);
     setError(null);
     setLead(null);
-    void apiFetch<LeadDetails>('/api/user-crm/leads/' + encodeURIComponent(id), { signal })
+    void apiFetch<LeadDetails>('/api/agent-crm/leads/' + encodeURIComponent(id), { signal })
       .then((data) => {
         if (signal.aborted || version !== requestVersion.current) return;
         setLead(data.lead);
@@ -102,7 +102,7 @@ export default function LeadScreen() {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch('/api/user-crm/leads/' + encodeURIComponent(id) + '/identity', {
+      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/identity', {
         method: 'PATCH',
         body: JSON.stringify({
           company_name: identityCompany.trim(),
@@ -169,7 +169,7 @@ export default function LeadScreen() {
     setError(null);
     setSaving(true);
     try {
-      const base = '/api/user-crm/leads/' + encodeURIComponent(id);
+      const base = '/api/agent-crm/leads/' + encodeURIComponent(id);
       const path = kind === 'call' ? base : base + (kind === 'complete' ? '/actions' : '/followup');
       const method = kind === 'complete' ? 'POST' : 'PATCH';
       const unchangedAction = kind === 'complete' &&
@@ -219,7 +219,7 @@ export default function LeadScreen() {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch('/api/user-crm/leads/' + encodeURIComponent(id) + '/classification', {
+      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/classification', {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });

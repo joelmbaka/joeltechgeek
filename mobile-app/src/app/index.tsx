@@ -73,7 +73,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!ready || user) { setReviewAvailable(false); return; }
     const controller = new AbortController();
-    void fetch(API_BASE_URL + '/api/user-crm/mobile/review', {
+    void fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
       signal: controller.signal, cache: 'no-store',
     }).then((response) => response.ok ? response.json() : null)
       .then((body: { enabled?: boolean } | null) => {
@@ -94,7 +94,7 @@ export default function HomeScreen() {
       limit: String(PER_PAGE), offset: String(offset),
       q: debounced, queue, industry, sort,
     });
-    void apiFetch<LeadList>('/api/user-crm/leads?' + params, { signal })
+    void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
       .then((result) => {
         if (!signal.aborted && version === requestVersion.current) setData(result);
       })

@@ -47,7 +47,7 @@ export async function refreshSession(): Promise<CrmUser | null> {
     if (!oldToken) { publish(null, null); return null; }
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/refresh', {
+      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/refresh', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: oldToken }),
       });
@@ -95,7 +95,7 @@ export async function startGoogleSignIn(): Promise<void> {
     const returnUrl = Linking.createURL('auth-callback', {
       scheme, isTripleSlashed: true,
     });
-    const url = new URL('/api/user-crm/mobile/oauth/start', API_BASE_URL);
+    const url = new URL('/api/agent-crm/mobile/oauth/start', API_BASE_URL);
     url.searchParams.set('redirect_uri', returnUrl);
     url.searchParams.set('challenge', challenge);
     let result: WebBrowser.WebBrowserAuthSessionResult;
@@ -120,7 +120,7 @@ export function exchangeGoogleCode(code: string): Promise<CrmUser> {
     if (!verifier) throw new Error('Google sign-in expired. Please try again.');
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/oauth/exchange', {
+      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/oauth/exchange', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, verifier }),
       });
@@ -150,7 +150,7 @@ export async function startPlayReviewSignIn(): Promise<void> {
   reviewSigningIn = (async () => {
     let response: Response;
     try {
-      response = await fetch(API_BASE_URL + '/api/user-crm/mobile/review', {
+      response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -177,7 +177,7 @@ export async function signOutSession(): Promise<void> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      await fetch(API_BASE_URL + '/api/user-crm/mobile/logout', {
+      await fetch(API_BASE_URL + '/api/agent-crm/mobile/logout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: token }),
         signal: controller.signal,
