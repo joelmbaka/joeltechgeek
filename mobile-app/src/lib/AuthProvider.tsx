@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 import { getAgent, restoreSession, signOutSession, startGoogleSignIn, startPlayReviewSignIn, subscribeSession } from './session';
 import { cancelAgentReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
 import type { Agent } from './types';
@@ -47,6 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
     return () => tapped.remove();
   }, [agent, router]);
+  // Server/web-scheduled follow-ups can change while this app is backgrounded.
+  // Reconcile local Android reminders when the agent brings the app to the foreground.
+  // Login/session initialization is already handled by the existing effect above.
+  useEffect(() => {
+    if (!agent) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void reconcileReminders(agent).catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [agent]);
+
   const logout = async () => {
     if (agent) await cancelAgentReminders(agent.id).catch(() => {});
     await signOutSession();
