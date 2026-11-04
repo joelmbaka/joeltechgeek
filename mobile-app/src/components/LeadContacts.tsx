@@ -115,9 +115,10 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
       {c.role ? <Text style={styles.subtitle}>{c.role}</Text> : null}
       {c.phone ? <Text selectable style={styles.subtitle}>{c.phone}</Text> : null}
       {c.email ? <Text selectable style={styles.subtitle}>{c.email}</Text> : null}
-      {c.phone && !locked ? <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button secondary disabled={busy} onPress={() => callContact(c.phone!)}>Call</Button></View>
-        <View style={{ flex: 1 }}><Button secondary disabled={busy} onPress={() => messageContact(c.phone!)}>WhatsApp</Button></View>
+      {!locked && (c.phone || c.email) ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {c.phone ? <Button secondary disabled={busy} onPress={() => callContact(c.phone!)}>Call</Button> : null}
+        {c.phone ? <Button secondary disabled={busy} onPress={() => messageContact(c.phone!)}>WhatsApp</Button> : null}
+        {c.email ? <Button secondary disabled={busy} onPress={() => void Linking.openURL('mailto:' + c.email)}>Email</Button> : null}
       </View> : null}
       {!locked && editing === null ? <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
         <Pressable accessibilityRole="button" onPress={() => begin(c.id, c)} disabled={busy}>
@@ -136,7 +137,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
         <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button disabled={busy || !Object.values(form).some(Boolean)} onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
+        <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
         <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
       </View> : null}
     </View>)}
@@ -147,7 +148,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
       <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
       <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button disabled={busy || !Object.values(form).some(Boolean)} onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
+      <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
       <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
     </View> : null}
     {error && editing === null ? <Text style={styles.error}>{error}</Text> : null}
