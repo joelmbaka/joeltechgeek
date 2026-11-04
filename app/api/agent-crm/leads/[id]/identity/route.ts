@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import type { Lead } from '@/lib/agent-crm/types';
@@ -16,7 +16,7 @@ const fail = (error: string, status: number) =>
  */
 export async function PATCH(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead ID.', 400);
@@ -32,8 +32,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     const db = getCrmPool();
     const stored = await db.query<{ contact_name: string | null }>(
-      'SELECT contact_name FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT contact_name FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     if (!stored.rows[0]) return fail('Lead not found.', 404);
     const parsed = normalizeLeadIdentity({
@@ -43,10 +43,10 @@ export async function PATCH(request: Request, { params }: Params) {
     const result = await db.query<Lead>(
       `UPDATE public.crm_leads
          SET company_name = $3, updated_at = now()
-         WHERE id = $1 AND agent_id = $2
+         WHERE id = $1 AND user_id = $2
            AND ($3::text <> '' OR NULLIF(btrim(coalesce(contact_name, '')), '') IS NOT NULL)
          RETURNING ${LEAD_COLUMNS}`,
-      [id, access.agent.id, parsed.identity.company_name],
+      [id, access.user.id, parsed.identity.company_name],
     );
     if (!result.rows[0]) return fail('Company or contact name required.', 409);
     return NextResponse.json({ ok: true, lead: result.rows[0] },

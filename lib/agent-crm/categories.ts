@@ -4,16 +4,16 @@ import { CRM_INDUSTRIES, isCrmIndustry } from './industries';
 /** Categories are suggestions plus per-agent custom entries and legacy assigned labels.
  * Existing crm_leads.industry remains the persisted field for compatibility.
  */
-export async function getBusinessCategories(agentId: string): Promise<string[]> {
+export async function getBusinessCategories(userId: string): Promise<string[]> {
   const db = getCrmPool();
   const [saved, used] = await Promise.all([
     db.query<{ name: string }>(
-      'SELECT name FROM public.crm_business_categories WHERE agent_id = $1 ORDER BY lower(name)',
-      [agentId],
+      'SELECT name FROM public.crm_business_categories WHERE user_id = $1 ORDER BY lower(name)',
+      [userId],
     ),
     db.query<{ name: string }>(
-      "SELECT DISTINCT industry AS name FROM public.crm_leads WHERE agent_id = $1 AND btrim(industry) <> ''",
-      [agentId],
+      "SELECT DISTINCT industry AS name FROM public.crm_leads WHERE user_id = $1 AND btrim(industry) <> ''",
+      [userId],
     ),
   ]);
   const names = new Map<string, string>();
@@ -25,16 +25,16 @@ export async function getBusinessCategories(agentId: string): Promise<string[]> 
 }
 
 /** Do not accept arbitrary categories submitted by another agent or a modified client. */
-export async function canUseBusinessCategory(agentId: string, name: string): Promise<boolean> {
+export async function canUseBusinessCategory(userId: string, name: string): Promise<boolean> {
   if (!name || isCrmIndustry(name)) return true;
   const result = await getCrmPool().query<{ found: boolean }>(
     `SELECT (
       EXISTS (SELECT 1 FROM public.crm_business_categories
-              WHERE agent_id = $1 AND lower(name) = lower($2))
+              WHERE user_id = $1 AND lower(name) = lower($2))
       OR EXISTS (SELECT 1 FROM public.crm_leads
-                 WHERE agent_id = $1 AND lower(industry) = lower($2))
+                 WHERE user_id = $1 AND lower(industry) = lower($2))
     ) AS found`,
-    [agentId, name],
+    [userId, name],
   );
   return result.rows[0]?.found === true;
 }

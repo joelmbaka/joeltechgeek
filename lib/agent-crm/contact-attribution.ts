@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 
 /** Missing contact_id (old clients): use primary contact when present.
  * Explicit null/empty means "Company / unspecified contact".
- * Never allow an ID from another lead, even if owned by the same agent.
+ * Never allow an ID from another lead, even if owned by the same user.
  * Call only inside a transaction after locking the agent-owned lead.
  */
 export type ContactTarget =

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool } from '@/lib/agent-crm/db';
 import { CONTACT_COLUMNS, parseContactFields, syncPrimaryContact } from '@/lib/agent-crm/contacts';
 import type { LeadContact } from '@/lib/agent-crm/types';
@@ -13,7 +13,7 @@ const fail = (error: string, status: number) => NextResponse.json({ ok: false, e
 
 async function updateContact(request: Request, params: Params, method: 'PATCH' | 'DELETE') {
   if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id, contactId } = await params.params;
   if (!UUID.test(id) || !UUID.test(contactId)) return fail('Invalid lead or contact ID.', 400);
@@ -36,9 +36,9 @@ async function updateContact(request: Request, params: Params, method: 'PATCH' |
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     const lead = await client.query<{ id: string; company_name: string }>(
-      `SELECT id::text, company_name FROM public.crm_leads WHERE id=$1 AND agent_id=$2
+      `SELECT id::text, company_name FROM public.crm_leads WHERE id=$1 AND user_id=$2
          AND NOT do_not_contact AND stage <> 'competitor' FOR UPDATE`,
-      [id, access.agent.id],
+      [id, access.user.id],
     );
     if (!lead.rows.length) {
       await client.query('ROLLBACK');
