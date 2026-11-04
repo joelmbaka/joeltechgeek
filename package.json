@@ -21,7 +21,8 @@
     "test:demo-scroll-feedback": "node --test tests/demo-scroll-feedback.test.cjs",
     "test:play-review": "node --test tests/play-review-gate.test.cjs",
     "test:vehicle-tracking-demo": "node --test tests/vehicle-tracking-demo.test.cjs",
-    "test:crm-contact-attribution": "node --experimental-strip-types --test tests/agent-crm-contact-attribution.test.cjs"
+    "test:crm-contact-attribution": "node --experimental-strip-types --test tests/agent-crm-contact-attribution.test.cjs",
+    "test:crm-lead-identity": "node --experimental-strip-types --test tests/agent-crm-lead-identity.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
