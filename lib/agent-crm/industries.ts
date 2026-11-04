@@ -1,11 +1,9 @@
 /**
- * Agent-facing industry labels based on the 38 niches in the separate
- * JoelTechGeek Services CRM (crm.niches), mapped to business-oriented terms.
- * Fire Safety, garage, movers and additional outreach verticals are included.
- *
- * Update this shared list to add industries; the user-facing form and API
- * validation both use the same options. The dashboard filters industries
- * actually assigned to the signed-in agent.
+ * Built-in B2B business category suggestions, retained from the original
+ * JoelTechGeek outreach verticals for backward compatibility.
+ * Custom categories are saved per agent in crm_business_categories, and a
+ * lead may have no category (stored as an empty industry string).
+ * The industry column name stays unchanged until a later schema phase.
  */
 export const CRM_INDUSTRIES = [
   'Agriculture & Cooperatives',
