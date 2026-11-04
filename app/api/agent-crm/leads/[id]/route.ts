@@ -54,7 +54,9 @@ export async function GET(request: Request, { params }: Params) {
                 action, notes, next_action, next_action_at::text,
                 next_action_time::text, next_action_timezone, contact_id,
                 contact_name_snapshot::text,
-                COALESCE(channel, CASE WHEN outcome='email_sent' THEN 'email' ELSE 'call' END)::text AS channel,
+                CASE WHEN event_type='outreach' THEN
+                  COALESCE(channel, CASE WHEN outcome='email_sent' THEN 'email' ELSE 'call' END)
+                ELSE NULL END::text AS channel,
                 created_at
          FROM public.crm_lead_events
          WHERE lead_id = $1 AND agent_id = $2
