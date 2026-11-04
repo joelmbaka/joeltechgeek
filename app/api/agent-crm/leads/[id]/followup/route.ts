@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
+import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
 import type { Lead } from '@/lib/agent-crm/types';
 
 export const runtime = 'nodejs';
@@ -47,9 +48,10 @@ export async function PATCH(request: Request, { params }: Params) {
       next_action_at: string | null;
       next_action_time: string | null;
       next_action_timezone: string | null;
+      next_action_contact_id: string | null;
     }>(
       `SELECT do_not_contact, stage, next_action, next_action_at::text,
-         next_action_time::text, next_action_timezone
+         next_action_time::text, next_action_timezone, next_action_contact_id::text
        FROM public.crm_leads WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
       [id, access.agent.id],
     );
@@ -59,10 +61,20 @@ export async function PATCH(request: Request, { params }: Params) {
       await client.query('ROLLBACK');
       return fail('This record is excluded from outreach follow-ups.', 409);
     }
+    const target = action ? await resolveContactTarget(
+      client, id,
+      body.contact_id !== undefined ? body.contact_id
+        : current.next_action_contact_id !== null ? current.next_action_contact_id : undefined,
+    ) : { ok: true as const, id: null, name: null };
+    if (!target.ok) {
+      await client.query('ROLLBACK');
+      return fail(target.error, 400);
+    }
     const unchanged = current.next_action === action &&
       current.next_action_at === schedule.next_action_at &&
       (current.next_action_time?.slice(0, 5) || null) === schedule.next_action_time &&
-      current.next_action_timezone === schedule.next_action_timezone;
+      current.next_action_timezone === schedule.next_action_timezone &&
+      current.next_action_contact_id === target.id;
     if (unchanged) {
       await client.query('ROLLBACK');
       return fail('There are no changes to save.', 409);
@@ -71,22 +83,23 @@ export async function PATCH(request: Request, { params }: Params) {
       `INSERT INTO public.crm_followup_changes
        (lead_id, agent_id, previous_action, previous_date, previous_time,
         previous_timezone, next_action, next_action_at, next_action_time,
-        next_action_timezone, next_action_due_at)
+        next_action_timezone, next_action_due_at, contact_id, contact_name_snapshot)
        VALUES ($1,$2,$3,$4::date,$5::time,$6,$7,$8::date,$9::time,$10,
-         ${followupDueAtSQL(8,9,10)})`,
+         ${followupDueAtSQL(8,9,10)},$11::uuid,$12)`,
       [id, access.agent.id, current.next_action, current.next_action_at,
         current.next_action_time, current.next_action_timezone,
         action, schedule.next_action_at, schedule.next_action_time,
-        schedule.next_action_timezone],
+        schedule.next_action_timezone, target.id, target.name],
     );
     await client.query(
       `UPDATE public.crm_leads
        SET next_action = $3, next_action_at = $4::date,
            next_action_time = $5::time, next_action_timezone = $6,
-           next_action_due_at = ${followupDueAtSQL(4,5,6)}, updated_at = now()
+           next_action_due_at = ${followupDueAtSQL(4,5,6)},
+           next_action_contact_id = $7::uuid, updated_at = now()
        WHERE id = $1 AND agent_id = $2`,
       [id, access.agent.id, action, schedule.next_action_at,
-        schedule.next_action_time, schedule.next_action_timezone],
+        schedule.next_action_time, schedule.next_action_timezone, target.id],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',

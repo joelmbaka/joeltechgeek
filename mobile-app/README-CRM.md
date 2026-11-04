@@ -4,6 +4,10 @@ Scope: Android first, using the existing Next.js /api/agent-crm routes and the
 Portfolio Neon database. No FastAPI, local CRM DB, AsyncStorage, TanStack Query,
 NetInfo, push-token registration, or background polling.
 
+## Phase 2 extension: contact attribution for calls and follow-ups
+
+After the multiple-contacts migration, run `migrations/2026-11-04-agent-crm-contact-attribution.sql` before deploying these APIs. Call outcomes and follow-up changes now accept an optional `contact_id`; the activity-completion API accepts `next_action_contact_id` for the replacement action. Missing IDs from older mobile builds default to a primary contact or preserve an existing scheduled contact. Explicit `null` means company-level / unspecified. Any submitted non-null ID is checked against the owned lead. History stores a name snapshot so deleting a contact does not erase previous attribution.
+
 ## Phase 2: multiple contacts per lead
 
 Run `migrations/2026-11-04-agent-crm-multi-contacts.sql` on JoelTechGeek/Portfolio Neon before deploying Phase 2 APIs. This creates `crm_lead_contacts` and backfills one primary contact from each legacy lead with any contact detail. The original `crm_leads.contact_*`, phone and email columns remain primary-contact snapshots for older Android builds and existing cards.

@@ -104,6 +104,7 @@ export type Lead = {
   next_action_time: string | null; // HH:MM:SS when set
   next_action_timezone: string | null; // IANA timezone
   next_action_due_at: string | null; // ISO UTC instant for mobile scheduling
+  next_action_contact_id: string | null; // Optional contact assigned to the current follow-up
   last_contacted_at: string | null;
   do_not_contact: boolean;
   updated_at: string;
@@ -119,6 +120,8 @@ export type LeadUpdate = {
   next_action_at: string | null;
   next_action_time: string | null;
   next_action_timezone: string | null;
+  contact_id: string | null;
+  contact_name_snapshot: string | null;
   created_at: string;
 };
 

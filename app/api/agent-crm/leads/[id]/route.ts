@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CONTACT_COLUMNS } from '@/lib/agent-crm/contacts';
+import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
 import type { LeadContact } from '@/lib/agent-crm/types';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
@@ -42,20 +43,22 @@ export async function GET(request: Request, { params }: Params) {
          SELECT id::text AS id, 'outreach'::text AS event_type,
                 outcome::text AS outcome, NULL::text AS action,
                 notes, next_action, next_action_at::text AS next_action_at,
-                NULL::text AS next_action_time, NULL::text AS next_action_timezone, created_at
+                NULL::text AS next_action_time, NULL::text AS next_action_timezone,
+                NULL::uuid AS contact_id, NULL::text AS contact_name_snapshot, created_at
          FROM public.crm_lead_updates
          WHERE lead_id = $1 AND agent_id = $2
          UNION ALL
          SELECT id::text AS id, event_type::text, outcome::text,
                 action, notes, next_action, next_action_at::text,
-                next_action_time::text, next_action_timezone, created_at
+                next_action_time::text, next_action_timezone, contact_id,
+                contact_name_snapshot::text, created_at
          FROM public.crm_lead_events
          WHERE lead_id = $1 AND agent_id = $2
          UNION ALL
          SELECT id::text, 'followup_updated'::text, NULL::text,
                 'Follow-up updated'::text, NULL::text,
                 next_action, next_action_at::text, next_action_time::text,
-                next_action_timezone, created_at
+                next_action_timezone, contact_id, contact_name_snapshot::text, created_at
          FROM public.crm_followup_changes
          WHERE lead_id = $1 AND agent_id = $2
        ) AS timeline ORDER BY created_at DESC LIMIT 50`,
@@ -123,8 +126,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean }>(
-      `SELECT stage, do_not_contact FROM public.crm_leads
+    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action_contact_id: string | null }>(
+      `SELECT stage, do_not_contact, next_action_contact_id::text FROM public.crm_leads
          WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
       [id, access.agent.id],
     );
@@ -136,6 +139,24 @@ export async function PATCH(request: Request, { params }: Params) {
     if (current.do_not_contact || current.stage === 'competitor') {
       await client.query('ROLLBACK');
       return response('This record is excluded from outreach.', 409);
+    }
+
+    const callContact = await resolveContactTarget(client, id, body.contact_id);
+    if (!callContact.ok) {
+      await client.query('ROLLBACK');
+      return response(callContact.error, 400);
+    }
+    const actionContact = optOut || !nextAction.trim()
+      ? { ok: true as const, id: null, name: null }
+      : await resolveContactTarget(
+          client, id,
+          body.next_action_contact_id !== undefined
+            ? body.next_action_contact_id
+            : current.next_action_contact_id !== null ? current.next_action_contact_id : undefined,
+        );
+    if (!actionContact.ok) {
+      await client.query('ROLLBACK');
+      return response(actionContact.error, 400);
     }
 
     const stage = optOut ? 'do_not_contact' :
@@ -154,17 +175,19 @@ export async function PATCH(request: Request, { params }: Params) {
              next_action_at = $6::date, next_action_time = $9::time,
              next_action_timezone = $10, next_action_due_at = ${followupDueAtSQL(6, 9, 10)},
              last_contacted_at = now(), do_not_contact = $7, stage = $8,
-             updated_at = now()
+             next_action_contact_id = $11::uuid, updated_at = now()
          WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, outcome, note, action, date, optOut, stage, time, timezone],
+      [id, access.agent.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events
          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
-          next_action_time, next_action_timezone, next_action_due_at)
+          next_action_time, next_action_timezone, next_action_due_at,
+          contact_id, contact_name_snapshot)
          VALUES ($1,$2,'outreach',$3,$4,$5,$6::date,$7::time,$8,
-           ${followupDueAtSQL(6, 7, 8)})`,
-      [id, access.agent.id, outcome, note, action, date, time, timezone],
+           ${followupDueAtSQL(6, 7, 8)},$9::uuid,$10)`,
+      [id, access.agent.id, outcome, note, action, date, time, timezone,
+        callContact.id, callContact.name],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',

@@ -287,12 +287,20 @@ export async function POST(request: Request) {
 
     // Persist the first contact in the dedicated table, preserving legacy
     // fields on the lead as the primary contact snapshot for older clients.
+    let primaryContactId: string | null = null;
     if ([values.contact_name, values.contact_role, values.phone, values.email].some(Boolean)) {
-      await client.query(
+      const contact = await client.query<{ id: string }>(
         `INSERT INTO public.crm_lead_contacts (lead_id, name, role, phone, email, is_primary)
-          VALUES ($1, $2, $3, $4, $5, true)`,
+          VALUES ($1, $2, $3, $4, $5, true) RETURNING id::text`,
         [id, nullIfEmpty(values.contact_name), nullIfEmpty(values.contact_role),
           nullIfEmpty(values.phone), nullIfEmpty(values.email)],
+      );
+      primaryContactId = contact.rows[0]?.id ?? null;
+    }
+    if (values.next_action && primaryContactId) {
+      await client.query(
+        'UPDATE public.crm_leads SET next_action_contact_id = $2::uuid WHERE id = $1',
+        [id, primaryContactId],
       );
     }
 
@@ -300,11 +308,15 @@ export async function POST(request: Request) {
       await client.query(
         `INSERT INTO public.crm_lead_events
           (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
-           next_action_time, next_action_timezone, next_action_due_at)
+           next_action_time, next_action_timezone, next_action_due_at,
+           contact_id, contact_name_snapshot)
           VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date, $7::time, $8,
-            ${followupDueAtSQL(6, 7, 8)})`,
+            ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10)`,
         [id, access.agent.id, outcome, nullIfEmpty(values.notes),
-          nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone],
+          nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
+          primaryContactId, primaryContactId
+            ? (values.contact_name || values.phone || values.email || values.contact_role || 'Contact')
+            : null],
       );
     }
     const read = await client.query<Lead>(

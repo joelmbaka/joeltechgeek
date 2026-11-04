@@ -9,7 +9,8 @@ export type Lead = {
   last_outcome: string | null; last_notes: string | null;
   next_action: string | null; next_action_at: string | null;
   next_action_time: string | null; next_action_timezone: string | null;
-  next_action_due_at: string | null; last_contacted_at: string | null;
+  next_action_due_at: string | null; next_action_contact_id: string | null;
+  last_contacted_at: string | null;
   do_not_contact: boolean; updated_at: string;
 };
 export type LeadContact = {
@@ -22,6 +23,7 @@ export type LeadEvent = {
   outcome: string | null; action: string | null; notes: string | null;
   next_action: string | null; next_action_at: string | null;
   next_action_time: string | null; next_action_timezone: string | null;
+  contact_id: string | null; contact_name_snapshot: string | null;
   created_at: string;
 };
 export type Stats = {
