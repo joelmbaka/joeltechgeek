@@ -26,7 +26,7 @@ export async function requireCrmUser(request?: Request): Promise<CrmAuth> {
     const session = await auth();
     // Auth.js JWT subject was bound server-side to a verified Google subject.
     // Never look up CRM ownership by an email supplied by a browser.
-    const id = (session?.user as typeof session.user & { crm_user_id?: string } | undefined)?.crm_user_id;
+    const id = (session?.user as { crm_user_id?: string } | undefined)?.crm_user_id;
     if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id))
       return deny('Please sign in with Google.', 401);
     const found = await getCrmPool().query<CrmUser>(
