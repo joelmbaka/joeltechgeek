@@ -5,6 +5,7 @@ import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
+import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 
 export const runtime = 'nodejs';
@@ -50,7 +51,8 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     for (const term of search.split(' ').slice(0, 8)) {
       const pattern = '%' + term.replace(/[!%_]/g, (char) => '!' + char) + '%';
       const p = bind(pattern);
-      filters.push('(company_name ILIKE ' + p + " ESCAPE '!' OR " +
+      filters.push('(lead_title ILIKE ' + p + " ESCAPE '!' OR " +
+        'company_name ILIKE ' + p + " ESCAPE '!' OR " +
         'contact_name ILIKE ' + p + " ESCAPE '!' OR " +
         'phone ILIKE ' + p + " ESCAPE '!' OR " +
         'email ILIKE ' + p + " ESCAPE '!' OR " +
@@ -64,7 +66,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
   const order: Record<string,string> = {
     recommended: 'CASE WHEN ' + due + ' THEN 0 WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC, id DESC',
     recent: 'updated_at DESC, id DESC',
-    company: 'lower(company_name) ASC, id ASC',
+    company: "NULLIF(lower(btrim(company_name)), '') ASC NULLS LAST, lower(lead_title) ASC, id ASC",
     priority: "CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, updated_at DESC, id DESC",
     followup: 'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, id ASC',
   };
@@ -214,7 +216,8 @@ export async function POST(request: Request) {
     values[name as keyof typeof limits] = raw.trim();
   }
 
-  if (!values.company_name) return badInput('Company name is required.');
+  const identity = normalizeLeadIdentity(body, { allowLegacyTitle: true });
+  if (!identity.ok) return badInput(identity.error);
   if (!values.country) return badInput('Country is required.');
   const priority = values.priority || 'normal';
   const stageValue = values.stage || 'new';
@@ -260,10 +263,11 @@ export async function POST(request: Request) {
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
       'next_action_time', 'next_action_timezone', 'next_action_due_at', 'last_contacted_at',
+      'lead_title',
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
-      access.agent.id, values.company_name, values.industry, values.country,
+      access.agent.id, identity.identity.company_name, values.industry, values.country,
       nullIfEmpty(values.city), nullIfEmpty(values.website),
       nullIfEmpty(values.contact_name), nullIfEmpty(values.contact_role),
       nullIfEmpty(values.phone), nullIfEmpty(values.email),
@@ -272,6 +276,7 @@ export async function POST(request: Request) {
       priority, stage, outcome, nullIfEmpty(values.notes),
       nullIfEmpty(values.next_action), dueDate,
       schedule.next_action_time, schedule.next_action_timezone, outcome ? new Date() : null,
+      identity.identity.lead_title,
     ];
 
     const markers = params.map((_, index) => '$' + (index + 1));
@@ -335,7 +340,7 @@ export async function POST(request: Request) {
       try { await client.query('ROLLBACK'); } catch { /* connection unavailable */ }
     }
     if ((error as { code?: string }).code === '23505') {
-      return badInput('A lead with this company and business category already exists in your CRM.', 409);
+      return badInput('This record conflicts with an existing unique database value.', 409);
     }
     return crmError(error);
   } finally {
