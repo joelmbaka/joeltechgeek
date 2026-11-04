@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 const siteTitle = 'Joeltech Geek Systems | Custom Software Development';
 const siteDescription =
-  'Founder-led mobile apps, web platforms and SaaS engineering for businesses in the US, Kenya and beyond. React Native, Next.js, FastAPI and PostgreSQL.';
+  'Custom mobile apps, web platforms and business management systems for teams in Kenya, the US and beyond. Streamline operations, payments and reporting.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

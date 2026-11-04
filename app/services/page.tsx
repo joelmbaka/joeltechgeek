@@ -19,6 +19,33 @@ const businessWorkflows = [
   { title: 'Construction project operations', description: 'Site progress, procurement, materials, stock and financial reporting.', href: '/milliol', proof: 'Milliol · Client project' },
 ];
 
+const serviceCardCopy: Record<string, { title: string; summary: string }> = {
+  'react-native-app-development': {
+    title: 'Mobile App Development',
+    summary: 'Android and iOS apps for customers, staff and field teams, including sign-in, payments and practical day-to-day workflows.',
+  },
+  'web-app-development': {
+    title: 'Web Applications & Business Systems',
+    summary: 'Custom dashboards and management systems for records, approvals, inventory, reporting and everyday operations.',
+  },
+  'fastapi-backend-development': {
+    title: 'Backend Systems & Integrations',
+    summary: 'Secure systems that connect business data, customer accounts, payments and the tools your team already uses.',
+  },
+  'saas-product-development': {
+    title: 'Complete Software Product Development',
+    summary: 'Plan, build, test, launch and improve a complete software product tailored to the people who will use it.',
+  },
+  'payment-integrations': {
+    title: 'M-Pesa Payments & Reconciliation',
+    summary: 'Connect payments with invoices, receipts, balances and transaction records so your team can track collections.',
+  },
+  'ai-api-integrations': {
+    title: 'AI Integrations & Workflow Automation',
+    summary: 'Add useful features such as transcription, summarization and reviewed automation using existing AI services.',
+  },
+};
+
 export default function ServicesPage() {
   const base = SITE_URL;
   const jsonLd = {
@@ -44,7 +71,7 @@ export default function ServicesPage() {
           Joeltech Geek Systems builds custom mobile apps, web platforms and business management systems for teams in Kenya, the US and beyond. Whether your business needs invoicing, M-Pesa reconciliation, inventory, field operations or management reporting, we connect useful interfaces to dependable backend workflows.
         </p>
         <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
-          Our core mobile specialization is <strong>React Native with Expo and TypeScript</strong>. For web applications we use Next.js and React; for backend services, Python, FastAPI and PostgreSQL. We integrate existing AI APIs where useful—we do not offer Flutter development, standalone native Swift/Kotlin projects, Java, C++, C#, PHP or Ruby development, machine-learning research or model training.
+          Every project starts with the way your business works. We consider your existing tools, staff roles and day-to-day processes before agreeing on the right solution. You can explore our technical specializations on the individual service pages.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-5 text-sm font-semibold">
           <Link href="/contact" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 text-white transition hover:opacity-90">
@@ -60,8 +87,8 @@ export default function ServicesPage() {
         {services.map((service) => (
           <article key={service.slug} className="flex flex-col rounded-3xl border border-gray-200 bg-white p-7 dark:border-gray-800 dark:bg-gray-900/60">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">{service.eyebrow}</p>
-            <h2 className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">{service.title}</h2>
-            <p className="mt-4 text-sm leading-7 text-gray-600 dark:text-gray-300">{service.summary}</p>
+            <h2 className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">{serviceCardCopy[service.slug]?.title ?? service.title}</h2>
+            <p className="mt-4 text-sm leading-7 text-gray-600 dark:text-gray-300">{serviceCardCopy[service.slug]?.summary ?? service.summary}</p>
             <Link href={`/services/${service.slug}`} className="mt-auto inline-flex min-h-11 items-center gap-2 pt-5 text-sm font-semibold text-palm-green hover:underline">
               How we deliver this service <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>

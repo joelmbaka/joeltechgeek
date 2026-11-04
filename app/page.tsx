@@ -10,10 +10,10 @@ import SlideIn from '@/components/SlideIn';
 import { ArrowRight, Braces, Database, GraduationCap, MonitorSmartphone, Rocket, ShieldCheck } from 'lucide-react';
 
 const serviceCards = [
-  { title: 'Mobile applications', description: 'Purpose-built Android and iOS apps for customers, staff and field teams, with robust APIs, payments and release workflows.', href: '/services/react-native-app-development', icon: MonitorSmartphone },
-  { title: 'Web platforms & dashboards', description: 'Business dashboards, SaaS workspaces and responsive web experiences built around real operations and reporting.', href: '/services/web-app-development', icon: Braces },
-  { title: 'Backend systems & integrations', description: 'Secure APIs, PostgreSQL data models, M-Pesa payment flows, authentication, billing and reliable third-party integrations.', href: '/services/fastapi-backend-development', icon: Database },
-  { title: 'End-to-end delivery', description: 'Technical discovery, architecture, implementation, quality engineering, deployment and ongoing iteration.', href: '/services/saas-product-development', icon: Rocket },
+  { title: 'Mobile applications', description: 'Android and iOS apps that help customers, staff and field teams manage everyday tasks and payments.', href: '/services/react-native-app-development', icon: MonitorSmartphone },
+  { title: 'Web platforms & dashboards', description: 'Custom dashboards and online systems for managing records, daily operations and reporting.', href: '/services/web-app-development', icon: Braces },
+  { title: 'Backend systems & integrations', description: 'Secure systems connecting your business data, M-Pesa payments, customer accounts and existing tools.', href: '/services/fastapi-backend-development', icon: Database },
+  { title: 'End-to-end delivery', description: 'From understanding your needs through development, testing, launch and ongoing improvements.', href: '/services/saas-product-development', icon: Rocket },
 ];
 
 const delivery = [

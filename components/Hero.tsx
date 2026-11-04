@@ -57,11 +57,14 @@ export default function Hero() {
           </h1>
 
           <p className="mt-6 max-w-2xl text-base leading-8 text-gray-600 dark:text-gray-300 sm:text-lg">
-            Joeltech Geek Systems builds mobile apps, web platforms, APIs and SaaS products using React Native, Next.js and Python/FastAPI. We welcome projects from the US, Kenya and beyond, collaborating remotely across time zones.
+            Joeltech Geek Systems builds custom mobile apps, web platforms and business management systems that streamline operations, simplify payments and help teams work more efficiently.
+          </p>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600 dark:text-gray-300">
+            We work with businesses in Kenya and internationally, from planning and development through launch and ongoing improvements.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-2 text-xs font-medium sm:text-sm">
-            {['Business software', 'Mobile apps', 'SaaS platforms', 'Web dashboards', 'Payments & APIs'].map((item) => (
+            {['Business software', 'Mobile apps', 'Online platforms', 'Web dashboards', 'Payments & integrations'].map((item) => (
               <span key={item} className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                 {item}
               </span>
