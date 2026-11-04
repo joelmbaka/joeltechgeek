@@ -13,14 +13,15 @@ import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
 import type { Lead, LeadContact, LeadDetails, LeadEvent } from '@/lib/types';
 import { LeadContacts } from '@/components/LeadContacts';
-import { OUTCOMES, outcomeLabel } from '@/lib/types';
+import { OUTCOMES_BY_CHANNEL, outcomeLabel, suggestedStage, STAGE_OPTIONS, activityChannelLabel } from '@/lib/types';
+import type { ActivityChannel } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
 // This is an administrative classification, not a call outcome sent to the outreach API.
-const outcomeOptions = [
-  ...OUTCOMES.map(([value, label]) => ({ value, label })),
-  { value: 'mark_competitor', label: 'Mark as competitor' },
-];
+const channelOptions = [
+  {value:'call',label:'Call'}, {value:'email',label:'Email'},
+  {value:'whatsapp',label:'WhatsApp'}, {value:'other',label:'Other'},
+] as const;
 
 export default function LeadScreen() {
   const styles = useUIStyles();
@@ -41,6 +42,8 @@ export default function LeadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [outcome, setOutcome] = useState('');
+  const [channel, setChannel] = useState<ActivityChannel>('call');
+  const [stageOverride, setStageOverride] = useState('');
   const [notes, setNotes] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [date, setDate] = useState('');
@@ -67,6 +70,8 @@ export default function LeadScreen() {
           // Blank forms prevent accidentally re-submitting a historical outcome
           // or replacing a scheduled follow-up with stale existing values.
           setOutcome('');
+          setChannel('call');
+          setStageOverride('');
           setNextAction('');
           setDate('');
           setTime('');
@@ -140,6 +145,15 @@ export default function LeadScreen() {
     next_action_time: time.trim() || null,
     next_action_timezone: timezone,
   });
+  const outcomeOptions = [
+    ...OUTCOMES_BY_CHANNEL[channel].map(([value,label]) => ({value,label})),
+    ...(channel === 'call' ? [{value:'mark_competitor',label:'Mark as competitor'}] : []),
+  ];
+  const suggested = lead ? suggestedStage(lead.stage, outcome) : 'new';
+  const stageOptions = [
+    {value:'',label:'Suggested: ' + suggested.replaceAll('_',' ')},
+    ...STAGE_OPTIONS.map((value) => ({value,label:value.replaceAll('_',' ')})),
+  ];
   const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim() && !lead?.do_not_contact && lead?.stage !== 'competitor';
@@ -169,7 +183,8 @@ export default function LeadScreen() {
       const payload = kind === 'call'
         // Logging a call must not erase an existing follow-up. Edits to
         // scheduling are submitted through the separate Follow-up section.
-        ? { outcome, notes, contact_id: callContactId || null,
+        ? { outcome, channel, notes, contact_id: callContactId || null,
+          ...(stageOverride ? {stage:stageOverride} : {}),
           next_action: lead.next_action || '',
           next_action_at: lead.next_action_at || null,
           next_action_time: lead.next_action_time?.slice(0, 5) || null,
@@ -183,6 +198,8 @@ export default function LeadScreen() {
       dirty.current = false;
       setOptOut(false);
       setOutcome('');
+      setChannel('call');
+      setStageOverride('');
       setNotes('');
       setNextAction('');
       setDate('');
@@ -245,7 +262,7 @@ export default function LeadScreen() {
       </View>}
       <LeadContacts lead={lead} contacts={contacts} onRefresh={reload}/>
       <View style={styles.card}>
-        <Text style={styles.label}>Last outcome</Text>
+        <Text style={styles.label}>Last {activityChannelLabel(lead.last_activity_channel, lead.last_outcome)} result</Text>
         <Text style={styles.value}>{outcomeLabel(lead.last_outcome)}</Text>
         <Text style={styles.label}>Next action</Text>
         <Text style={styles.value}>{lead.next_action || 'No action scheduled'}</Text>
@@ -276,11 +293,17 @@ export default function LeadScreen() {
       </View> : null}
       {!lead.do_not_contact && lead.stage !== 'competitor' ? <>
         <View style={styles.card}>
-          <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
+          <Text style={[styles.title, { fontSize: 19 }]}>Record activity</Text>
+          <SelectSheet title="Activity type" value={channel} options={[...channelOptions]}
+            onChange={(value) => edit(() => {
+              setChannel(value as ActivityChannel);
+              setOutcome('');
+              setStageOverride('');
+            })} disabled={saving}/>
           {contacts.length > 1 ? <SelectSheet title="Contact" value={callContactId}
             options={contactOptions} onChange={(value) => edit(() => setCallContactChoice(value))}
             disabled={saving} searchable/> : null}
-          <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
+          <SelectSheet title="Result" value={outcome} options={outcomeOptions}
             disabled={saving} placeholder="Select outcome"
             onChange={(value) => {
               if (value === 'mark_competitor') {
@@ -293,10 +316,25 @@ export default function LeadScreen() {
                 });
                 return;
               }
-              edit(() => setOutcome(value));
+              edit(() => { setOutcome(value); setStageOverride(''); });
             }}/>
-          <Field label="Conversation notes" value={notes}
+          <Field label="Notes" value={notes}
             onChangeText={(value) => edit(() => setNotes(value))} multiline/>
+          {outcome ? <>
+            <SelectSheet title="Lead stage after activity" value={stageOverride}
+              options={stageOptions} onChange={(value) => edit(() => setStageOverride(value))}
+              disabled={saving}/>
+            {outcome === 'not_interested' ? <Text style={styles.subtitle}>
+              Not interested normally marks the whole lead Lost. Keep the current stage
+              above if only one contact declined.
+            </Text> : null}
+            {outcome === 'trial_started' ? <Text style={styles.subtitle}>
+              Trial started is an activity result; its suggested stage is Interested.
+            </Text> : null}
+            {outcome === 'onboarding_completed' ? <Text style={styles.subtitle}>
+              Onboarding completed marks a subscribed and set-up customer Won.
+            </Text> : null}
+          </> : null}
           <Pressable onPress={() => edit(() => setOptOut(!optOut))}
             accessibilityRole="checkbox" accessibilityState={{ checked: optOut }}
             style={styles.row}>
@@ -313,8 +351,18 @@ export default function LeadScreen() {
                 confirmLabel: 'Mark Do Not Contact',
                 onConfirm: () => void save('call'),
               });
+            } else if (['lost','won'].includes(stageOverride || suggested) &&
+                (stageOverride || suggested) !== lead.stage) {
+              showDialog({
+                title: 'Confirm lead stage',
+                message: 'Recording this result will mark the whole lead ' +
+                  (stageOverride || suggested).replaceAll('_',' ') + '. Continue?',
+                cancelLabel: 'Cancel',
+                confirmLabel: 'Save activity',
+                onConfirm: () => void save('call'),
+              });
             } else void save('call');
-          }}>{saving ? 'Saving…' : 'Save call outcome'}</Button>
+          }}>{saving ? 'Saving…' : 'Save activity'}</Button>
         </View>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Follow-up</Text>
@@ -349,7 +397,9 @@ export default function LeadScreen() {
       <Text style={[styles.title, { fontSize: 20 }]}>Activity history</Text>
       {history.length === 0 ? <Text style={styles.subtitle}>No activity recorded.</Text> :
         history.map((event) => <View key={event.id} style={styles.card}>
-          <Text style={styles.value}>{event.event_type.replace(/_/g, ' ')}</Text>
+          <Text style={styles.value}>{event.event_type === 'outreach'
+            ? activityChannelLabel(event.channel, event.outcome) + ' activity'
+            : event.event_type.replace(/_/g,' ')}</Text>
           <Text style={styles.subtitle}>{new Date(event.created_at).toLocaleString()}</Text>
           {event.contact_name_snapshot ? <Text style={styles.subtitle}>
             Contact: {event.contact_name_snapshot}
