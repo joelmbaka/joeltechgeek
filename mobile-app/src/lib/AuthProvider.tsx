@@ -2,19 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
-import { getAgent, restoreSession, signOutSession, startGoogleSignIn, startPlayReviewSignIn, subscribeSession } from './session';
-import { cancelAgentReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
-import type { Agent } from './types';
+import { getUser, restoreSession, signOutSession, startGoogleSignIn, startPlayReviewSignIn, subscribeSession } from './session';
+import { cancelUserReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
+import type { CrmUser } from './types';
 
 type AuthContextValue = {
-  ready: boolean; agent: Agent | null; login: () => Promise<void>; reviewLogin: () => Promise<void>; logout: () => Promise<void>;
+  ready: boolean; user: CrmUser | null; login: () => Promise<void>; reviewLogin: () => Promise<void>; logout: () => Promise<void>;
   error: string | null;
 };
 const Context = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [agent, setAgent] = useState<Agent | null>(getAgent());
+  const [user, setUser] = useState<CrmUser | null>(getUser());
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   async function restore() {
@@ -24,44 +24,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally { setReady(true); }
   }
   useEffect(() => {
-    const unsub = subscribeSession(setAgent);
+    const unsub = subscribeSession(setUser);
     void restore();
     return unsub;
   }, []);
   useEffect(() => {
-    if (!agent) return;
+    if (!user) return;
     void requestReminderPermissions().then((enabled) => {
-      if (enabled) return reconcileReminders(agent);
+      if (enabled) return reconcileReminders(user);
     }).catch(() => {});
     const tapped = Notifications.addNotificationResponseReceivedListener((event) => {
       const data = event.notification.request.content.data;
-      if (data?.crm_agent_id !== agent.id) return;
+      if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) return;
       const id = notificationLeadId(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
     });
     void Notifications.getLastNotificationResponseAsync().then((last) => {
       const data = last?.notification.request.content.data;
-      if (data?.crm_agent_id !== agent.id) return;
+      if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) return;
       const id = notificationLeadId(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
       void Notifications.clearLastNotificationResponseAsync().catch(() => {});
     }).catch(() => {});
     return () => tapped.remove();
-  }, [agent, router]);
+  }, [user, router]);
   // Server/web-scheduled follow-ups can change while this app is backgrounded.
-  // Reconcile local Android reminders when the agent brings the app to the foreground.
+  // Reconcile local Android reminders when the user brings the app to the foreground.
   // Login/session initialization is already handled by the existing effect above.
   useEffect(() => {
-    if (!agent) return;
+    if (!user) return;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
-      void reconcileReminders(agent).catch(() => {});
+      void reconcileReminders(user).catch(() => {});
     });
     return () => subscription.remove();
-  }, [agent]);
+  }, [user]);
 
   const logout = async () => {
-    if (agent) await cancelAgentReminders(agent.id).catch(() => {});
+    if (user) await cancelUserReminders(user.id).catch(() => {});
     await signOutSession();
     router.replace('/');
   };
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(reason instanceof Error ? reason.message : 'Review sign-in failed.');
     }
   };
-  return <Context.Provider value={{ ready, agent, error, login, reviewLogin, logout }}>
+  return <Context.Provider value={{ ready, user, error, login, reviewLogin, logout }}>
     {children}
   </Context.Provider>;
 }

@@ -11,7 +11,7 @@ import type { Lead } from '@/lib/types';
 export default function AddLead() {
   const styles = useUIStyles();
   const router = useRouter();
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
   const [company, setCompany] = useState('');
   const [industry, setIndustry] = useState('');
@@ -28,17 +28,17 @@ export default function AddLead() {
   const [error, setError] = useState<string | null>(null);
 
   const loadIndustries = useCallback((signal: AbortSignal) => {
-    if (!agent) return;
-    void apiFetch<{ ok: true; categories: string[] }>('/api/agent-crm/categories', { signal })
+    if (!user) return;
+    void apiFetch<{ ok: true; categories: string[] }>('/api/user-crm/categories', { signal })
       .then((result) => { if (!signal.aborted) setIndustries(result.categories); })
       .catch((reason: unknown) => {
         if (!signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load industries.');
       });
-  }, [agent?.id]);
+  }, [user?.id]);
   useFreshOnFocus(loadIndustries, [loadIndustries]);
 
   const createCategory = async (name: string): Promise<string> => {
-    const result = await apiFetch<{ ok: true; category: string }>('/api/agent-crm/categories', {
+    const result = await apiFetch<{ ok: true; category: string }>('/api/user-crm/categories', {
       method: 'POST', body: JSON.stringify({ name }),
     });
     setIndustries((current) => [...new Set([...current, result.category])].sort((a, b) => a.localeCompare(b)));
@@ -53,7 +53,7 @@ export default function AddLead() {
     setBusy(true);
     setError(null);
     try {
-      const result = await apiFetch<{ ok: true; lead: Lead }>('/api/agent-crm/leads', {
+      const result = await apiFetch<{ ok: true; lead: Lead }>('/api/user-crm/leads', {
         method: 'POST',
         body: JSON.stringify({
           company_name: company.trim(), industry, country: country.trim(),

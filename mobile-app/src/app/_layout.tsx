@@ -8,7 +8,7 @@ import { AppDialogProvider } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 
 function Navigation() {
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const theme = useTheme();
@@ -23,7 +23,7 @@ function Navigation() {
     }}>
       <Stack.Screen name="index" options={{
         title: '',
-        headerShown: !!agent,
+        headerShown: !!user,
         headerTitleAlign: 'left',
         headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
           <Image

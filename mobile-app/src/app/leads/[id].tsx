@@ -29,7 +29,7 @@ export default function LeadScreen() {
   const showDialog = useAppDialog();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);
   const [contacts, setContacts] = useState<LeadContact[]>([]);
@@ -55,12 +55,12 @@ export default function LeadScreen() {
   const edit = (apply: () => void) => { dirty.current = true; apply(); };
 
   const load = useCallback((signal: AbortSignal) => {
-    if (!agent || !id) return;
+    if (!user || !id) return;
     const version = ++requestVersion.current;
     setLoading(true);
     setError(null);
     setLead(null);
-    void apiFetch<LeadDetails>('/api/agent-crm/leads/' + encodeURIComponent(id), { signal })
+    void apiFetch<LeadDetails>('/api/user-crm/leads/' + encodeURIComponent(id), { signal })
       .then((data) => {
         if (signal.aborted || version !== requestVersion.current) return;
         setLead(data.lead);
@@ -88,7 +88,7 @@ export default function LeadScreen() {
       .finally(() => {
         if (!signal.aborted && version === requestVersion.current) setLoading(false);
       });
-  }, [agent?.id, id]);
+  }, [user?.id, id]);
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
   const beginIdentityEdit = () => {
@@ -102,7 +102,7 @@ export default function LeadScreen() {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/identity', {
+      await apiFetch('/api/user-crm/leads/' + encodeURIComponent(id) + '/identity', {
         method: 'PATCH',
         body: JSON.stringify({
           company_name: identityCompany.trim(),
@@ -169,7 +169,7 @@ export default function LeadScreen() {
     setError(null);
     setSaving(true);
     try {
-      const base = '/api/agent-crm/leads/' + encodeURIComponent(id);
+      const base = '/api/user-crm/leads/' + encodeURIComponent(id);
       const path = kind === 'call' ? base : base + (kind === 'complete' ? '/actions' : '/followup');
       const method = kind === 'complete' ? 'POST' : 'PATCH';
       const unchangedAction = kind === 'complete' &&
@@ -208,7 +208,7 @@ export default function LeadScreen() {
       setCallContactChoice(null);
       setFollowupContactChoice(null);
       reload();
-      if (agent) void reconcileReminders(agent).catch(() => {});
+      if (user) void reconcileReminders(user).catch(() => {});
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not save update.');
     } finally { setSaving(false); }
@@ -219,19 +219,19 @@ export default function LeadScreen() {
     setSaving(true);
     setError(null);
     try {
-      await apiFetch('/api/agent-crm/leads/' + encodeURIComponent(id) + '/classification', {
+      await apiFetch('/api/user-crm/leads/' + encodeURIComponent(id) + '/classification', {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
       dirty.current = false;
       reload();
-      if (agent) void reconcileReminders(agent).catch(() => {});
+      if (user) void reconcileReminders(user).catch(() => {});
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update classification.');
     } finally { setSaving(false); }
   };
 
-  if (!agent) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
+  if (!user) return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
   return <Page>
     {loading ? <LeadDetailSkeleton/> : null}
     {error ? <View style={styles.card}>

@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { apiFetch } from './api';
-import type { Agent } from './types';
+import type { CrmUser } from './types';
 
 const CHANNEL = 'crm-followups';
 Notifications.setNotificationHandler({
@@ -22,12 +22,12 @@ export async function requestReminderPermissions(): Promise<boolean> {
   if (!granted) granted = (await Notifications.requestPermissionsAsync()).granted;
   return granted;
 }
-export async function reconcileReminders(agent: Agent) {
+export async function reconcileReminders(user: CrmUser) {
   await ensureChannel();
   if (!(await Notifications.getPermissionsAsync()).granted) return;
   const result = await apiFetch<{
     ok: boolean; reminders: { id: string; next_action_due_at: string }[];
-  }>('/api/agent-crm/followups/upcoming');
+  }>('/api/user-crm/followups/upcoming');
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   const desired = new Map(result.reminders.map((r) =>
     [r.id + ':' + new Date(r.next_action_due_at).getTime(), r]));
@@ -35,7 +35,7 @@ export async function reconcileReminders(agent: Agent) {
 
   for (const notification of existing) {
     const data = notification.content.data;
-    if (data?.crm_agent_id !== agent.id) continue;
+    if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) continue; // migrate old scheduled reminders
     const key = String(data.lead_id) + ':' + String(data.due);
     if (!desired.has(key) || have.has(key)) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
@@ -48,16 +48,16 @@ export async function reconcileReminders(agent: Agent) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'CRM follow-up', body: 'A scheduled follow-up is due. Open the CRM to review it.',
-        data: { crm_agent_id: agent.id, lead_id: reminder.id, due: due.getTime() },
+        data: { crm_user_id: user.id, lead_id: reminder.id, due: due.getTime() },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: due, channelId: CHANNEL },
     });
   }
 }
-export async function cancelAgentReminders(agentId: string) {
+export async function cancelUserReminders(userId: string) {
   const all = await Notifications.getAllScheduledNotificationsAsync();
-  for (const item of all) if (item.content.data?.crm_agent_id === agentId)
+  for (const item of all) if ((item.content.data?.crm_user_id ?? item.content.data?.crm_agent_id) === userId)
     await Notifications.cancelScheduledNotificationAsync(item.identifier);
 }
 export function notificationLeadId(data: Record<string, unknown> | undefined): string | null {

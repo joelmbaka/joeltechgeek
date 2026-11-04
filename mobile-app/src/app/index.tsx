@@ -47,7 +47,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
   const { mantra, now } = useDailyMantra();
-  const { ready, agent, login, reviewLogin, error: authError } = useAuth();
+  const { ready, user, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
@@ -71,9 +71,9 @@ export default function HomeScreen() {
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
   useEffect(() => {
-    if (!ready || agent) { setReviewAvailable(false); return; }
+    if (!ready || user) { setReviewAvailable(false); return; }
     const controller = new AbortController();
-    void fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
+    void fetch(API_BASE_URL + '/api/user-crm/mobile/review', {
       signal: controller.signal, cache: 'no-store',
     }).then((response) => response.ok ? response.json() : null)
       .then((body: { enabled?: boolean } | null) => {
@@ -82,10 +82,10 @@ export default function HomeScreen() {
         if (!controller.signal.aborted) setReviewAvailable(false);
       });
     return () => controller.abort();
-  }, [ready, agent?.id]);
+  }, [ready, user?.id]);
 
   const fetchPage = useCallback((signal: AbortSignal) => {
-    if (!agent) return;
+    if (!user) return;
     const version = ++requestVersion.current;
     setLoading(true);
     setMessage(null);
@@ -94,7 +94,7 @@ export default function HomeScreen() {
       limit: String(PER_PAGE), offset: String(offset),
       q: debounced, queue, industry, sort,
     });
-    void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
+    void apiFetch<LeadList>('/api/user-crm/leads?' + params, { signal })
       .then((result) => {
         if (!signal.aborted && version === requestVersion.current) setData(result);
       })
@@ -109,7 +109,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [agent?.id, offset, debounced, queue, industry, sort]);
+  }, [user?.id, offset, debounced, queue, industry, sort]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -155,7 +155,7 @@ export default function HomeScreen() {
   if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
     <LoadingState label="Restoring your session…" fullScreen/>
   </SafeAreaView>;
-  if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+  if (!user) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ flex: 1, padding: 22, justifyContent: 'center', alignItems: 'center' }}>
       <View style={{
         width: '100%', maxWidth: 360, padding: 24, gap: 14,

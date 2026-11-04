@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { Page, Button, useUIStyles } from '@/components/ui';
 import { LoadingState } from '@/components/LoadingState';
-import { exchangeGoogleCode, getAgent } from '@/lib/session';
+import { exchangeGoogleCode, getUser } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
   access_denied: 'Google sign-in was cancelled.',
@@ -21,7 +21,7 @@ export default function AuthCallback() {
   const started = useRef('');
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (getAgent()) { router.replace('/'); return; }
+    if (getUser()) { router.replace('/'); return; }
     if (typeof authError === 'string' && authError) {
       setError(ERRORS[authError] || 'Google sign-in failed. Try another account.');
       return;

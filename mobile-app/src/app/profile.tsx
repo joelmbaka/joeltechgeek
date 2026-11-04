@@ -16,32 +16,32 @@ function DetailRow({ title, value }: { title: string; value: string }) {
 export default function ProfileScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const showDialog = useAppDialog();
-  if (!agent) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
+  if (!user) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
   const signOut = () => showDialog({
     title: 'Sign out of CRM?',
-    message: 'Your session on this device will end. To access your workspace again, sign in with your authorized Google account.',
+    message: 'Your session on this device will end. To access your workspace again, sign in with your Google account.',
     cancelLabel: 'Stay signed in',
     confirmLabel: 'Sign out',
     onConfirm: () => router.replace('/signing-out'),
   });
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-      <AgentAvatar name={agent.name || agent.email} pictureUrl={agent.picture_url} size={50} />
+      <AgentAvatar name={user.name || user.email} pictureUrl={user.picture_url} size={50} />
       <View style={{ flex: 1 }}>
-        <Text style={[styles.value, { fontSize: 18 }]}>{agent.name}</Text>
-        <Text numberOfLines={1} style={styles.subtitle}>{agent.email}</Text>
+        <Text style={[styles.value, { fontSize: 18 }]}>{user.name}</Text>
+        <Text numberOfLines={1} style={styles.subtitle}>{user.email}</Text>
       </View>
     </View>
     <Text style={styles.label}>ACCOUNT DETAILS</Text>
     <View style={[styles.card, { gap: 0 }]}>
-      <DetailRow title="Name" value={agent.name}/>
+      <DetailRow title="Name" value={user.name}/>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <DetailRow title="Email" value={agent.email}/>
+      <DetailRow title="Email" value={user.email}/>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <DetailRow title="Phone" value={agent.phone || 'Not provided'}/>
+      <DetailRow title="Phone" value={user.phone || 'Not provided'}/>
     </View>
     <Text style={styles.label}>PRIVACY</Text>
     <View style={[styles.card, { padding: 0 }]}>
