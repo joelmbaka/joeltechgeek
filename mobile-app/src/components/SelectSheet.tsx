@@ -73,7 +73,12 @@ export function SelectSheet({
       const savedName = await onCreateOption(name);
       onChange(savedName);
       setSavingNew(false);
-      close();
+      // Close explicitly: the close() callback still captures savingNew=true here.
+      setOpen(false);
+      setQuery('');
+      setAdding(false);
+      setNewName('');
+      setCreateError('');
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : 'Could not save category.');
       setSavingNew(false);

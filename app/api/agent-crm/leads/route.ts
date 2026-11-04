@@ -238,13 +238,12 @@ export async function POST(request: Request) {
 
   let client: PoolClient | undefined;
   try {
-    client = await getCrmPool().connect();
-    await client.query('BEGIN');
-
+    // Validate before acquiring a transaction connection to avoid pool starvation.
     if (values.industry && !(await canUseBusinessCategory(access.agent.id, values.industry))) {
-      await client.query('ROLLBACK');
       return badInput('Choose a saved business category or create a new one.');
     }
+    client = await getCrmPool().connect();
+    await client.query('BEGIN');
 
     // Agent ownership always comes from the verified cookie, never the body.
     const columns = [
