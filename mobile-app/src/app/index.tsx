@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Image, Linking, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
-import { useAppDialog } from '@/components/AppDialog';
+import { FlatList, Image, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { LoadingState } from '@/components/LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useUIStyles } from '@/components/ui';
@@ -47,7 +46,6 @@ export default function HomeScreen() {
   const brandScheme = useColorScheme();
   const theme = useTheme();
   const styles = useUIStyles();
-  const showDialog = useAppDialog();
   const { mantra, now } = useDailyMantra();
   const { ready, agent, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
@@ -173,13 +171,6 @@ export default function HomeScreen() {
         {SHOW_REVIEW_ACCESS_BUTTON && reviewAvailable ? <Button secondary disabled={reviewBusy} onPress={() => void openReview()}>
           {reviewBusy ? 'Opening review workspace…' : 'Review access'}
         </Button> : null}
-        <Pressable
-          accessibilityRole="link" accessibilityLabel="Read Privacy Policy"
-          onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
-            .catch(() => showDialog({ title: 'Privacy Policy unavailable', message: 'Unable to open the link. You can read the policy at joeltechgeek.com/privacy.' }))}
-          style={{ minHeight: 42, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: theme.primaryDark, fontSize: 13, fontWeight: '700' }}>Privacy Policy</Text>
-        </Pressable>
       </View>
     </View>
   </SafeAreaView>;
