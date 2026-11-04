@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CONTACT_COLUMNS } from '@/lib/agent-crm/contacts';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
@@ -23,7 +23,7 @@ function response(error: string, status: number) {
 }
 
 export async function GET(request: Request, { params }: Params) {
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);
@@ -31,8 +31,8 @@ export async function GET(request: Request, { params }: Params) {
     const db = getCrmPool();
     const lead = await db.query<Lead>(
       'SELECT ' + LEAD_COLUMNS +
-      ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     if (!lead.rows[0]) return response('Lead not found.', 404);
     // Preserve the original call log and merge it with the new outcome/action
@@ -48,7 +48,7 @@ export async function GET(request: Request, { params }: Params) {
                 NULL::text AS channel,
                 created_at
          FROM public.crm_lead_updates
-         WHERE lead_id = $1 AND agent_id = $2
+         WHERE lead_id = $1
          UNION ALL
          SELECT id::text AS id, event_type::text, outcome::text,
                 action, notes, next_action, next_action_at::text,
@@ -59,7 +59,7 @@ export async function GET(request: Request, { params }: Params) {
                 ELSE NULL END::text AS channel,
                 created_at
          FROM public.crm_lead_events
-         WHERE lead_id = $1 AND agent_id = $2
+         WHERE lead_id = $1
          UNION ALL
          SELECT id::text, 'followup_updated'::text, NULL::text,
                 'Follow-up updated'::text, NULL::text,
@@ -67,9 +67,9 @@ export async function GET(request: Request, { params }: Params) {
                 next_action_timezone, contact_id, contact_name_snapshot::text,
                 NULL::text AS channel, created_at
          FROM public.crm_followup_changes
-         WHERE lead_id = $1 AND agent_id = $2
+         WHERE lead_id = $1
        ) AS timeline ORDER BY created_at DESC LIMIT 50`,
-      [id, access.agent.id],
+      [id],
       ),
       db.query<LeadContact>(
         'SELECT ' + CONTACT_COLUMNS +
@@ -91,7 +91,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) {
     return response('Invalid request origin.', 403);
   }
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return response('Invalid lead.', 400);
@@ -137,8 +137,8 @@ export async function PATCH(request: Request, { params }: Params) {
     await client.query('BEGIN');
     const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null }>(
       `SELECT stage, do_not_contact, next_action, next_action_contact_id::text FROM public.crm_leads
-         WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
-      [id, access.agent.id],
+         WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+      [id, access.user.id],
     );
     const current = lock.rows[0];
     if (!current) {
@@ -185,22 +185,22 @@ export async function PATCH(request: Request, { params }: Params) {
              next_action_timezone = $10, next_action_due_at = ${followupDueAtSQL(6, 9, 10)},
              last_contacted_at = now(), do_not_contact = $7, stage = $8,
              next_action_contact_id = $11::uuid, last_activity_channel = $12, updated_at = now()
-         WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel],
+         WHERE id = $1 AND user_id = $2`,
+      [id, access.user.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events
-         (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
+         (lead_id, event_type, outcome, notes, next_action, next_action_at,
           next_action_time, next_action_timezone, next_action_due_at,
           contact_id, contact_name_snapshot, channel)
-         VALUES ($1,$2,'outreach',$3,$4,$5,$6::date,$7::time,$8,
-           ${followupDueAtSQL(6, 7, 8)},$9::uuid,$10,$11)`,
-      [id, access.agent.id, outcome, note, action, date, time, timezone,
+         VALUES ($1,'outreach',$2,$3,$4,$5::date,$6::time,$7,
+           ${followupDueAtSQL(5, 6, 7)},$8::uuid,$9,$10)`,
+      [id, outcome, note, action, date, time, timezone,
         callContact.id, callContact.name, channel],
     );
     const result = await client.query<Lead>(
-      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
     return NextResponse.json(

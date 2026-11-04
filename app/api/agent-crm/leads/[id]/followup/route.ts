@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
@@ -17,7 +17,7 @@ function fail(error: string, status: number) {
 /** Schedule/edit follow-up independently of call outcomes. */
 export async function PATCH(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead.', 400);
@@ -52,8 +52,8 @@ export async function PATCH(request: Request, { params }: Params) {
     }>(
       `SELECT do_not_contact, stage, next_action, next_action_at::text,
          next_action_time::text, next_action_timezone, next_action_contact_id::text
-       FROM public.crm_leads WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
-      [id, access.agent.id],
+       FROM public.crm_leads WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+      [id, access.user.id],
     );
     const current = locked.rows[0];
     if (!current) { await client.query('ROLLBACK'); return fail('Lead not found.', 404); }
@@ -81,12 +81,12 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     await client.query(
       `INSERT INTO public.crm_followup_changes
-       (lead_id, agent_id, previous_action, previous_date, previous_time,
+       (lead_id, previous_action, previous_date, previous_time,
         previous_timezone, next_action, next_action_at, next_action_time,
         next_action_timezone, next_action_due_at, contact_id, contact_name_snapshot)
-       VALUES ($1,$2,$3,$4::date,$5::time,$6,$7,$8::date,$9::time,$10,
-         ${followupDueAtSQL(8,9,10)},$11::uuid,$12)`,
-      [id, access.agent.id, current.next_action, current.next_action_at,
+       VALUES ($1,$2,$3::date,$4::time,$5,$6,$7::date,$8::time,$9,
+         ${followupDueAtSQL(7, 8, 9)},$10::uuid,$11)`,
+      [id, current.next_action, current.next_action_at,
         current.next_action_time, current.next_action_timezone,
         action, schedule.next_action_at, schedule.next_action_time,
         schedule.next_action_timezone, target.id, target.name],
@@ -97,13 +97,13 @@ export async function PATCH(request: Request, { params }: Params) {
            next_action_time = $5::time, next_action_timezone = $6,
            next_action_due_at = ${followupDueAtSQL(4,5,6)},
            next_action_contact_id = $7::uuid, updated_at = now()
-       WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, action, schedule.next_action_at,
+       WHERE id = $1 AND user_id = $2`,
+      [id, access.user.id, action, schedule.next_action_at,
         schedule.next_action_time, schedule.next_action_timezone, target.id],
     );
     const result = await client.query<Lead>(
-      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
     return NextResponse.json({ ok: true, lead: result.rows[0] },

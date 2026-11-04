@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
 import type { ActivityOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
@@ -17,7 +17,7 @@ const CONTACT_SEARCH_COLUMN = `(SELECT string_agg(concat_ws(' ', c.name, c.phone
 
 
 /** A paginated, server-searchable response for Android. Web GET remains unchanged. */
-async function getPagedLeads(params: URLSearchParams, agentId: string) {
+async function getPagedLeads(params: URLSearchParams, userId: string) {
   const rawLimit = params.get('limit') || '25';
   const rawOffset = params.get('offset') || '0';
   if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset))
@@ -38,8 +38,8 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
 
   const due = "(next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))))";
   const active = "NOT do_not_contact AND stage NOT IN ('won','lost','competitor')";
-  const filters: string[] = ['agent_id = $1'];
-  const args: unknown[] = [agentId];
+  const filters: string[] = ['user_id = $1'];
+  const args: unknown[] = [userId];
   const bind = (value: unknown) => { args.push(value); return '$' + args.length; };
   if (industry === '__uncategorized__') filters.push("btrim(industry) = ''");
   else if (industry && industry !== 'all') filters.push('industry = ' + bind(industry));
@@ -71,7 +71,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
   };
   try {
     const db = getCrmPool();
-    // Build SQL + placeholders before executing. Both are scoped to agent_id.
+    // Build SQL + placeholders before executing. Both are scoped to user_id.
     const where = filters.join(' AND ');
     const countArgs = [...args];
     const lim = bind(limit + 1);
@@ -87,12 +87,12 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         "count(*) FILTER (WHERE stage IN ('interested','meeting','proposal','negotiation'))::int AS interested, " +
         "count(*) FILTER (WHERE stage = 'meeting')::int AS meetings, " +
         "count(*) FILTER (WHERE stage = 'won')::int AS won " +
-        'FROM public.crm_leads WHERE agent_id = $1',
-        [agentId],
+        'FROM public.crm_leads WHERE user_id = $1',
+        [userId],
       ),
       db.query<{ industry: string; count: number }>(
-        "SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 AND btrim(industry) <> '' GROUP BY industry ORDER BY industry",
-        [agentId],
+        "SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE user_id = $1 AND btrim(industry) <> '' GROUP BY industry ORDER BY industry",
+        [userId],
       ),
     ]);
     return NextResponse.json({
@@ -105,23 +105,23 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
 }
 
 export async function GET(request: Request) {
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
 
   const searchParams = new URL(request.url).searchParams;
   if (searchParams.has('limit')) {
-    return getPagedLeads(searchParams, access.agent.id);
+    return getPagedLeads(searchParams, access.user.id);
   }
   try {
     const db = getCrmPool();
     const [leadsResult, statsResult] = await Promise.all([
       db.query<Lead>(
         'SELECT ' + LEAD_COLUMNS + ', ' + CONTACT_SEARCH_COLUMN +
-        ' FROM public.crm_leads WHERE agent_id = $1 ' +
+        ' FROM public.crm_leads WHERE user_id = $1 ' +
         "ORDER BY CASE WHEN next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) THEN 0 " +
         'WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, ' +
         'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC LIMIT 1000',
-        [access.agent.id],
+        [access.user.id],
       ),
       db.query<LeadStats>(
         `SELECT count(*)::int AS total,
@@ -138,15 +138,16 @@ export async function GET(request: Request) {
            )::int AS interested,
            count(*) FILTER (WHERE stage = 'meeting')::int AS meetings,
            count(*) FILTER (WHERE stage = 'won')::int AS won
-         FROM public.crm_leads WHERE agent_id = $1`,
-        [access.agent.id],
+         FROM public.crm_leads WHERE user_id = $1`,
+        [access.user.id],
       ),
     ]);
 
     return NextResponse.json(
       {
         ok: true,
-        agent: access.agent,
+        user: access.user,
+        agent: access.user, // Legacy response alias for older web client
         leads: leadsResult.rows,
         stats: statsResult.rows[0],
         has_more: (statsResult.rows[0]?.total || 0) > leadsResult.rows.length,
@@ -180,7 +181,7 @@ function normalizedUrl(value: string): string | null {
 
 export async function POST(request: Request) {
   if (!validCrmWriteOrigin(request)) return badInput('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
 
   let body: Record<string, unknown>;
@@ -249,7 +250,7 @@ export async function POST(request: Request) {
   let client: PoolClient | undefined;
   try {
     // Validate before acquiring a transaction connection to avoid pool starvation.
-    if (values.industry && !(await canUseBusinessCategory(access.agent.id, values.industry))) {
+    if (values.industry && !(await canUseBusinessCategory(access.user.id, values.industry))) {
       return badInput('Choose a saved business category or create a new one.');
     }
     client = await getCrmPool().connect();
@@ -257,7 +258,7 @@ export async function POST(request: Request) {
 
     // Agent ownership always comes from the verified cookie, never the body.
     const columns = [
-      'agent_id', 'company_name', 'industry', 'country', 'city', 'website',
+      'user_id', 'company_name', 'industry', 'country', 'city', 'website',
       'contact_name', 'contact_role', 'phone', 'email', 'existing_system',
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
@@ -266,7 +267,7 @@ export async function POST(request: Request) {
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
-      access.agent.id, identity.identity.company_name, values.industry, values.country,
+      access.user.id, identity.identity.company_name, values.industry, values.country,
       nullIfEmpty(values.city), nullIfEmpty(values.website),
       nullIfEmpty(identity.identity.contact_name), nullIfEmpty(values.contact_role),
       nullIfEmpty(values.phone), nullIfEmpty(values.email),
@@ -311,12 +312,12 @@ export async function POST(request: Request) {
     if (outcome) {
       await client.query(
         `INSERT INTO public.crm_lead_events
-          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
+          (lead_id, event_type, outcome, notes, next_action, next_action_at,
            next_action_time, next_action_timezone, next_action_due_at,
            contact_id, contact_name_snapshot, channel)
-          VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date, $7::time, $8,
-            ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10, $11)`,
-        [id, access.agent.id, outcome, nullIfEmpty(values.notes),
+          VALUES ($1,'outreach', $2, $3, $4, $5::date, $6::time, $7,
+            ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10)`,
+        [id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
           primaryContactId, primaryContactId
             ? (identity.identity.contact_name || values.phone || values.email || values.contact_role || 'Contact')
@@ -325,8 +326,8 @@ export async function POST(request: Request) {
     }
     const read = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS +
-      ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
 
