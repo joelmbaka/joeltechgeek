@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 import { getCrmPool } from '@/lib/agent-crm/db';
 import { mintMobileSession, mobileJson } from '@/lib/agent-crm/mobile-auth';
-import { PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled } from '@/lib/agent-crm/play-review';
+import { PLAY_REVIEW_USER_EMAIL, playReviewEnabled } from '@/lib/agent-crm/play-review';
 import type { CrmUser } from '@/lib/agent-crm/users';
 
 export const runtime = 'nodejs';
@@ -17,7 +17,7 @@ export function GET() {
 
 /**
  * Public one-tap review login. Does NOT impersonate Joel or access real leads.
- * Session is a normal agent-scoped mobile session for a synthetic demo agent.
+ * Session is a normal user-scoped mobile session for a synthetic demo user.
  * Android Play reviewers can use it without Google, OTP, account credentials,
  * device-bound permissions, or location restrictions.
  */
@@ -31,7 +31,7 @@ export async function POST() {
     const match = await client.query<CrmUser>(
       `SELECT id::text, full_name AS name, email, phone, picture_url
          FROM public.crm_users WHERE lower(email) = $1 AND is_active=true LIMIT 1`,
-      [PLAY_REVIEW_AGENT_EMAIL],
+      [PLAY_REVIEW_USER_EMAIL],
     );
     const user = match.rows[0];
     if (!user) {

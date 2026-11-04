@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import type { PoolClient } from 'pg';
 import { getCrmPool } from './db';
 import type { CrmUser } from './users';
-import { PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled } from './play-review';
+import { PLAY_REVIEW_USER_EMAIL, playReviewEnabled } from './play-review';
 
 const TOKEN_LIFETIME_SECONDS = 15 * 60;
 export const randomToken = () => randomBytes(32).toString('base64url');
@@ -57,7 +57,7 @@ export async function getActiveMobileUser(token: string): Promise<CrmUser | null
          AND u.is_active=true
          AND (lower(u.email) <> $3 OR $4::boolean)
        LIMIT 1`,
-    [identity.sid, identity.userId, PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled()]);
+    [identity.sid, identity.userId, PLAY_REVIEW_USER_EMAIL, playReviewEnabled()]);
   return result.rows[0] || null;
 }
 export async function getActiveUserById(id: string, client: PoolClient): Promise<CrmUser | null> {
@@ -65,7 +65,7 @@ export async function getActiveUserById(id: string, client: PoolClient): Promise
     `SELECT id::text, full_name AS name, email, phone, picture_url
        FROM public.crm_users WHERE id=$1::uuid AND is_active=true
          AND (lower(email) <> $2 OR $3::boolean) LIMIT 1`,
-    [id, PLAY_REVIEW_AGENT_EMAIL, playReviewEnabled()]);
+    [id, PLAY_REVIEW_USER_EMAIL, playReviewEnabled()]);
   return found.rows[0] || null;
 }
 export async function mintMobileSession(client: PoolClient, userId: string) {

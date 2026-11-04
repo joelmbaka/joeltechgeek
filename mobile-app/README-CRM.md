@@ -1,4 +1,21 @@
-# JoelTechGeek Agent CRM · Android MVP
+# JoelTechGeek CRM · Android MVP
+
+## Phase 5: individual user accounts (canonical)
+Phase 5 introduces **one identity table**, public Google sign-up, and consistent
+`user_id` owner columns. No agent registrations, organizations, workspaces or teams.
+The existing nine user UUIDs and every lead/contact/activity are preserved.
+
+**Important release ordering:** The production database still has `agent_id`.
+The Phase 5 migration renames it, so **do not deploy these API changes against
+the old database** or apply the migration while the old production API is still
+serving traffic. Use a short, coordinated migration + backend deployment,
+following `docs/phase5-personal-crm-cutover.md`. The migration was verified
+on an isolated Neon child branch; production remains untouched until cutover.
+
+Both Android and web now create private accounts on first verified Google sign-in.
+Android refresh tokens and the legacy `agent` response alias are retained for
+published clients. Web JWT sessions from before the cutover must sign in again.
+
 
 Scope: Android first, using the existing Next.js /api/agent-crm routes and the
 Portfolio Neon database. No FastAPI, local CRM DB, AsyncStorage, TanStack Query,

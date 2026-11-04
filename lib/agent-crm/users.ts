@@ -18,7 +18,7 @@ export async function findOrCreateCrmUser(identity: {
   if (!googleSub || googleSub.length > 255 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
     throw new Error('Unverified Google CRM identity.');
-  const name = (identity.name?.trim() || email.split('@')[0]).slice(0, 150);
+  const name = identity.name?.trim().slice(0, 150) || null; // Never overwrite a migrated user's name when Google omits it.
   const picture = verifiedGooglePicture(identity.pictureUrl);
   const client = await getCrmPool().connect();
   try {
@@ -42,7 +42,7 @@ export async function findOrCreateCrmUser(identity: {
     const result = id
       ? await client.query<CrmUser>(
           `UPDATE public.crm_users
-           SET google_sub=$2, email=$3, full_name=$4,
+           SET google_sub=$2, email=$3, full_name=COALESCE($4, full_name),
                picture_url=COALESCE($5,picture_url), updated_at=now()
            WHERE id=$1::uuid AND is_active=true
              AND (google_sub IS NULL OR google_sub=$2)
@@ -50,7 +50,7 @@ export async function findOrCreateCrmUser(identity: {
           [id, googleSub, email, name, picture])
       : await client.query<CrmUser>(
           `INSERT INTO public.crm_users (google_sub,email,full_name,picture_url)
-           VALUES ($1,$2,$3,$4)
+           VALUES ($1,$2,COALESCE($3,split_part($2,'@',1)),$4)
            RETURNING id::text, full_name AS name, email, phone, picture_url`,
           [googleSub, email, name, picture]);
     if (!result.rows[0]) throw new Error('CRM account is inactive.');

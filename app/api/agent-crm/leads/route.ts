@@ -256,7 +256,7 @@ export async function POST(request: Request) {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
 
-    // Agent ownership always comes from the verified cookie, never the body.
+    // User ownership comes from the authenticated session, never the request body.
     const columns = [
       'user_id', 'company_name', 'industry', 'country', 'city', 'website',
       'contact_name', 'contact_role', 'phone', 'email', 'existing_system',
