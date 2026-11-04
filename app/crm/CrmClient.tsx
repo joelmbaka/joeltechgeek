@@ -6,8 +6,8 @@ import {
   ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, X,
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
-import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel } from '@/lib/agent-crm/types';
-import type { Agent, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
+import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcome } from '@/lib/agent-crm/types';
+import type { Agent, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { AddLeadModal } from './AddLeadModal';
@@ -24,6 +24,7 @@ type Response = {
   has_more: boolean;
 };
 type FormValues = {
+  channel: ActivityChannel;
   outcome: string;
   notes: string;
   next_action: string;
@@ -163,7 +164,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       {lead.last_notes && <p className="mt-2 line-clamp-2 text-xs text-slate-500">Latest note: {lead.last_notes}</p>}
       {lead.last_outcome && (
-        <p className="mt-3 text-xs text-slate-500">Last outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
+        <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || 'call'} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
       {lead.next_action && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">Next: {lead.next_action}</p>}
       {lead.next_action_at && (
@@ -198,7 +199,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
   lead: Lead; onClose: () => void; onSaved: () => Promise<void>;
 }) {
   const [form, setForm] = useState<FormValues>({
-    outcome: '', notes: '', next_action: lead.next_action || '',
+    channel: 'call', outcome: '', notes: '', next_action: lead.next_action || '',
     next_action_at: lead.next_action_at || '',
     next_action_time: lead.next_action_time?.slice(0, 5) || '',
     stage: '', do_not_contact: false,
@@ -313,6 +314,10 @@ function LeadDialog({ lead, onClose, onSaved }: {
   async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.outcome || saving) return;
+    const proposedStage = form.stage || stageForOutcome(lead.stage, form.outcome as ActivityOutcome);
+    if (!form.do_not_contact && proposedStage !== lead.stage &&
+        ['won','lost'].includes(proposedStage) &&
+        !window.confirm('This will mark the entire lead ' + label(proposedStage) + '. Continue?')) return;
     if (planFromCall && form.next_action_time && !form.next_action_at) {
       setError('Choose a date before selecting a time.'); return;
     }
@@ -323,6 +328,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     try {
       await api('/api/agent-crm/leads/' + lead.id, 'PATCH', {
         outcome: form.outcome,
+        channel: form.channel,
         notes: form.notes,
         contact_id: callContactId || null,
         // If planning from this call, target the person just spoken to.
@@ -614,14 +620,26 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
             {/* Logging outreach is independent from editing/completing reminders. */}
             <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/30">
-              <h3 className="text-base font-bold">Log a new call</h3>
+              <h3 className="text-base font-bold">Record activity</h3>
               <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                Select what happened during your latest call. Use the schedule section above to edit an existing follow-up.
+                Record a call or message independently from existing follow-ups.
               </p>
               <form onSubmit={submitCall} className="mt-4 space-y-4">
+                <label className="block text-sm font-semibold">
+                  Activity type
+                  <select className={input} value={form.channel} disabled={saving}
+                    onChange={(event) => setForm((previous) => ({
+                      ...previous, channel: event.target.value as ActivityChannel, outcome: '', stage: '',
+                    }))}>
+                    <option value="call">Call</option>
+                    <option value="email">Email</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
                 {contactPicker(callContactId, setCallContactChoice, 'Contact')}
                 <label className="block text-sm font-semibold">
-                  Call outcome <span className="text-rose-600">*</span>
+                  Result <span className="text-rose-600">*</span>
                   <select required className={input} value={form.outcome} disabled={savingClassification}
                     onChange={(e) => {
                       if (e.target.value === 'mark_competitor') {
@@ -634,14 +652,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                       setForm((x) => ({...x, outcome: e.target.value}));
                     }}>
                     <option value="">Choose outcome</option>
-                    {CALL_OUTCOMES.map((value) => (
+                    {CHANNEL_OUTCOMES[form.channel].map((value) => (
                       <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
                     ))}
-                    <option value="mark_competitor">Mark as competitor</option>
+                    {form.channel === 'call' && <option value="mark_competitor">Mark as competitor</option>}
                   </select>
                 </label>
                 <label className="block text-sm font-semibold">
-                  Conversation notes
+                  Notes
                   <textarea className={input + ' min-h-24 resize-y'} rows={3}
                     maxLength={2500} placeholder="What did the prospect say?"
                     value={form.notes}
@@ -650,7 +668,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                 <button type="button" aria-expanded={planFromCall}
                   onClick={() => setPlanFromCall((value) => !value)}
                   className="text-xs font-semibold text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300">
-                  {planFromCall ? 'Hide follow-up planning' : 'Plan a follow-up from this call (optional)'}
+                  {planFromCall ? 'Hide follow-up planning' : 'Plan a follow-up (optional)'}
                 </button>
                 {planFromCall && (
                   <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
@@ -684,10 +702,21 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   Lead stage <span className="font-normal text-slate-500">(optional)</span>
                   <select className={input} disabled={form.do_not_contact} value={form.stage}
                     onChange={(e) => setForm((x) => ({...x, stage: e.target.value}))}>
-                    <option value="">Automatic from outcome</option>
+                    <option value="">Suggested: {form.outcome
+                      ? label(stageForOutcome(lead.stage, form.outcome as ActivityOutcome))
+                      : label(lead.stage)}</option>
                     {stages.map((stage) => <option key={stage} value={stage}>{label(stage)}</option>)}
                   </select>
                 </label>
+                {form.outcome && ['not_interested','onboarding_completed','trial_started'].includes(form.outcome) && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {form.outcome === 'not_interested'
+                      ? 'Not interested normally closes the entire lead as Lost. Choose the current stage above if only one contact declined.'
+                      : form.outcome === 'trial_started'
+                        ? 'Trial started is recorded as an outcome; the stage is Interested unless further along.'
+                        : 'Onboarding completed marks the lead Won when the customer is committed and set up.'}
+                  </p>
+                )}
                 <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   <input type="checkbox" className="mt-1 h-4 w-4 accent-rose-700"
                     checked={form.do_not_contact}
@@ -701,7 +730,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                 {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
                 <button type="submit" disabled={!form.outcome || saving}
                   className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-                  <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save call outcome'}
+                  <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save activity'}
                 </button>
               </form>
             </section>
@@ -724,7 +753,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         ? 'Completed: ' + (h.action || 'Task')
                         : h.event_type === 'followup_updated'
                           ? 'Follow-up changed'
-                          : h.outcome ? callOutcomeLabel(h.outcome) : 'Outreach'}
+                          : h.outcome ? (h.channel ? label(h.channel) + ' · ' : '') + callOutcomeLabel(h.outcome) : 'Outreach'}
                     </strong>
                     <span className="text-slate-500">{timeLabel(h.created_at)}</span>
                   </div>
