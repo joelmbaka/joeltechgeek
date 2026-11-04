@@ -20,7 +20,8 @@
     "test:restaurant-demo": "node --test tests/restaurant-demo.test.cjs",
     "test:demo-scroll-feedback": "node --test tests/demo-scroll-feedback.test.cjs",
     "test:play-review": "node --test tests/play-review-gate.test.cjs",
-    "test:vehicle-tracking-demo": "node --test tests/vehicle-tracking-demo.test.cjs"
+    "test:vehicle-tracking-demo": "node --test tests/vehicle-tracking-demo.test.cjs",
+    "test:crm-contact-attribution": "node --experimental-strip-types --test tests/agent-crm-contact-attribution.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
