@@ -6,6 +6,7 @@ import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, LEAD_STAGES } from '@/lib/agent-crm/types';
 
 type FormState = {
+  lead_title: string;
   company_name: string;
   industry: string;
   country: string;
@@ -29,7 +30,7 @@ type FormState = {
 };
 
 const defaults: FormState = {
-  company_name: '', industry: '', country: 'Kenya', city: '',
+  lead_title: '', company_name: '', industry: '', country: 'Kenya', city: '',
   contact_name: '', contact_role: '', phone: '', email: '', website: '',
   existing_system: '', problem_summary: '', qualification_reason: '',
   source_url: '', priority: 'normal', stage: 'new', outcome: '',
@@ -195,9 +196,15 @@ export function AddLeadModal({
           <div className="space-y-5 px-5 py-5 sm:px-7">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className={labelClass}>
-                Company / business <span className="text-rose-600">*</span>
+                Lead title <span className="text-rose-600">*</span>
                 <input required autoFocus className={fieldClass} maxLength={180}
-                  placeholder="e.g. BlazeShield" value={form.company_name}
+                  placeholder="e.g. Fleet tracking rollout" value={form.lead_title}
+                  onChange={(event) => change('lead_title', event.target.value)} />
+              </label>
+              <label className={labelClass}>
+                Company / business <span className="text-xs font-normal text-slate-500">(optional)</span>
+                <input className={fieldClass} maxLength={180}
+                  placeholder="e.g. ABC Logistics" value={form.company_name}
                   onChange={(event) => change('company_name', event.target.value)} />
               </label>
               <div>
@@ -352,7 +359,7 @@ export function AddLeadModal({
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
               Cancel
             </button>
-            <button type="submit" disabled={saving || !form.company_name.trim()}
+            <button type="submit" disabled={saving || !form.lead_title.trim()}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-5 text-sm font-semibold text-white transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Add lead'}
             </button>
