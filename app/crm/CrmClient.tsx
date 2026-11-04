@@ -201,6 +201,9 @@ function LeadDialog({ lead, onClose, onSaved }: {
   });
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
+  // null = automatic primary/default; '' = explicit company-level activity.
+  const [callContactChoice, setCallContactChoice] = useState<string | null>(null);
+  const [followupContactChoice, setFollowupContactChoice] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingClassification, setSavingClassification] = useState(false);
@@ -252,6 +255,35 @@ function LeadDialog({ lead, onClose, onSaved }: {
     finally { setSavingClassification(false); }
   }
 
+  const primaryContactId = contacts?.find((c) => c.is_primary)?.id || contacts?.[0]?.id || '';
+  const selectedContactId = (choice: string | null, existing: string) => {
+    if (!contacts?.length) return '';
+    if (contacts.length === 1) return contacts[0].id;
+    return choice !== null && (choice === '' || contacts.some((c) => c.id === choice))
+      ? choice : (existing === '' || contacts.some((c) => c.id === existing))
+        ? existing : primaryContactId;
+  };
+  const callContactId = selectedContactId(callContactChoice, primaryContactId);
+  const followupDefault = lead.next_action ? lead.next_action_contact_id || '' : primaryContactId;
+  const followupContactId = selectedContactId(followupContactChoice, followupDefault);
+  const contactOptions = contacts?.map((c) => ({
+    value: c.id,
+    label: (c.name || c.phone || c.email || c.role || 'Contact') +
+      (c.role && c.name ? ' — ' + c.role : '') +
+      (c.is_primary ? ' (Primary)' : ''),
+  })) || [];
+  const contactPicker = (value: string, onChange: (next: string) => void, title: string) => (
+    contacts !== null && contacts.length > 1 ? (
+      <label className="block text-sm font-semibold">
+        {title}
+        <select className={input} value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Company / unspecified contact</option>
+          {contactOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+      </label>
+    ) : null
+  );
+
   async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.outcome || saving) return;
@@ -266,6 +298,10 @@ function LeadDialog({ lead, onClose, onSaved }: {
       await api('/api/agent-crm/leads/' + lead.id, 'PATCH', {
         outcome: form.outcome,
         notes: form.notes,
+        contact_id: callContactId || null,
+        // If planning from this call, target the person just spoken to.
+        // Otherwise preserve the existing follow-up contact on the server.
+        ...(planFromCall ? { next_action_contact_id: form.do_not_contact ? null : callContactId || null } : {}),
         next_action: form.do_not_contact ? '' : planFromCall ? form.next_action : lead.next_action || '',
         next_action_at: form.do_not_contact ? null
           : planFromCall ? form.next_action_at || null : lead.next_action_at || null,
@@ -299,6 +335,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         next_action_at: followupDate || null,
         next_action_time: followupTime || null,
         next_action_timezone: followupDate ? browserTimezone() : null,
+        contact_id: followupContactId || null,
       });
       await onSaved();
       onClose();
@@ -323,6 +360,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         next_action_at: completedNextDate || null,
         next_action_time: completedNextTime || null,
         next_action_timezone: completedNextDate ? browserTimezone() : null,
+        next_action_contact_id: completedNextAction.trim() ? followupContactId || null : null,
       });
       await onSaved();
       onClose();
@@ -417,6 +455,12 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-white">
                     {lead.next_action || 'No action scheduled'}
                   </h3>
+                  {lead.next_action && contacts && contacts.length > 1 && (
+                    <p className="mt-1 text-xs text-sky-800 dark:text-sky-200">
+                      Contact: {contacts.find((c) => c.id === lead.next_action_contact_id)?.name ||
+                        (lead.next_action_contact_id ? 'Former contact' : 'Company / unspecified')}
+                    </p>
+                  )}
                   <p className="mt-2 flex items-center gap-1.5 text-sm text-sky-900 dark:text-sky-200">
                     <CalendarDays className="h-4 w-4 shrink-0" />
                     {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
@@ -436,6 +480,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   <p className="text-xs text-slate-600 dark:text-slate-300">
                     Update the follow-up without logging a call or marking the action completed.
                   </p>
+                  {contactPicker(followupContactId, setFollowupContactChoice, 'Contact (optional)')}
                   <label className="block text-sm font-semibold">
                     Next action
                     <input required={Boolean(followupDate)} className={input} maxLength={300}
@@ -520,6 +565,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                 Select what happened during your latest call. Use the schedule section above to edit an existing follow-up.
               </p>
               <form onSubmit={submitCall} className="mt-4 space-y-4">
+                {contactPicker(callContactId, setCallContactChoice, 'Contact')}
                 <label className="block text-sm font-semibold">
                   Call outcome <span className="text-rose-600">*</span>
                   <select required className={input} value={form.outcome} disabled={savingClassification}
@@ -628,6 +674,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                     </strong>
                     <span className="text-slate-500">{timeLabel(h.created_at)}</span>
                   </div>
+                  {h.contact_name_snapshot && <p className="mt-1 text-xs text-slate-500">Contact: {h.contact_name_snapshot}</p>}
                   {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
                   {h.next_action && (
                     <p className="mt-2 text-slate-600 dark:text-slate-300">

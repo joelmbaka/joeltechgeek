@@ -64,7 +64,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const target = action ? await resolveContactTarget(
       client, id,
       body.contact_id !== undefined ? body.contact_id
-        : current.next_action_contact_id !== null ? current.next_action_contact_id : undefined,
+        : current.next_action ? current.next_action_contact_id : undefined,
     ) : { ok: true as const, id: null, name: null };
     if (!target.ok) {
       await client.query('ROLLBACK');

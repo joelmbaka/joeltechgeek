@@ -32,6 +32,9 @@ export default function LeadScreen() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);
   const [contacts, setContacts] = useState<LeadContact[]>([]);
+  // null = use the automatic choice, '' = explicitly company/unspecified.
+  const [callContactChoice, setCallContactChoice] = useState<string | null>(null);
+  const [followupContactChoice, setFollowupContactChoice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,6 +85,30 @@ export default function LeadScreen() {
   useFreshOnFocus(load, [load]);
   const reload = () => load(new AbortController().signal);
 
+  const primaryContactId = contacts.find((c) => c.is_primary)?.id || contacts[0]?.id || '';
+  const validChoice = (choice: string | null, fallback: string) =>
+    choice !== null && (choice === '' || contacts.some((c) => c.id === choice))
+      ? choice : fallback;
+  const callContactId = contacts.length === 1 ? contacts[0].id
+    : contacts.length > 1 ? validChoice(callContactChoice, primaryContactId) : '';
+  // Preserve an existing company-level follow-up instead of silently
+  // attributing it to the primary contact when editing its schedule.
+  const currentFollowupTarget = lead?.next_action
+    ? lead.next_action_contact_id || '' : primaryContactId;
+  const followupContactId = contacts.length === 1 ? contacts[0].id
+    : contacts.length > 1 ? validChoice(followupContactChoice,
+        currentFollowupTarget && contacts.some((c) => c.id === currentFollowupTarget)
+          ? currentFollowupTarget : currentFollowupTarget === '' ? '' : primaryContactId)
+      : '';
+  const contactOptions = [
+    { value: '', label: 'Company / unspecified contact' },
+    ...contacts.map((c) => ({
+      value: c.id, label: (c.name || c.phone || c.email || c.role || 'Contact') +
+        (c.role && c.name ? ' — ' + c.role : '') +
+        (c.is_primary ? ' (Primary)' : ''),
+    })),
+  ];
+
   const schedule = () => ({
     next_action: nextAction.trim(),
     next_action_at: date.trim() || null,
@@ -117,15 +144,16 @@ export default function LeadScreen() {
       const payload = kind === 'call'
         // Logging a call must not erase an existing follow-up. Edits to
         // scheduling are submitted through the separate Follow-up section.
-        ? { outcome, notes,
+        ? { outcome, notes, contact_id: callContactId || null,
           next_action: lead.next_action || '',
           next_action_at: lead.next_action_at || null,
           next_action_time: lead.next_action_time?.slice(0, 5) || null,
           next_action_timezone: lead.next_action_timezone || timezone,
           do_not_contact: optOut }
         : kind === 'complete'
-          ? { notes: completionNotes, ...completionSchedule }
-          : schedule();
+          ? { notes: completionNotes, ...completionSchedule,
+              next_action_contact_id: completionSchedule.next_action ? followupContactId || null : null }
+          : { ...schedule(), contact_id: followupContactId || null };
       await apiFetch(path, { method, body: JSON.stringify(payload) });
       dirty.current = false;
       setOptOut(false);
@@ -135,6 +163,8 @@ export default function LeadScreen() {
       setDate('');
       setTime('');
       setCompletionNotes('');
+      setCallContactChoice(null);
+      setFollowupContactChoice(null);
       reload();
       if (agent) void reconcileReminders(agent).catch(() => {});
     } catch (reason) {
@@ -175,6 +205,10 @@ export default function LeadScreen() {
         <Text style={styles.value}>{outcomeLabel(lead.last_outcome)}</Text>
         <Text style={styles.label}>Next action</Text>
         <Text style={styles.value}>{lead.next_action || 'No action scheduled'}</Text>
+        {lead.next_action && contacts.length > 1 ? <Text style={styles.subtitle}>
+          Contact: {contacts.find((c) => c.id === lead.next_action_contact_id)?.name ||
+            (lead.next_action_contact_id ? 'Former contact' : 'Company / unspecified')}
+        </Text> : null}
         {lead.next_action_at ? <Text style={styles.subtitle}>
           {lead.next_action_at}
           {lead.next_action_time ? ' at ' + lead.next_action_time.slice(0, 5) : ' (date only)'}
@@ -199,6 +233,9 @@ export default function LeadScreen() {
       {!lead.do_not_contact && lead.stage !== 'competitor' ? <>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Log call outcome</Text>
+          {contacts.length > 1 ? <SelectSheet title="Contact" value={callContactId}
+            options={contactOptions} onChange={(value) => edit(() => setCallContactChoice(value))}
+            disabled={saving} searchable/> : null}
           <SelectSheet title="Call outcome" value={outcome} options={outcomeOptions}
             disabled={saving} placeholder="Select outcome"
             onChange={(value) => {
@@ -237,6 +274,9 @@ export default function LeadScreen() {
         </View>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Follow-up</Text>
+          {contacts.length > 1 ? <SelectSheet title="Contact (optional)" value={followupContactId}
+            options={contactOptions} onChange={(value) => edit(() => setFollowupContactChoice(value))}
+            disabled={saving} searchable/> : null}
           <Field label="Next action" value={nextAction}
             onChangeText={(value) => edit(() => setNextAction(value))}
             placeholder="e.g. Call decision maker"/>
@@ -267,6 +307,9 @@ export default function LeadScreen() {
         history.map((event) => <View key={event.id} style={styles.card}>
           <Text style={styles.value}>{event.event_type.replace(/_/g, ' ')}</Text>
           <Text style={styles.subtitle}>{new Date(event.created_at).toLocaleString()}</Text>
+          {event.contact_name_snapshot ? <Text style={styles.subtitle}>
+            Contact: {event.contact_name_snapshot}
+          </Text> : null}
           {event.outcome ? <Text style={styles.subtitle}>Outcome: {outcomeLabel(event.outcome)}</Text> : null}
           {event.action ? <Text style={styles.subtitle}>Action: {event.action}</Text> : null}
           {event.notes ? <Text style={styles.subtitle}>{event.notes}</Text> : null}

@@ -152,7 +152,7 @@ export async function PATCH(request: Request, { params }: Params) {
           client, id,
           body.next_action_contact_id !== undefined
             ? body.next_action_contact_id
-            : current.next_action_contact_id !== null ? current.next_action_contact_id : undefined,
+            : current.next_action ? current.next_action_contact_id : undefined,
         );
     if (!actionContact.ok) {
       await client.query('ROLLBACK');
