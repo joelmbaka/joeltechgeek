@@ -28,7 +28,7 @@ function ChevronDown() {
 
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
-  disabled = false, placeholder, compact = false,
+  disabled = false, placeholder, compact = false, onCreateOption,
 }: {
   title: string;
   value: string;
@@ -38,11 +38,16 @@ export function SelectSheet({
   disabled?: boolean;
   placeholder?: string;
   compact?: boolean;
+  onCreateOption?: (name: string) => Promise<string>;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [savingNew, setSavingNew] = useState(false);
+  const [createError, setCreateError] = useState('');
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
@@ -51,7 +56,29 @@ export function SelectSheet({
     (option.label + ' ' + option.value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   ), [options, query]);
 
-  const close = () => { setOpen(false); setQuery(''); };
+  const close = () => {
+    if (savingNew) return;
+    setOpen(false);
+    setQuery('');
+    setAdding(false);
+    setNewName('');
+    setCreateError('');
+  };
+  const saveNew = async () => {
+    const name = newName.trim().replace(/\s+/g, ' ');
+    if (!onCreateOption || !name || savingNew) return;
+    setSavingNew(true);
+    setCreateError('');
+    try {
+      const savedName = await onCreateOption(name);
+      onChange(savedName);
+      setSavingNew(false);
+      close();
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Could not save category.');
+      setSavingNew(false);
+    }
+  };
 
   return <>
     <Pressable
@@ -129,6 +156,35 @@ export function SelectSheet({
             placeholderTextColor={theme.muted}
             style={[styles.input, { marginBottom: 8 }]}
           /> : null}
+          {onCreateOption ? (adding ? <View style={{ gap: 9, paddingVertical: 10 }}>
+            <Text style={styles.label}>New business category</Text>
+            <TextInput value={newName} onChangeText={setNewName} autoFocus
+              maxLength={100} placeholder="e.g. Fleet Operators"
+              placeholderTextColor={theme.muted} style={styles.input}
+              onSubmitEditing={() => void saveNew()} returnKeyType="done"/>
+            {createError ? <Text style={styles.error}>{createError}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable accessibilityRole="button" disabled={savingNew}
+                onPress={() => { setAdding(false); setCreateError(''); }}
+                style={{ paddingVertical: 10, flex: 1 }}>
+                <Text style={{ color: theme.muted, fontWeight: '700' }}>Cancel</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button"
+                disabled={savingNew || !newName.trim()}
+                onPress={() => void saveNew()}
+                style={{ paddingVertical: 10, flex: 1, alignItems: 'flex-end' }}>
+                <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>
+                  {savingNew ? 'Saving…' : 'Save category'}
+                </Text>
+              </Pressable>
+            </View>
+          </View> : <Pressable accessibilityRole="button"
+            onPress={() => { setAdding(true); setNewName(query); setCreateError(''); }}
+            style={{ paddingVertical: 15, borderBottomColor: theme.border, borderBottomWidth: 1 }}>
+            <Text style={{ color: theme.primaryDark, fontWeight: '800', fontSize: 15 }}>
+              + Add new category
+            </Text>
+          </Pressable>) : null}
           <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}>

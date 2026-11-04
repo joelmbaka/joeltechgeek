@@ -143,8 +143,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
         <div className="min-w-0">
           <h3 className="text-base font-semibold leading-snug text-slate-950 dark:text-white">{lead.company_name}</h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {lead.industry}{lead.city ? ' · ' + lead.city : ''}
-            {lead.country !== 'Kenya' ? ' · ' + lead.country : ''}
+            {[lead.industry, lead.city, lead.country !== 'Kenya' ? lead.country : null].filter(Boolean).join(' · ') || 'No category'}
           </p>
         </div>
         <StageBadge lead={lead} />
@@ -341,7 +340,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         className="max-h-[96dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl dark:bg-slate-950 sm:max-h-[90dvh] sm:rounded-2xl sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{lead.industry}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{lead.industry || "No category"}</p>
             <h2 id="lead-title" className="mt-1 text-xl font-bold">{lead.company_name}</h2>
             <p className="mt-1 text-xs text-slate-500">{lead.contact_name || 'Contact not identified'}
               {lead.phone ? ' · ' + lead.phone : ''}</p>
@@ -376,7 +375,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
           <section className="mt-5 rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm dark:border-violet-800 dark:bg-violet-950/20">
             <p className="font-semibold">Competitor — research record</p>
             <p className="mt-1 text-slate-600 dark:text-slate-300">
-              Excluded from calls, outreach queues and follow-up reminders. The company remains searchable under its industry.
+              Excluded from calls, outreach queues and follow-up reminders. The company remains searchable under its business category.
             </p>
             <button type="button" disabled={savingClassification}
               onClick={() => {
@@ -692,10 +691,9 @@ export function CrmClient() {
   }
   const leads = data?.leads || [];
   const stats = data?.stats || emptyStats;
-  // Show all supported industries, including those not yet represented in this
-  // agent's leads. Preserve labels from older manually seeded records too.
+  // Show built-in categories and those present in existing leads.
   const industries = useMemo(
-    () => Array.from(new Set([...CRM_INDUSTRIES, ...leads.map((lead) => lead.industry)]))
+    () => Array.from(new Set([...CRM_INDUSTRIES, ...leads.map((lead) => lead.industry)])).filter(Boolean)
       .sort((a, b) => a.localeCompare(b)),
     [leads],
   );
@@ -706,7 +704,7 @@ export function CrmClient() {
   }, [leads]);
   const filtered = useMemo(() => {
     const matches = leads.filter((lead) => {
-      if (industry !== 'all' && lead.industry !== industry) return false;
+      if (industry === '__uncategorized__' ? Boolean(lead.industry) : industry !== 'all' && lead.industry !== industry) return false;
       if (queue === 'to_call' && !isToCall(lead)) return false;
       if (queue === 'due' && !isDue(lead)) return false;
       if (queue === 'interested' && !isInterested(lead)) return false;
@@ -877,9 +875,10 @@ export function CrmClient() {
                   placeholder="Search company, contact or location"
                   className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] pl-10 pr-3 text-sm text-[#0A2836] outline-none placeholder:text-slate-400 focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40" />
               </label>
-              <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Filter by industry"
+              <select value={industry} onChange={(e) => setIndustry(e.target.value)} aria-label="Filter by business category"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 lg:w-52">
-                <option value="all">All industries</option>
+                <option value="all">All categories</option>
+                <option value="__uncategorized__">No category</option>
                 {industries.map((name) => (
                   <option key={name} value={name}>{name} ({industryCounts.get(name) ?? 0})</option>
                 ))}
@@ -890,7 +889,7 @@ export function CrmClient() {
                 <option value="follow_up">Follow-up: Earliest first</option>
                 <option value="priority">Priority: Highest first</option>
                 <option value="recent">Recently updated</option>
-                <option value="industry">Industry: A–Z</option>
+                <option value="industry">Category: A–Z</option>
                 <option value="company">Company: A–Z</option>
               </select>
             </div>
@@ -926,7 +925,7 @@ export function CrmClient() {
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">
                 {leads.length === 0
                   ? 'Once prospects are assigned to your account, they will appear here with their contact details and next actions.'
-                  : 'Try another industry, search term or queue to find the prospect you need.'}
+                  : 'Try another category, search term or queue to find the prospect you need.'}
               </p>
               {leads.length === 0 && (
                 <button type="button" onClick={() => void refresh(true)} disabled={refreshing}

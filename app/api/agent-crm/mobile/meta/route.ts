@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { requireCrmAgent } from '@/lib/agent-crm/auth';
-import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
+import { getBusinessCategories } from '@/lib/agent-crm/categories';
+import { crmError } from '@/lib/agent-crm/auth';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const access = await requireCrmAgent(request);
   if ('response' in access) return access.response;
-  return NextResponse.json({ ok: true, industries: CRM_INDUSTRIES },
-    { headers: { 'Cache-Control': 'private, no-store' } });
+  try {
+    const industries = await getBusinessCategories(access.agent.id);
+    return NextResponse.json({ ok: true, industries },
+      { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) { return crmError(error); }
 }

@@ -6,6 +6,8 @@ NetInfo, push-token registration, or background polling.
 
 ## Deployment order
 
+Phase 1 business categories: run `migrations/2026-11-04-agent-crm-business-categories.sql` on JoelTechGeek/Portfolio Neon before deploying the category API or the updated mobile/web clients. Existing `industry` data is unchanged; blank is allowed for new leads, and custom categories are scoped to the current agent.
+
 1. Previous mobile authentication tables are already deployed. Apply the additive migrations `migrations/2026-11-02-agent-crm-google-oauth-states.sql` and `migrations/2026-11-03-agent-crm-google-avatar.sql` to Portfolio Neon before deploying the updated backend.
 2. Register https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback as an Authorized redirect URI on the existing Google Web OAuth client.
 3. Deploy backend Google OAuth start/callback/exchange endpoints from the mobile branch.

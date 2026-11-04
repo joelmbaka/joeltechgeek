@@ -250,7 +250,7 @@ export default function LeadScreen() {
     </View> : null}
     {lead ? <>
       <Text style={styles.title}>{lead.company_name}</Text>
-      <Text style={styles.subtitle}>{lead.industry} · {lead.stage.replace(/_/g, ' ')}</Text>
+      <Text style={styles.subtitle}>{lead.industry ? lead.industry + ' · ' : ''}{lead.stage.replace(/_/g, ' ')}</Text>
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
@@ -300,7 +300,7 @@ export default function LeadScreen() {
       {lead.stage === 'competitor' ? <View style={styles.card}>
         <Text style={[styles.title, { fontSize: 18 }]}>Competitor — outreach paused</Text>
         <Text style={styles.subtitle}>
-          Retained for industry research. Calls and follow-up reminders are disabled.
+          Retained for competitor research. Calls and follow-up reminders are disabled.
         </Text>
         <Button secondary disabled={saving} onPress={() => showDialog({
           title: 'Reopen as prospect?',

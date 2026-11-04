@@ -49,6 +49,44 @@ export function AddLeadModal({
   const [form, setForm] = useState<FormState>(defaults);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [categories, setCategories] = useState<string[]>([...CRM_INDUSTRIES]);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/agent-crm/categories', { credentials: 'same-origin', signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Could not load saved categories.');
+        return res.json() as Promise<{ categories: string[] }>;
+      })
+      .then((data) => { if (!controller.signal.aborted) setCategories(data.categories); })
+      .catch(() => { if (!controller.signal.aborted) setCategoryError('Could not load saved categories.'); });
+    return () => controller.abort();
+  }, []);
+
+  async function saveCategory() {
+    const name = newCategory.trim().replace(/\s+/g, ' ');
+    if (!name || categoryBusy) return;
+    setCategoryBusy(true);
+    setCategoryError('');
+    try {
+      const res = await fetch('/api/agent-crm/categories', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+      });
+      const data: { category?: string; error?: string } = await res.json();
+      if (!res.ok || !data.category) throw new Error(data.error || 'Could not save category.');
+      setCategories((current) => [...new Set([...current, data.category!])].sort((a, b) => a.localeCompare(b)));
+      change('industry', data.category);
+      setAddingCategory(false);
+      setNewCategory('');
+    } catch (err) {
+      setCategoryError(err instanceof Error ? err.message : 'Could not save category.');
+    } finally { setCategoryBusy(false); }
+  }
 
   function change<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -162,16 +200,38 @@ export function AddLeadModal({
                   placeholder="e.g. BlazeShield" value={form.company_name}
                   onChange={(event) => change('company_name', event.target.value)} />
               </label>
-              <label className={labelClass}>
-                Industry <span className="text-rose-600">*</span>
-                <select required className={fieldClass} value={form.industry}
-                  onChange={(event) => change('industry', event.target.value)}>
-                  <option value="">Choose from all industries</option>
-                  {CRM_INDUSTRIES.map((industry) => (
-                    <option key={industry} value={industry}>{industry}</option>
+              <div>
+                <label className={labelClass} htmlFor="new-lead-category">Business category (optional)</label>
+                <select id="new-lead-category" className={fieldClass} value={form.industry}
+                  onChange={(event) => {
+                    if (event.target.value === '__add_new__') {
+                      setAddingCategory(true);
+                      setCategoryError('');
+                    } else { change('industry', event.target.value); }
+                  }}>
+                  <option value="">No category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>{category}</option>
                   ))}
+                  <option value="__add_new__">+ Add new category…</option>
                 </select>
-              </label>
+                {addingCategory && <div className="mt-2 flex flex-col gap-2">
+                  <input className={fieldClass} value={newCategory} maxLength={100}
+                    placeholder="e.g. Fleet Operators" aria-label="New business category"
+                    onChange={(event) => setNewCategory(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void saveCategory(); } }} />
+                  <div className="flex gap-2">
+                    <button type="button" disabled={categoryBusy} onClick={() => setAddingCategory(false)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Cancel</button>
+                    <button type="button" disabled={categoryBusy || !newCategory.trim()}
+                      onClick={() => void saveCategory()}
+                      className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                      {categoryBusy ? 'Saving…' : 'Save category'}
+                    </button>
+                  </div>
+                </div>}
+                {categoryError && <p role="alert" className="mt-2 text-xs text-rose-700">{categoryError}</p>}
+              </div>
               <label className={labelClass}>Phone / WhatsApp {input('phone', '07... or +254...', 40)}</label>
               <label className={labelClass}>Contact name {input('contact_name', 'Person to call', 150)}</label>
               <label className={labelClass}>Contact role {input('contact_role', 'Owner, manager, director...', 120)}</label>
@@ -292,7 +352,7 @@ export function AddLeadModal({
               className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
               Cancel
             </button>
-            <button type="submit" disabled={saving || !form.company_name.trim() || !form.industry}
+            <button type="submit" disabled={saving || !form.company_name.trim()}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-5 text-sm font-semibold text-white transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50">
               <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Add lead'}
             </button>

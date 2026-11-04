@@ -183,7 +183,8 @@ export default function HomeScreen() {
     { value: 'interested', label: 'Interested' },
   ];
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All industries' },
+    { value: 'all', label: 'All categories' },
+    { value: '__uncategorized__', label: 'No category' },
     ...(data?.industries || (industry === 'all' ? [] : [industry])).map((name) => ({
       value: name, label: name,
     })),
@@ -260,7 +261,7 @@ export default function HomeScreen() {
               options={queueOptions} onChange={setQueue}/>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <SelectSheet title="Industry" value={industry}
+            <SelectSheet title="Business category" value={industry}
               options={industryOptions} onChange={setIndustry} searchable/>
           </View>
         </View>
@@ -350,7 +351,7 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
       <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.company_name}</Text>
       <PriorityChip priority={lead.priority}/>
     </View>
-    <Text style={styles.subtitle}>{lead.contact_name || 'No contact'} · {lead.industry}</Text>
+    <Text style={styles.subtitle}>{lead.contact_name || 'No contact'}{lead.industry ? ' · ' + lead.industry : ''}</Text>
     {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
     <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
       backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,

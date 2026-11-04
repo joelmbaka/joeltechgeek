@@ -4,7 +4,7 @@ import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
-import { isCrmIndustry } from '@/lib/agent-crm/industries';
+import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 
 export const runtime = 'nodejs';
@@ -36,7 +36,8 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
   const filters: string[] = ['agent_id = $1'];
   const args: unknown[] = [agentId];
   const bind = (value: unknown) => { args.push(value); return '$' + args.length; };
-  if (industry && industry !== 'all') filters.push('industry = ' + bind(industry));
+  if (industry === '__uncategorized__') filters.push("btrim(industry) = ''");
+  else if (industry && industry !== 'all') filters.push('industry = ' + bind(industry));
   if (queue === 'due') filters.push(active + ' AND ' + due);
   if (queue === 'to_call') filters.push(active +
     " AND (last_contacted_at IS NULL OR (next_action_at IS NULL AND COALESCE(last_outcome_v2, last_outcome) IN ('number_unavailable','switched_off','no_answer','busy','wrong_number')))");
@@ -81,7 +82,7 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         [agentId],
       ),
       db.query<{ industry: string; count: number }>(
-        'SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 GROUP BY industry ORDER BY industry',
+        "SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 AND btrim(industry) <> '' GROUP BY industry ORDER BY industry",
         [agentId],
       ),
     ]);
@@ -206,7 +207,6 @@ export async function POST(request: Request) {
   }
 
   if (!values.company_name) return badInput('Company name is required.');
-  if (!isCrmIndustry(values.industry)) return badInput('Choose an industry from the list.');
   if (!values.country) return badInput('Country is required.');
   const priority = values.priority || 'normal';
   const stageValue = values.stage || 'new';
@@ -240,6 +240,11 @@ export async function POST(request: Request) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
+
+    if (values.industry && !(await canUseBusinessCategory(access.agent.id, values.industry))) {
+      await client.query('ROLLBACK');
+      return badInput('Choose a saved business category or create a new one.');
+    }
 
     // Agent ownership always comes from the verified cookie, never the body.
     const columns = [
@@ -300,7 +305,7 @@ export async function POST(request: Request) {
       try { await client.query('ROLLBACK'); } catch { /* connection unavailable */ }
     }
     if ((error as { code?: string }).code === '23505') {
-      return badInput('A lead with this company and industry already exists in your CRM.', 409);
+      return badInput('A lead with this company and business category already exists in your CRM.', 409);
     }
     return crmError(error);
   } finally {

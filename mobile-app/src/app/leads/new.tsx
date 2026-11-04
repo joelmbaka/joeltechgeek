@@ -29,16 +29,24 @@ export default function AddLead() {
 
   const loadIndustries = useCallback((signal: AbortSignal) => {
     if (!agent) return;
-    void apiFetch<{ ok: true; industries: string[] }>('/api/agent-crm/mobile/meta', { signal })
-      .then((result) => { if (!signal.aborted) setIndustries(result.industries); })
+    void apiFetch<{ ok: true; categories: string[] }>('/api/agent-crm/categories', { signal })
+      .then((result) => { if (!signal.aborted) setIndustries(result.categories); })
       .catch((reason: unknown) => {
         if (!signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load industries.');
       });
   }, [agent?.id]);
   useFreshOnFocus(loadIndustries, [loadIndustries]);
 
+  const createCategory = async (name: string): Promise<string> => {
+    const result = await apiFetch<{ ok: true; category: string }>('/api/agent-crm/categories', {
+      method: 'POST', body: JSON.stringify({ name }),
+    });
+    setIndustries((current) => [...new Set([...current, result.category])].sort((a, b) => a.localeCompare(b)));
+    return result.category;
+  };
+
   const save = async () => {
-    if (!company.trim() || !industry || !country.trim() || !priority) {
+    if (!company.trim() || !country.trim() || !priority) {
       setError('Enter a company and country, then choose an industry and priority.');
       return;
     }
@@ -63,10 +71,10 @@ export default function AddLead() {
     <Text style={styles.title}>New lead</Text>
     <Field label="Company name *" value={company} onChangeText={setCompany}/>
     <SelectSheet
-      title="Industry *" value={industry}
-      placeholder={industries.length ? 'Choose industry' : 'Loading industries…'}
-      options={industries.map((value) => ({ value, label: value }))}
-      onChange={setIndustry} searchable disabled={!industries.length}
+      title="Business category (optional)" value={industry}
+      placeholder="No category"
+      options={[{ value: '', label: 'No category' }, ...industries.map((value) => ({ value, label: value }))]}
+      onChange={setIndustry} onCreateOption={createCategory} searchable
     />
     <Field label="Country *" value={country} onChangeText={setCountry}/>
     <Field label="City" value={city} onChangeText={setCity}/>
@@ -85,7 +93,7 @@ export default function AddLead() {
       ]}/>
     <Field label="Initial notes" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    <Button disabled={busy || !company.trim() || !industry || !country.trim() || !priority}
+    <Button disabled={busy || !company.trim() || !country.trim() || !priority}
       onPress={() => void save()}>
       {busy ? 'Saving…' : 'Create lead'}
     </Button>
