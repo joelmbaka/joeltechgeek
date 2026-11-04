@@ -44,8 +44,8 @@ export async function POST(request: Request, { params }: Params) {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
     // Lock the parent to serialize primary selection with all other contact writes.
-    const lead = await client.query<{ id: string }>(
-      `SELECT id::text FROM public.crm_leads WHERE id=$1 AND agent_id=$2
+    const lead = await client.query<{ id: string; company_name: string }>(
+      `SELECT id::text, company_name FROM public.crm_leads WHERE id=$1 AND agent_id=$2
          AND NOT do_not_contact AND stage <> 'competitor' FOR UPDATE`,
       [id, access.agent.id],
     );
@@ -58,6 +58,10 @@ export async function POST(request: Request, { params }: Params) {
     );
     const isPrimary = !hasPrimary.rows[0]?.exists;
     const { name, role, phone, email } = parsed.fields;
+    if (isPrimary && !lead.rows[0].company_name.trim() && !name?.trim()) {
+      await client.query('ROLLBACK');
+      return fail('Company or contact name required.', 400);
+    }
     const added = await client.query<LeadContact>(
       `INSERT INTO public.crm_lead_contacts (lead_id,name,role,phone,email,is_primary)
          VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${CONTACT_COLUMNS}`,

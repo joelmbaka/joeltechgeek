@@ -35,8 +35,8 @@ async function updateContact(request: Request, params: Params, method: 'PATCH' |
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lead = await client.query<{ id: string }>(
-      `SELECT id::text FROM public.crm_leads WHERE id=$1 AND agent_id=$2
+    const lead = await client.query<{ id: string; company_name: string }>(
+      `SELECT id::text, company_name FROM public.crm_leads WHERE id=$1 AND agent_id=$2
          AND NOT do_not_contact AND stage <> 'competitor' FOR UPDATE`,
       [id, access.agent.id],
     );
@@ -54,15 +54,26 @@ async function updateContact(request: Request, params: Params, method: 'PATCH' |
       return fail('Contact not found in this lead.', 404);
     }
     if (method === 'DELETE') {
+      let next: { id: string; name: string | null } | undefined;
+      if (contact.is_primary) {
+        const replacement = await client.query<{ id: string; name: string | null }>(
+          `SELECT id::text, name FROM public.crm_lead_contacts
+             WHERE lead_id=$1 AND id<>$2
+             ORDER BY CASE WHEN nullif(btrim(coalesce(name,'')), '') IS NOT NULL THEN 0 ELSE 1 END,
+               created_at,id LIMIT 1`,
+          [id, contactId],
+        );
+        next = replacement.rows[0];
+        if (!lead.rows[0].company_name.trim() && !next?.name?.trim()) {
+          await client.query('ROLLBACK');
+          return fail('Company or contact name required.', 400);
+        }
+      }
       await client.query('DELETE FROM public.crm_lead_contacts WHERE id=$1 AND lead_id=$2', [contactId, id]);
       if (contact.is_primary) {
-        const next = await client.query<{ id: string }>(
-          'SELECT id::text FROM public.crm_lead_contacts WHERE lead_id=$1 ORDER BY created_at,id LIMIT 1',
-          [id],
-        );
-        if (next.rows[0]) await client.query(
+        if (next) await client.query(
           'UPDATE public.crm_lead_contacts SET is_primary=true,updated_at=now() WHERE id=$1',
-          [next.rows[0].id],
+          [next.id],
         );
         await syncPrimaryContact(client, id);
       }
@@ -76,6 +87,10 @@ async function updateContact(request: Request, params: Params, method: 'PATCH' |
       'UPDATE public.crm_lead_contacts SET is_primary=false,updated_at=now() WHERE lead_id=$1 AND is_primary=true', [id],
     );
     const { name, role, phone, email } = fields.fields;
+    if (!lead.rows[0].company_name.trim() && (contact.is_primary || makePrimary) && !name?.trim()) {
+      await client.query('ROLLBACK');
+      return fail('Company or contact name required.', 400);
+    }
     const updated = await client.query<LeadContact>(
       `UPDATE public.crm_lead_contacts
          SET name=$3,role=$4,phone=$5,email=$6,

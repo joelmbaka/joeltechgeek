@@ -33,8 +33,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lead = await client.query<{ id: string }>(
-      `SELECT id::text FROM public.crm_leads
+    const lead = await client.query<{ id: string; company_name: string }>(
+      `SELECT id::text, company_name FROM public.crm_leads
          WHERE id = $1 AND agent_id = $2
            AND NOT do_not_contact AND stage <> 'competitor'
          FOR UPDATE`, [id, access.agent.id],
@@ -42,6 +42,10 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!lead.rows.length) {
       await client.query('ROLLBACK');
       return fail('Lead not found or contacts are read-only.', 404);
+    }
+    if (!lead.rows[0].company_name.trim() && !parsed.fields.name?.trim()) {
+      await client.query('ROLLBACK');
+      return fail('Company or contact name required.', 400);
     }
     const primary = await client.query<{ id: string }>(
       'SELECT id::text FROM public.crm_lead_contacts WHERE lead_id = $1 AND is_primary = true LIMIT 1',
