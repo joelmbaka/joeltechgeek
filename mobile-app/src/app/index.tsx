@@ -17,7 +17,7 @@ import type { Lead, LeadList } from '@/lib/types';
 
 // Keep the review login flow intact for future Play review submissions.
 // Switch to true when reviewer access must be visible in a new Android build.
-const SHOW_REVIEW_ACCESS_BUTTON = false;
+const SHOW_REVIEW_ACCESS_BUTTON = true;
 const PER_PAGE = 25;
 function todayLabel(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {

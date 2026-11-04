@@ -272,7 +272,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         ? existing : primaryContactId;
   };
   const callContactId = selectedContactId(callContactChoice, primaryContactId);
-  const followupDefault = lead.next_action ? lead.next_action_contact_id || '' : primaryContactId;
+  const followupDefault = lead.next_action ? lead.next_action_contact_id || primaryContactId : primaryContactId;
   const followupContactId = selectedContactId(followupContactChoice, followupDefault);
   const contactOptions = contacts?.map((c) => ({
     value: c.id,

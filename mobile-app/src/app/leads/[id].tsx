@@ -122,7 +122,7 @@ export default function LeadScreen() {
   // Preserve an existing company-level follow-up instead of silently
   // attributing it to the primary contact when editing its schedule.
   const currentFollowupTarget = lead?.next_action
-    ? lead.next_action_contact_id || '' : primaryContactId;
+    ? lead.next_action_contact_id || primaryContactId : primaryContactId;
   const followupContactId = contacts.length === 1 ? contacts[0].id
     : contacts.length > 1 ? validChoice(followupContactChoice,
         currentFollowupTarget && contacts.some((c) => c.id === currentFollowupTarget)
