@@ -126,8 +126,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action_contact_id: string | null }>(
-      `SELECT stage, do_not_contact, next_action_contact_id::text FROM public.crm_leads
+    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null }>(
+      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text FROM public.crm_leads
          WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
       [id, access.agent.id],
     );
