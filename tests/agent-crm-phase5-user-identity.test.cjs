@@ -26,7 +26,7 @@ test('canonical user model and verified Google registration', () => {
   const android=source('app/api/agent-crm/mobile/oauth/callback/route.ts');
   assert.match(user,/WHERE google_sub=\$1/);
   assert.match(user,/google_sub IS NULL OR google_sub=\$2/);
-  assert.match(web,/profile\.email_verified !== true/);
+  assert.match(web,/profile\?\.email_verified !== true/);
   assert.match(web,/profile\.sub !== account\.providerAccountId/);
   assert.match(android,/payload\.email_verified !== true/);
   assert.match(android,/findOrCreateCrmUser/);
