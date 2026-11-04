@@ -277,6 +277,17 @@ export async function POST(request: Request) {
     );
     const id = inserted.rows[0].id;
 
+    // Persist the first contact in the dedicated table, preserving legacy
+    // fields on the lead as the primary contact snapshot for older clients.
+    if ([values.contact_name, values.contact_role, values.phone, values.email].some(Boolean)) {
+      await client.query(
+        `INSERT INTO public.crm_lead_contacts (lead_id, name, role, phone, email, is_primary)
+          VALUES ($1, $2, $3, $4, $5, true)`,
+        [id, nullIfEmpty(values.contact_name), nullIfEmpty(values.contact_role),
+          nullIfEmpty(values.phone), nullIfEmpty(values.email)],
+      );
+    }
+
     if (outcome) {
       await client.query(
         `INSERT INTO public.crm_lead_events

@@ -4,6 +4,12 @@ Scope: Android first, using the existing Next.js /api/agent-crm routes and the
 Portfolio Neon database. No FastAPI, local CRM DB, AsyncStorage, TanStack Query,
 NetInfo, push-token registration, or background polling.
 
+## Phase 2: multiple contacts per lead
+
+Run `migrations/2026-11-04-agent-crm-multi-contacts.sql` on JoelTechGeek/Portfolio Neon before deploying Phase 2 APIs. This creates `crm_lead_contacts` and backfills one primary contact from each legacy lead with any contact detail. The original `crm_leads.contact_*`, phone and email columns remain primary-contact snapshots for older Android builds and existing cards.
+
+Contact API: `GET/POST /api/agent-crm/leads/[id]/contacts`; `PATCH/DELETE /api/agent-crm/leads/[id]/contacts/[contactId]` (PATCH supports `make_primary: true`). The legacy `PATCH /contact` remains compatible. Every mutation locks and checks the owner-scoped lead, preventing cross-account edits.
+
 ## Deployment order
 
 Phase 1 business categories: run `migrations/2026-11-04-agent-crm-business-categories.sql` on JoelTechGeek/Portfolio Neon before deploying the category API or the updated mobile/web clients. Existing `industry` data is unchanged; blank is allowed for new leads, and custom categories are scoped to the current agent.

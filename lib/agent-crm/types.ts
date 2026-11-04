@@ -67,6 +67,18 @@ export function stageForOutcome(previous: LeadStage, outcome: CallOutcome): Lead
   return previous;
 }
 
+export type LeadContact = {
+  id: string;
+  lead_id: string;
+  name: string | null;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Lead = {
   id: string;
   company_name: string;

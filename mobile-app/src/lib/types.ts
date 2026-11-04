@@ -12,6 +12,11 @@ export type Lead = {
   next_action_due_at: string | null; last_contacted_at: string | null;
   do_not_contact: boolean; updated_at: string;
 };
+export type LeadContact = {
+  id: string; lead_id: string;
+  name: string | null; role: string | null; phone: string | null; email: string | null;
+  is_primary: boolean; created_at: string; updated_at: string;
+};
 export type LeadEvent = {
   id: string; event_type: 'outreach' | 'action_completed' | 'followup_updated';
   outcome: string | null; action: string | null; notes: string | null;
@@ -25,7 +30,7 @@ export type Stats = {
 };
 export type LeadList = { ok: true; leads: Lead[]; has_more: boolean; filtered_total: number;
   limit: number; offset: number; stats: Stats; industries: string[]; industry_counts?: Record<string, number> };
-export type LeadDetails = { ok: true; lead: Lead; history: LeadEvent[] };
+export type LeadDetails = { ok: true; lead: Lead; history: LeadEvent[]; contacts: LeadContact[] };
 export const OUTCOMES = [
   ['number_unavailable','Number unavailable'], ['switched_off','Switched off'],
   ['no_answer','No answer'], ['busy','Line busy'], ['wrong_number','Wrong number'],

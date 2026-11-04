@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
+import { CONTACT_COLUMNS } from '@/lib/agent-crm/contacts';
+import type { LeadContact } from '@/lib/agent-crm/types';
 import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CallOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
@@ -34,7 +36,8 @@ export async function GET(request: Request, { params }: Params) {
     if (!lead.rows[0]) return response('Lead not found.', 404);
     // Preserve the original call log and merge it with the new outcome/action
     // timeline without modifying historical rows.
-    const history = await db.query<LeadUpdate>(
+    const [history, contacts] = await Promise.all([
+      db.query<LeadUpdate>(
       `SELECT * FROM (
          SELECT id::text AS id, 'outreach'::text AS event_type,
                 outcome::text AS outcome, NULL::text AS action,
@@ -57,9 +60,15 @@ export async function GET(request: Request, { params }: Params) {
          WHERE lead_id = $1 AND agent_id = $2
        ) AS timeline ORDER BY created_at DESC LIMIT 50`,
       [id, access.agent.id],
-    );
+      ),
+      db.query<LeadContact>(
+        'SELECT ' + CONTACT_COLUMNS +
+        ' FROM public.crm_lead_contacts WHERE lead_id = $1 ORDER BY is_primary DESC, created_at ASC, id ASC',
+        [id],
+      ),
+    ]);
     return NextResponse.json(
-      { ok: true, lead: lead.rows[0], history: history.rows },
+      { ok: true, lead: lead.rows[0], history: history.rows, contacts: contacts.rows },
       { headers: { 'Cache-Control': 'private, no-store' } },
     );
   } catch (error) {
