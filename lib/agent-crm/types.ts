@@ -4,67 +4,99 @@ export type LeadStage =
   | 'new' | 'contacted' | 'interested' | 'meeting' | 'proposal'
   | 'negotiation' | 'won' | 'lost' | 'nurture' | 'competitor' | 'do_not_contact';
 
-// Outreach defaults to a phone call. Email is a distinct outcome only when
-// the agent actually sent an email, not a replacement for call attempts.
+export const ACTIVITY_CHANNELS = ['call', 'email', 'whatsapp', 'other'] as const;
+export type ActivityChannel = (typeof ACTIVITY_CHANNELS)[number];
+// These represent NEW choices. Older published clients may still send
+// 'pilot_requested' and 'email_sent', but new selectors must not show them.
 export const CALL_OUTCOMES = [
   'number_unavailable', 'switched_off', 'no_answer', 'busy', 'wrong_number',
-  'not_interested', 'call_back', 'decision_pending',
-  'demo_requested', 'meeting_booked', 'pilot_requested', 'proposal_requested',
-  'email_sent', 'other',
+  'spoke_to_contact', 'referred_to_contact', 'information_requested',
+  'call_back', 'decision_pending', 'demo_requested', 'meeting_booked',
+  'proposal_requested', 'trial_started', 'onboarding_completed',
+  'not_interested', 'other',
 ] as const;
-
+export const MESSAGE_OUTCOMES = [
+  'sent', 'reply_received', 'information_requested', 'decision_pending',
+  'demo_requested', 'meeting_booked', 'proposal_requested',
+  'trial_started', 'onboarding_completed', 'not_interested', 'other',
+] as const;
+export const OTHER_OUTCOMES = [
+  'spoke_to_contact', 'information_requested', 'decision_pending',
+  'trial_started', 'onboarding_completed', 'not_interested', 'other',
+] as const;
+export const LEGACY_OUTCOMES = ['pilot_requested', 'email_sent'] as const;
+export const CHANNEL_OUTCOMES = {
+  call: CALL_OUTCOMES,
+  email: MESSAGE_OUTCOMES,
+  whatsapp: MESSAGE_OUTCOMES,
+  other: OTHER_OUTCOMES,
+} as const;
 export type CallOutcome = (typeof CALL_OUTCOMES)[number];
-
-export const CALL_OUTCOME_LABELS: Record<CallOutcome, string> = {
-  number_unavailable: 'Number unavailable',
-  switched_off: 'Number switched off',
-  no_answer: 'No answer',
-  busy: 'Line busy',
-  wrong_number: 'Wrong number',
-  not_interested: 'Not interested',
-  call_back: 'Call back requested',
-  decision_pending: 'Decision pending',
-  demo_requested: 'Demo requested',
-  meeting_booked: 'Meeting booked',
-  pilot_requested: 'Pilot requested',
-  proposal_requested: 'Proposal requested',
-  email_sent: 'Email sent',
-  other: 'Other',
+export type ActivityOutcome = CallOutcome | (typeof MESSAGE_OUTCOMES)[number] | (typeof LEGACY_OUTCOMES)[number];
+export const CALL_OUTCOME_LABELS: Record<ActivityOutcome,string> = {
+  number_unavailable:'Number unavailable', switched_off:'Number switched off',
+  no_answer:'No answer', busy:'Line busy', wrong_number:'Wrong number',
+  spoke_to_contact:'Spoke to contact', referred_to_contact:'Referred to another person',
+  information_requested:'Information requested', call_back:'Call back requested',
+  decision_pending:'Decision pending', demo_requested:'Demo requested',
+  meeting_booked:'Meeting booked', proposal_requested:'Proposal requested',
+  trial_started:'Trial started', onboarding_completed:'Onboarding completed',
+  not_interested:'Not interested', other:'Other', sent:'Sent', reply_received:'Reply received',
+  pilot_requested:'Pilot requested (previous outcome)', email_sent:'Email sent (previous outcome)',
 };
-
-const HISTORICAL_OUTCOME_LABELS: Record<string, string> = {
-  connected: 'Connected (previous outcome)',
-  interested: 'Interested (previous outcome)',
-  whatsapp_requested: 'Demo requested via WhatsApp (previous outcome)',
-  email_requested: 'Email requested (previous outcome)',
+const HISTORICAL_OUTCOME_LABELS: Record<string,string> = {
+  connected:'Connected (previous outcome)', interested:'Interested (previous outcome)',
+  whatsapp_requested:'Demo requested via WhatsApp (previous outcome)',
+  email_requested:'Email requested (previous outcome)',
 };
-
 export function callOutcomeLabel(value: string): string {
-  if (value in CALL_OUTCOME_LABELS) return CALL_OUTCOME_LABELS[value as CallOutcome];
+  if (value in CALL_OUTCOME_LABELS) return CALL_OUTCOME_LABELS[value as ActivityOutcome];
   if (value in HISTORICAL_OUTCOME_LABELS) return HISTORICAL_OUTCOME_LABELS[value];
-  return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+  return value.replaceAll('_',' ').replace(/\b\w/g,(c)=>c.toUpperCase());
 }
-
+export function activityChannelForOutcome(value: string): ActivityChannel {
+  return value === 'email_sent' ? 'email' : 'call';
+}
+export function resolveActivityChannel(rawChannel: unknown, rawOutcome: unknown):
+  {ok:true;channel:ActivityChannel} | {ok:false;error:string} {
+  const outcome = typeof rawOutcome === 'string' ? rawOutcome : '';
+  if (rawChannel === undefined || rawChannel === null) {
+    const channel = activityChannelForOutcome(outcome);
+    if ((LEGACY_OUTCOMES as readonly string[]).includes(outcome) ||
+        (CHANNEL_OUTCOMES[channel] as readonly string[]).includes(outcome)) return {ok:true,channel};
+    return {ok:false,error:'Choose a valid activity outcome.'};
+  }
+  if (typeof rawChannel !== 'string' || !(ACTIVITY_CHANNELS as readonly string[]).includes(rawChannel))
+    return {ok:false,error:'Choose a valid activity type.'};
+  const channel = rawChannel as ActivityChannel;
+  if (!(CHANNEL_OUTCOMES[channel] as readonly string[]).includes(outcome))
+    return {ok:false,error:'This outcome is not available for that activity type.'};
+  return {ok:true,channel};
+}
 export const LEAD_STAGES: LeadStage[] = [
-  'new', 'contacted', 'interested', 'meeting', 'proposal',
-  'negotiation', 'won', 'lost', 'nurture', 'competitor', 'do_not_contact',
+  'new','contacted','interested','meeting','proposal','negotiation','won','lost',
+  'nurture','competitor','do_not_contact',
 ];
-
 export const RETRY_CALL_OUTCOMES = [
-  'number_unavailable', 'switched_off', 'no_answer', 'busy', 'wrong_number',
-  // Existing records may still use these legacy values.
+  'number_unavailable','switched_off','no_answer','busy','wrong_number',
 ] as const;
-
-export function stageForOutcome(previous: LeadStage, outcome: CallOutcome): LeadStage {
+export function stageForOutcome(previous: LeadStage, outcome: ActivityOutcome): LeadStage {
+  if (previous === 'competitor' || previous === 'do_not_contact') return previous;
+  if (outcome === 'onboarding_completed') return 'won';
   if (outcome === 'not_interested') return 'lost';
-  if (outcome === 'meeting_booked') return 'meeting';
-  if (outcome === 'proposal_requested') return 'proposal';
-  if (outcome === 'demo_requested' || outcome === 'pilot_requested') return 'interested';
-  if (outcome === 'decision_pending') return 'nurture';
-  // Unanswered attempts are not conversations with a prospect.
-  if (previous === 'new' && RETRY_CALL_OUTCOMES.some((item) => item === outcome)) return 'new';
-  if (previous === 'new') return 'contacted';
-  return previous;
+  // Routine messages and calls never reopen closed leads or move active leads backwards.
+  if (previous === 'won' || previous === 'lost') return previous;
+  const rank: Partial<Record<LeadStage,number>> = {
+    new:0, contacted:1, nurture:1, interested:2, meeting:3, proposal:4, negotiation:5,
+  };
+  const advance = (target: LeadStage): LeadStage =>
+    (rank[previous] ?? 10) < (rank[target] ?? 0) ? target : previous;
+  if (outcome === 'meeting_booked') return advance('meeting');
+  if (outcome === 'proposal_requested') return advance('proposal');
+  if (['trial_started','demo_requested','pilot_requested','information_requested'].includes(outcome))
+    return advance('interested');
+  if (previous === 'new' && (RETRY_CALL_OUTCOMES as readonly string[]).includes(outcome)) return 'new';
+  return previous === 'new' ? 'contacted' : previous;
 }
 
 export type LeadContact = {
@@ -98,6 +130,7 @@ export type Lead = {
   priority: 'high' | 'normal' | 'low';
   stage: LeadStage;
   last_outcome: string | null; // Includes legacy outcome labels in historical leads.
+  last_activity_channel: ActivityChannel | null;
   last_notes: string | null;
   next_action: string | null;
   next_action_at: string | null; // YYYY-MM-DD, optional time
@@ -114,6 +147,7 @@ export type LeadUpdate = {
   id: string;
   event_type: 'outreach' | 'action_completed' | 'followup_updated';
   outcome: string | null;
+  channel: ActivityChannel | null;
   action: string | null;
   notes: string | null;
   next_action: string | null;
