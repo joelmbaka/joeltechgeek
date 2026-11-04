@@ -78,3 +78,30 @@ test('migration retains historical values and supports all current channel outco
   for (const channel of t.ACTIVITY_CHANNELS) assert.ok(migration.includes("'"+channel+"'"),channel);
   assert.ok(migration.includes('BEGIN;') && migration.includes('COMMIT;'));
 });
+
+const mobilePromise = import(pathToFileURL(path.join(__dirname,
+  '../mobile-app/src/lib/types.ts')).href);
+
+test('Android and API agree on every activity type and result', async () => {
+  const api = await modulePromise;
+  const mobile = await mobilePromise;
+  for (const channel of api.ACTIVITY_CHANNELS) {
+    assert.deepEqual(
+      mobile.OUTCOMES_BY_CHANNEL[channel].map(([value]) => value),
+      [...api.CHANNEL_OUTCOMES[channel]],
+      'channel '+channel,
+    );
+  }
+});
+test('Android stage preview matches API stage transitions', async () => {
+  const api = await modulePromise;
+  const mobile = await mobilePromise;
+  for (const stage of api.LEAD_STAGES) {
+    const all = [...new Set([...api.CALL_OUTCOMES,...api.MESSAGE_OUTCOMES,
+      ...api.OTHER_OUTCOMES,...api.LEGACY_OUTCOMES])];
+    for (const outcome of all) {
+      assert.equal(mobile.suggestedStage(stage,outcome),
+        api.stageForOutcome(stage,outcome),stage+' / '+outcome);
+    }
+  }
+});
