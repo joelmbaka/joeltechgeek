@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
 import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
-import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
-import type { CallOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
+import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
+import type { ActivityOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
     phone: 40, email: 254, existing_system: 100,
     problem_summary: 2500, qualification_reason: 2500,
     source_url: 1000, priority: 12, stage: 24,
-    outcome: 32, notes: 2500, next_action: 300, next_action_at: 10, next_action_time: 5, next_action_timezone: 64,
+    outcome: 32, channel: 12, notes: 2500, next_action: 300, next_action_at: 10, next_action_time: 5, next_action_timezone: 64,
   } as const;
   const values: Record<keyof typeof limits, string> = {} as Record<keyof typeof limits, string>;
   for (const [name, limit] of Object.entries(limits)) {
@@ -225,9 +225,9 @@ export async function POST(request: Request) {
     return badInput('Invalid lead stage.');
   }
   const outcome = values.outcome || null;
-  if (outcome !== null && !CALL_OUTCOMES.includes(outcome as CallOutcome)) {
-    return badInput('Invalid call outcome.');
-  }
+  const activity = outcome ? resolveActivityChannel(body.channel, outcome) : null;
+  if (activity && !activity.ok) return badInput(activity.error);
+  const channel = activity?.ok ? activity.channel : null;
   if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
     return badInput('Invalid contact email.');
   }
@@ -243,7 +243,7 @@ export async function POST(request: Request) {
   const dueDate = schedule.next_action_at;
   if (dueDate && !values.next_action) return badInput('Enter a next action for this date.');
   const stage = outcome
-    ? stageForOutcome(stageValue as LeadStage, outcome as CallOutcome)
+    ? stageForOutcome(stageValue as LeadStage, outcome as ActivityOutcome)
     : stageValue;
 
   let client: PoolClient | undefined;
@@ -262,6 +262,7 @@ export async function POST(request: Request) {
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
       'next_action_time', 'next_action_timezone', 'next_action_due_at', 'last_contacted_at',
+      'last_activity_channel',
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
@@ -274,6 +275,7 @@ export async function POST(request: Request) {
       priority, stage, outcome, nullIfEmpty(values.notes),
       nullIfEmpty(values.next_action), dueDate,
       schedule.next_action_time, schedule.next_action_timezone, outcome ? new Date() : null,
+      channel,
     ];
 
     const markers = params.map((_, index) => '$' + (index + 1));
@@ -311,14 +313,14 @@ export async function POST(request: Request) {
         `INSERT INTO public.crm_lead_events
           (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
            next_action_time, next_action_timezone, next_action_due_at,
-           contact_id, contact_name_snapshot)
+           contact_id, contact_name_snapshot, channel)
           VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date, $7::time, $8,
-            ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10)`,
+            ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10, $11)`,
         [id, access.agent.id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
           primaryContactId, primaryContactId
             ? (identity.identity.contact_name || values.phone || values.email || values.contact_role || 'Contact')
-            : null],
+            : null, channel],
       );
     }
     const read = await client.query<Lead>(

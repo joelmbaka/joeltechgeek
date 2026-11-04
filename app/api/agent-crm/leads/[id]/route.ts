@@ -5,8 +5,8 @@ import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { CONTACT_COLUMNS } from '@/lib/agent-crm/contacts';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
 import type { LeadContact } from '@/lib/agent-crm/types';
-import { CALL_OUTCOMES, LEAD_STAGES, stageForOutcome } from '@/lib/agent-crm/types';
-import type { CallOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
+import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
+import type { ActivityOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 
 export const runtime = 'nodejs';
@@ -44,21 +44,26 @@ export async function GET(request: Request, { params }: Params) {
                 outcome::text AS outcome, NULL::text AS action,
                 notes, next_action, next_action_at::text AS next_action_at,
                 NULL::text AS next_action_time, NULL::text AS next_action_timezone,
-                NULL::uuid AS contact_id, NULL::text AS contact_name_snapshot, created_at
+                NULL::uuid AS contact_id, NULL::text AS contact_name_snapshot,
+                CASE WHEN outcome='email_requested' THEN 'email' ELSE 'call' END::text AS channel,
+                created_at
          FROM public.crm_lead_updates
          WHERE lead_id = $1 AND agent_id = $2
          UNION ALL
          SELECT id::text AS id, event_type::text, outcome::text,
                 action, notes, next_action, next_action_at::text,
                 next_action_time::text, next_action_timezone, contact_id,
-                contact_name_snapshot::text, created_at
+                contact_name_snapshot::text,
+                COALESCE(channel, CASE WHEN outcome='email_sent' THEN 'email' ELSE 'call' END)::text AS channel,
+                created_at
          FROM public.crm_lead_events
          WHERE lead_id = $1 AND agent_id = $2
          UNION ALL
          SELECT id::text, 'followup_updated'::text, NULL::text,
                 'Follow-up updated'::text, NULL::text,
                 next_action, next_action_at::text, next_action_time::text,
-                next_action_timezone, contact_id, contact_name_snapshot::text, created_at
+                next_action_timezone, contact_id, contact_name_snapshot::text,
+                NULL::text AS channel, created_at
          FROM public.crm_followup_changes
          WHERE lead_id = $1 AND agent_id = $2
        ) AS timeline ORDER BY created_at DESC LIMIT 50`,
@@ -109,9 +114,11 @@ export async function PATCH(request: Request, { params }: Params) {
   const stageOverride = body.stage;
   const optOut = body.do_not_contact === true;
 
-  if (typeof outcome !== 'string' || !CALL_OUTCOMES.some((x) => x === outcome)) {
-    return response('Choose a valid call outcome.', 400);
+  const activity = resolveActivityChannel(body.channel, outcome);
+  if (typeof outcome !== 'string' || !activity.ok) {
+    return response(activity.ok ? 'Choose a valid activity outcome.' : activity.error, 400);
   }
+  const channel = activity.channel;
   if (typeof notes !== 'string' || notes.length > 2500 ||
       typeof nextAction !== 'string' || nextAction.length > 300 ||
       (stageOverride !== undefined && (typeof stageOverride !== 'string' ||
@@ -160,9 +167,9 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const stage = optOut ? 'do_not_contact' :
-      (typeof stageOverride === 'string' && stageOverride !== 'new'
+      (typeof stageOverride === 'string'
         ? stageOverride as LeadStage
-        : stageForOutcome(current.stage, outcome as CallOutcome));
+        : stageForOutcome(current.stage, outcome as ActivityOutcome));
     const note = notes.trim() || null;
     const action = optOut ? null : nextAction.trim() || null;
     const date = optOut ? null : dueDate;
@@ -175,19 +182,19 @@ export async function PATCH(request: Request, { params }: Params) {
              next_action_at = $6::date, next_action_time = $9::time,
              next_action_timezone = $10, next_action_due_at = ${followupDueAtSQL(6, 9, 10)},
              last_contacted_at = now(), do_not_contact = $7, stage = $8,
-             next_action_contact_id = $11::uuid, updated_at = now()
+             next_action_contact_id = $11::uuid, last_activity_channel = $12, updated_at = now()
          WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id],
+      [id, access.agent.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events
          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
           next_action_time, next_action_timezone, next_action_due_at,
-          contact_id, contact_name_snapshot)
+          contact_id, contact_name_snapshot, channel)
          VALUES ($1,$2,'outreach',$3,$4,$5,$6::date,$7::time,$8,
-           ${followupDueAtSQL(6, 7, 8)},$9::uuid,$10)`,
+           ${followupDueAtSQL(6, 7, 8)},$9::uuid,$10,$11)`,
       [id, access.agent.id, outcome, note, action, date, time, timezone,
-        callContact.id, callContact.name],
+        callContact.id, callContact.name, channel],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
