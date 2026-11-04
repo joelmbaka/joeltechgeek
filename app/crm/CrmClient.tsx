@@ -164,7 +164,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       {lead.last_notes && <p className="mt-2 line-clamp-2 text-xs text-slate-500">Latest note: {lead.last_notes}</p>}
       {lead.last_outcome && (
-        <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || 'call'} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
+        <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || (lead.last_outcome === 'email_sent' ? 'email' : 'call')} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
       {lead.next_action && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">Next: {lead.next_action}</p>}
       {lead.next_action_at && (
