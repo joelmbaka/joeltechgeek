@@ -7,10 +7,11 @@ import {
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel } from '@/lib/agent-crm/types';
-import type { Agent, Lead, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
+import type { Agent, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { AddLeadModal } from './AddLeadModal';
+import { LeadContactsPanel } from './LeadContactsPanel';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
 type Queue = 'all' | 'to_call' | 'due' | 'interested';
@@ -199,6 +200,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     stage: '', do_not_contact: false,
   });
   const [history, setHistory] = useState<LeadUpdate[]>([]);
+  const [contacts, setContacts] = useState<LeadContact[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingClassification, setSavingClassification] = useState(false);
@@ -223,8 +225,8 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
   useEffect(() => {
     let active = true;
-    api<{ok:boolean; lead:Lead; history:LeadUpdate[]}>('/api/agent-crm/leads/' + lead.id)
-      .then((x) => { if (active) setHistory(x.history); })
+    api<{ok:boolean; lead:Lead; history:LeadUpdate[]; contacts: LeadContact[]}>('/api/agent-crm/leads/' + lead.id)
+      .then((x) => { if (active) { setHistory(x.history); setContacts(x.contacts); } })
       .catch(() => { if (active) setHistory([]); })
       .finally(() => { if (active) setHistoryLoading(false); });
     return () => { active = false; };
@@ -330,6 +332,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
   const input = 'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
   const lastCompleted = history.find((item) => item.event_type === 'action_completed');
+  const primaryContact = contacts?.find((contact) => contact.is_primary);
+  const primaryDisplay = contacts === null ? lead.contact_name : primaryContact?.name;
+  const primaryPhone = contacts === null ? lead.phone : primaryContact?.phone;
+  async function refreshContacts() {
+    const data = await api<{ ok: boolean; contacts: LeadContact[] }>('/api/agent-crm/leads/' + lead.id);
+    setContacts(data.contacts);
+    await onSaved();
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/70 sm:items-center sm:p-5"
@@ -342,13 +352,15 @@ function LeadDialog({ lead, onClose, onSaved }: {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{lead.industry || "No category"}</p>
             <h2 id="lead-title" className="mt-1 text-xl font-bold">{lead.company_name}</h2>
-            <p className="mt-1 text-xs text-slate-500">{lead.contact_name || 'Contact not identified'}
-              {lead.phone ? ' · ' + lead.phone : ''}</p>
+            <p className="mt-1 text-xs text-slate-500">{primaryDisplay || 'Contact not identified'}
+              {primaryPhone ? ' · ' + primaryPhone : ''}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close lead"
             className="rounded-xl border border-slate-200 p-2 dark:border-slate-700"><X className="h-5 w-5" /></button>
         </div>
 
+        {contacts !== null && <LeadContactsPanel leadId={lead.id} contacts={contacts}
+          locked={lead.do_not_contact || lead.stage === 'competitor'} onUpdated={refreshContacts}/>}
         {lead.problem_summary && (
           <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700 dark:bg-slate-900 dark:text-slate-300">{lead.problem_summary}</p>
         )}
