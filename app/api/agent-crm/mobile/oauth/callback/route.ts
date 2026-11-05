@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 const APP_CALLBACK = 'joeltechgeek:///auth-callback';
 const DEV_APP_CALLBACK = 'joeltechgeek-dev:///auth-callback';
 const PREVIEW_APP_CALLBACK = 'joeltechgeek-preview:///auth-callback';
-const GOOGLE_CALLBACK = 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
+const GOOGLE_CALLBACK = process.env.CRM_MOBILE_GOOGLE_CALLBACK_URL?.trim()
+  || 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
 const googleKeys = createRemoteJWKSet(
   new URL('https://www.googleapis.com/oauth2/v3/certs'),
   { timeoutDuration: 5000, cooldownDuration: 30000 },

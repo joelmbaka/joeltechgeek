@@ -50,7 +50,7 @@ export async function findOrCreateCrmUser(identity: {
           [id, googleSub, email, name, picture])
       : await client.query<CrmUser>(
           `INSERT INTO public.crm_users (google_sub,email,full_name,picture_url)
-           VALUES ($1,$2,COALESCE($3,split_part($2,'@',1)),$4)
+           VALUES ($1,$2::varchar,COALESCE($3::varchar,split_part($2::varchar,'@',1)),$4)
            RETURNING id::text, full_name AS name, email, phone, picture_url`,
           [googleSub, email, name, picture]);
     if (!result.rows[0]) throw new Error('CRM account is inactive.');
