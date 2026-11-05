@@ -18,6 +18,7 @@ type FormState = {
   website: string;
   existing_system: string;
   problem_summary: string;
+  lead_brief: string;
   qualification_reason: string;
   source_url: string;
   priority: 'high' | 'normal' | 'low';
@@ -26,6 +27,7 @@ type FormState = {
   channel: ActivityChannel;
   notes: string;
   next_action: string;
+  next_action_type: string;
   next_action_at: string;
   next_action_time: string;
 };
@@ -33,9 +35,9 @@ type FormState = {
 const defaults: FormState = {
   company_name: '', industry: '', country: 'Kenya', city: '',
   contact_name: '', contact_role: '', phone: '', email: '', website: '',
-  existing_system: '', problem_summary: '', qualification_reason: '',
+  existing_system: '', problem_summary: '', lead_brief: '', qualification_reason: '',
   source_url: '', priority: 'normal', stage: 'new', outcome: '', channel: 'call',
-  notes: '', next_action: '', next_action_at: '', next_action_time: '',
+  notes: '', next_action: '', next_action_type: 'call', next_action_at: '', next_action_time: '',
 };
 
 const title = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());
@@ -290,6 +292,12 @@ export function AddLeadModal({
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Optional details help you remember why the prospect is a good fit.</p>
               <div className="mt-4 grid gap-4">
                 <label className={labelClass}>
+                  Lead brief (shown on cards)
+                  <textarea rows={2} className={fieldClass + ' min-h-20 py-3'} maxLength={220}
+                    value={form.lead_brief} placeholder="Short context to remember before contacting"
+                    onChange={(event) => change('lead_brief', event.target.value)}/>
+                </label>
+                <label className={labelClass}>
                   What they need
                   <textarea rows={2} className={fieldClass + ' min-h-20 py-3'} maxLength={2500}
                     value={form.problem_summary} placeholder="Potential software need or operational problem"
@@ -341,6 +349,14 @@ export function AddLeadModal({
                     {CHANNEL_OUTCOMES[form.channel].map((value) => (
                       <option key={value} value={value}>{CALL_OUTCOME_LABELS[value]}</option>
                     ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Next action type
+                  <select className={fieldClass} value={form.next_action_type}
+                    onChange={(event)=>change('next_action_type',event.target.value)}>
+                    {['call','email','whatsapp','meeting','other'].map((type)=>
+                      <option key={type} value={type}>{title(type)}</option>)}
                   </select>
                 </label>
                 <label className={labelClass}>
