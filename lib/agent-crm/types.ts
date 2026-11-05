@@ -128,6 +128,12 @@ export type Lead = {
   lead_brief: string | null;
   important_details: string | null;
   lead_facts: Array<{ label:string; value:string }>;
+  work_state?: string;
+  callable_phone?: string | null;
+  last_call_at?: string | null;
+  failed_call_streak?: number;
+  retry_eligible_at?: string | null;
+  last_worked_at?: string | null;
   next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   source_url: string | null;
   priority: 'high' | 'normal' | 'low';

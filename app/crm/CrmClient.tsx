@@ -148,6 +148,14 @@ function StageBadge({ lead }: { lead: Lead }) {
 }
 function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }) {
   const site = webUrl(lead.website);
+  const dialNumber = lead.work_state === 'fix_contact' ? null
+    : lead.callable_phone !== undefined ? lead.callable_phone : lead.phone;
+  const stateLabels: Record<string,string> = {
+    due:'Due now',scheduled:'Scheduled',done_today:'Done today',
+    cooldown:'Retry cooldown',fix_contact:'Correct contact details',
+    review:'Review call attempts',needs_next_step:'Needs next step',
+    closed:'Closed',
+  };
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-white/10 dark:bg-[#0E1D2A] dark:hover:border-emerald-700 sm:p-5">
       <div className="flex items-start justify-between gap-2">
@@ -177,6 +185,11 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
         <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || (lead.last_outcome === 'email_sent' ? 'email' : 'call')} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
       {lead.next_action && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">Next: {lead.next_action}</p>}
+      {lead.work_state && stateLabels[lead.work_state] && (
+        <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+          {stateLabels[lead.work_state]}
+        </p>
+      )}
       {lead.next_action_at && (
         <p className={'mt-2 flex items-center gap-1 text-xs font-medium ' +
           (isDue(lead) ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500')}>
@@ -186,8 +199,8 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          {lead.phone && !lead.do_not_contact && lead.stage !== 'competitor' && (
-            <a href={'tel:' + lead.phone.replace(/[^+\d]/g, '')}
+          {dialNumber && !lead.do_not_contact && lead.stage !== 'competitor' && (
+            <a href={'tel:' + dialNumber.replace(/[^+\d]/g, '')}
               className="inline-flex h-10 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
               <Phone className="h-4 w-4" /> Call
             </a>
