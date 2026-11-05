@@ -8,6 +8,7 @@ import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { getSmartPagedLeads } from '@/lib/agent-crm/work-queue';
+import { parseActionType } from '@/lib/agent-crm/action-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -249,6 +250,8 @@ export async function POST(request: Request) {
   if (!parsedSchedule.ok) return badInput(parsedSchedule.error);
   const schedule = parsedSchedule.value;
   const dueDate = schedule.next_action_at;
+  const parsedType = parseActionType(body.next_action_type, values.next_action);
+  if (!parsedType.ok) return badInput(parsedType.error);
   if (dueDate && !values.next_action) return badInput('Enter a next action for this date.');
   const stage = outcome
     ? stageForOutcome(stageValue as LeadStage, outcome as ActivityOutcome)
@@ -296,6 +299,13 @@ export async function POST(request: Request) {
       params,
     );
     const id = inserted.rows[0].id;
+    const brief = body.lead_brief;
+    if (brief !== undefined && (typeof brief !== 'string' || brief.length > 220)) {
+      await client.query('ROLLBACK'); return badInput('Lead brief must be under 220 characters.');
+    }
+    if (brief !== undefined || parsedType.value !== null) await client.query(
+      'UPDATE public.crm_leads SET lead_brief=$2, next_action_type=$3 WHERE id=$1 AND user_id=$4',
+      [id, typeof brief === 'string' ? brief.trim() || null : null, parsedType.value, access.user.id]);
 
     // Persist the first contact in the dedicated table, preserving legacy
     // fields on the lead as the primary contact snapshot for older clients.

@@ -8,6 +8,8 @@ import type { LeadContact } from '@/lib/agent-crm/types';
 import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
 import type { ActivityOutcome, Lead, LeadStage, LeadUpdate } from '@/lib/agent-crm/types';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
+import { parseActionType } from '@/lib/agent-crm/action-types';
+import type { ActionType } from '@/lib/agent-crm/action-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -135,8 +137,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null }>(
-      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text FROM public.crm_leads
+    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null; next_action_type: ActionType | null }>(
+      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text, next_action_type FROM public.crm_leads
          WHERE id = $1 AND user_id = $2 FOR UPDATE`,
       [id, access.user.id],
     );
@@ -174,6 +176,8 @@ export async function PATCH(request: Request, { params }: Params) {
         : stageForOutcome(current.stage, outcome as ActivityOutcome));
     const note = notes.trim() || null;
     const action = optOut ? null : nextAction.trim() || null;
+    const parsedType = parseActionType(body.next_action_type, action, current.next_action_type);
+    if (!parsedType.ok) {await client.query('ROLLBACK');return response(parsedType.error,400);}
     const date = optOut ? null : dueDate;
     const time = optOut ? null : schedule.next_action_time;
     const timezone = optOut ? null : schedule.next_action_timezone;
@@ -184,9 +188,10 @@ export async function PATCH(request: Request, { params }: Params) {
              next_action_at = $6::date, next_action_time = $9::time,
              next_action_timezone = $10, next_action_due_at = ${followupDueAtSQL(6, 9, 10)},
              last_contacted_at = now(), do_not_contact = $7, stage = $8,
-             next_action_contact_id = $11::uuid, last_activity_channel = $12, updated_at = now()
+             next_action_contact_id = $11::uuid, last_activity_channel = $12,
+             next_action_type = $13, updated_at = now()
          WHERE id = $1 AND user_id = $2`,
-      [id, access.user.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel],
+      [id, access.user.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel, parsedType.value],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events

@@ -5,6 +5,7 @@ import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import type { Lead } from '@/lib/agent-crm/types';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
+import { parseActionType } from '@/lib/agent-crm/action-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,8 @@ export async function POST(request: Request, { params }: Params) {
     return fail('Check the notes and next action.', 400);
   }
   const action = nextAction.trim() || null;
+  const parsedType=parseActionType(body.next_action_type,action);
+  if(!parsedType.ok)return fail(parsedType.error,400);
   if (schedule.next_action_at && !action) return fail('A follow-up date needs a next action.', 400);
 
   let client: PoolClient | undefined;
@@ -109,10 +112,10 @@ export async function POST(request: Request, { params }: Params) {
        SET next_action = $3, next_action_at = $4::date,
            next_action_time = $5::time, next_action_timezone = $6,
            next_action_due_at = ${followupDueAtSQL(4, 5, 6)},
-           next_action_contact_id = $7::uuid, updated_at = now()
+           next_action_contact_id = $7::uuid, next_action_type=$8, updated_at = now()
        WHERE id = $1 AND user_id = $2`,
       [id, access.user.id, action, schedule.next_action_at,
-        schedule.next_action_time, schedule.next_action_timezone, nextContact.id],
+        schedule.next_action_time, schedule.next_action_timezone, nextContact.id,parsedType.value],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',

@@ -4,6 +4,8 @@ import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/a
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
+import { parseActionType } from '@/lib/agent-crm/action-types';
+import type { ActionType } from '@/lib/agent-crm/action-types';
 import type { Lead } from '@/lib/agent-crm/types';
 
 export const runtime = 'nodejs';
@@ -49,9 +51,10 @@ export async function PATCH(request: Request, { params }: Params) {
       next_action_time: string | null;
       next_action_timezone: string | null;
       next_action_contact_id: string | null;
+      next_action_type: ActionType | null;
     }>(
       `SELECT do_not_contact, stage, next_action, next_action_at::text,
-         next_action_time::text, next_action_timezone, next_action_contact_id::text
+         next_action_time::text, next_action_timezone, next_action_contact_id::text, next_action_type
        FROM public.crm_leads WHERE id = $1 AND user_id = $2 FOR UPDATE`,
       [id, access.user.id],
     );
@@ -70,7 +73,10 @@ export async function PATCH(request: Request, { params }: Params) {
       await client.query('ROLLBACK');
       return fail(target.error, 400);
     }
+    const parsedType=parseActionType(body.next_action_type,action,current.next_action_type);
+    if(!parsedType.ok){await client.query('ROLLBACK');return fail(parsedType.error,400);}
     const unchanged = current.next_action === action &&
+      current.next_action_type === parsedType.value &&
       current.next_action_at === schedule.next_action_at &&
       (current.next_action_time?.slice(0, 5) || null) === schedule.next_action_time &&
       current.next_action_timezone === schedule.next_action_timezone &&
@@ -96,10 +102,10 @@ export async function PATCH(request: Request, { params }: Params) {
        SET next_action = $3, next_action_at = $4::date,
            next_action_time = $5::time, next_action_timezone = $6,
            next_action_due_at = ${followupDueAtSQL(4,5,6)},
-           next_action_contact_id = $7::uuid, updated_at = now()
+           next_action_contact_id = $7::uuid, next_action_type = $8, updated_at = now()
        WHERE id = $1 AND user_id = $2`,
       [id, access.user.id, action, schedule.next_action_at,
-        schedule.next_action_time, schedule.next_action_timezone, target.id],
+        schedule.next_action_time, schedule.next_action_timezone, target.id,parsedType.value],
     );
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
