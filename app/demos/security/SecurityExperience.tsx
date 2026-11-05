@@ -308,7 +308,7 @@ export default function SecurityExperience() {
     <label className="block text-[11px] font-semibold text-[#749084]">Sample property
       <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);setActiveTimelineId(null);}}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
     </label>
-    <DateNavigator date={date} onChange={changeRosterDate}/
+    <DateNavigator date={date} onChange={changeRosterDate} />
     {rosterTimeline()}
     <p className="px-1 text-[11px] text-[#849b8e]">For assistance, contact the security control room: {currentSite.contact}.</p>
   </div>;
@@ -365,7 +365,7 @@ export default function SecurityExperience() {
   </div>;
   const managerRoster = rosterDetail || <div className="space-y-4">
     <SectionTitle title="Duty roster" note="Manage assignments, record attendance and review previous shifts."/>
-    <DateNavigator date={date} onChange={changeRosterDate}/
+    <DateNavigator date={date} onChange={changeRosterDate} />
     <label className="block text-[11px] font-bold text-[#5c806d]">Property
       <select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
     </label>
