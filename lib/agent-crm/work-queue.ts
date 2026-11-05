@@ -119,7 +119,9 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   const bind=(value:unknown)=>{values.push(value);return '$'+values.length;};
   // Search is global across work views, so a lead hidden as Done Today or
   // Scheduled can always be found by company, contact or other context.
-  const filters:string[]=[search ? 'true' : workViewFilter(view)];
+  // For You supports global discovery of scheduled leads; other queues keep
+  // their selected work-state filter even when a search term is supplied.
+  const filters:string[]=[search && view==='for_you' ? 'true' : workViewFilter(view)];
   if(industry==='__uncategorized__') filters.push("btrim(w.industry)=''");
   else if(industry && industry!=='all') filters.push('w.industry='+bind(industry));
   for(const word of search.split(/\s+/).filter(Boolean).slice(0,8)){

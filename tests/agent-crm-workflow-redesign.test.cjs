@@ -91,9 +91,9 @@ test('existing 9am reminder scheduler and tapping behavior remain intact',()=>{
   assert.match(notifications,/cancelScheduledNotificationAsync/);
 });
 
-test('search includes leads hidden from selected work view',()=>{
+test('For You search is global while queue searches preserve eligibility',()=>{
   const q=read('lib/agent-crm/work-queue.ts');
-  assert.match(q,/search \? 'true' : workViewFilter\(view\)/);
+  assert.match(q,/search && view==='for_you' \? 'true' : workViewFilter\(view\)/);
 });
 test('Save & Next continues To Call regardless of original list sort',()=>{
   const lead=read('mobile-app/src/app/leads/[id].tsx');

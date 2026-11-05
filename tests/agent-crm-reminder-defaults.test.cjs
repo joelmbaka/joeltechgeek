@@ -4,7 +4,7 @@ const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const modulePromise = import(pathToFileURL(path.join(__dirname,'../lib/agent-crm/followups.ts')).href);
 
-test('Future date without time defaults to 9 AM in user's IANA timezone', async () => {
+test("Future date without time defaults to 9 AM in user's IANA timezone", async () => {
   const { parseFollowupSchedule } = await modulePromise;
   const now = new Date('2026-06-20T12:00:00Z');
   for (const timezone of ['Africa/Nairobi','America/New_York','Europe/London','Asia/Tokyo','Pacific/Auckland']) {

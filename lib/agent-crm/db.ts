@@ -13,8 +13,9 @@ export function getCrmPool(): Pool {
       connectionString: url.toString(),
       ssl: { rejectUnauthorized: false },
       max: 3,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 10000,
+      keepAlive: true,
     });
   }
   return pool;

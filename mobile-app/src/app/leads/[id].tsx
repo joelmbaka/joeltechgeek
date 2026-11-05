@@ -34,7 +34,7 @@ export default function LeadScreen() {
   const theme = useTheme();
   const showDialog = useAppDialog();
   const router = useRouter();
-  const { id, view, industry } = useLocalSearchParams<{ id: string; view?: string; industry?: string }>();
+  const { id, industry } = useLocalSearchParams<{ id: string; industry?: string }>();
   const { user } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);

@@ -289,7 +289,7 @@ export default function HomeScreen() {
             style={[styles.input, { flex: 1 }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search all leads"
+            placeholder="Search company, contact, phone or email"
             placeholderTextColor={theme.muted}
             autoCapitalize="none" autoCorrect={false}
             returnKeyType="search"
