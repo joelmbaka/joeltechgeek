@@ -14,8 +14,7 @@ import { AddLeadModal } from './AddLeadModal';
 import { LeadContactsPanel } from './LeadContactsPanel';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
-type Queue = 'all' | 'to_call' | 'due' | 'interested';
-type LeadSort = 'recommended' | 'follow_up' | 'priority' | 'company' | 'industry' | 'recent';
+type WorkView = 'for_you' | 'to_call' | 'followups' | 'done_today' | 'priority' | 'all' | 'all_az';
 type Response = {
   ok: boolean;
   user: CrmUser;
@@ -45,13 +44,13 @@ const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
 const PAGE_SIZE = 50;
-function leadPageUrl(filters: { queue: Queue; industry: string; sortBy: LeadSort; query: string }, offset = 0) {
+function leadPageUrl(filters: { workView: WorkView; industry: string; query: string }, offset = 0) {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
-    queue: filters.queue,
+    view: filters.workView,
+    tz: browserTimezone(),
     industry: filters.industry,
-    sort: filters.sortBy === 'follow_up' ? 'followup' : filters.sortBy,
     q: filters.query,
   });
   return '/api/agent-crm/leads?' + params.toString();
@@ -168,10 +167,11 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
           {lead.contact_role ? (lead.company_name ? ' · ' : '') + lead.contact_role : ''}
         </p>
       )}
-      {lead.problem_summary && (
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{lead.problem_summary}</p>
+      {(lead.lead_brief || lead.problem_summary) && (
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {lead.lead_brief || lead.problem_summary}
+        </p>
       )}
-      {lead.last_notes && <p className="mt-2 line-clamp-2 text-xs text-slate-500">Latest note: {lead.last_notes}</p>}
       {lead.last_outcome && (
         <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || (lead.last_outcome === 'email_sent' ? 'email' : 'call')} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
@@ -794,9 +794,8 @@ export function CrmClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [selected, setSelected] = useState<Lead | null>(null);
   const [adding, setAdding] = useState(false);
-  const [queue, setQueue] = useState<Queue>('all');
+  const [workView, setWorkView] = useState<WorkView>('for_you');
   const [industry, setIndustry] = useState('all');
-  const [sortBy, setSortBy] = useState<LeadSort>('recommended');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -820,7 +819,7 @@ export function CrmClient() {
     const requestId = ++requestSeq.current;
     setRefreshing(true);
     setLoadingMore(false);
-    const url = leadPageUrl({ queue, industry, sortBy, query: debouncedQuery });
+    const url = leadPageUrl({ workView, industry, query: debouncedQuery });
     void api<Response>(url).then((response) => {
       if (requestId !== requestSeq.current) return;
       setData(response);
@@ -845,12 +844,12 @@ export function CrmClient() {
     return () => {
       if (requestId === requestSeq.current) requestSeq.current++;
     };
-  }, [queue, industry, sortBy, debouncedQuery, reloadKey]);
+  }, [workView, industry, debouncedQuery, reloadKey]);
 
   async function loadMore() {
     if (!data?.has_more || refreshing || loadingMore || query.trim() !== debouncedQuery) return;
     const requestId = requestSeq.current;
-    const url = leadPageUrl({ queue, industry, sortBy, query: debouncedQuery }, data.leads.length);
+    const url = leadPageUrl({ workView, industry, query: debouncedQuery }, data.leads.length);
     setLoadingMore(true);
     try {
       const next = await api<Response>(url);
@@ -896,11 +895,11 @@ export function CrmClient() {
     [data?.industry_counts],
   );
   const filtered = leads;
-  const counters: Array<{key:Queue; title:string; value:number}> = [
+  const counters: Array<{key:WorkView; title:string; value:number}> = [
     {key:'all',title:'Total leads',value:stats.total},
     {key:'to_call',title:'To call',value:stats.to_call},
-    {key:'due',title:'Follow-ups due',value:stats.followups_due},
-    {key:'interested',title:'Interested',value:stats.interested},
+    {key:'followups',title:'Follow-ups due',value:stats.followups_due},
+    {key:'priority',title:'High priority',value:data?.leads.filter((l)=>l.priority==='high').length||0},
   ];
   return (
     <main className="min-h-screen bg-[#F6F8FA] text-[#0A2836] dark:bg-[#07111D] dark:text-slate-50">
@@ -1001,12 +1000,12 @@ export function CrmClient() {
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {counters.map((item) => (
-              <button type="button" key={item.key} onClick={() => setQueue(item.key)} aria-pressed={queue === item.key}
+              <button type="button" key={item.key} onClick={() => setWorkView(item.key)} aria-pressed={workView === item.key}
                 className={'group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#059669] sm:p-5 ' +
-                  (queue === item.key
+                  (workView === item.key
                     ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]/50 dark:border-emerald-500 dark:bg-emerald-950/35'
                     : 'border-slate-200 bg-white hover:border-emerald-300 dark:border-white/10 dark:bg-[#0E1D2A] dark:hover:border-emerald-700')}>
-                {queue === item.key && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[#059669]" />}
+                {workView === item.key && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[#059669]" />}
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{item.title}</span>
                   <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ' +
@@ -1045,21 +1044,22 @@ export function CrmClient() {
                   <option key={name} value={name}>{name} ({industryCounts.get(name) ?? 0})</option>
                 ))}
               </select>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as LeadSort)} aria-label="Sort leads"
+              <select value={workView} onChange={(e) => setWorkView(e.target.value as WorkView)} aria-label="View leads"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 lg:w-52">
-                <option value="recommended">Sort: Recommended</option>
-                <option value="follow_up">Follow-up: Earliest first</option>
-                <option value="priority">Priority: Highest first</option>
-                <option value="recent">Recently updated</option>
-                <option value="industry">Category: A–Z</option>
-                <option value="company">Company: A–Z</option>
+                <option value="for_you">For You</option>
+                <option value="to_call">To Call</option>
+                <option value="followups">Follow-ups</option>
+                <option value="done_today">Done Today</option>
+                <option value="priority">High Priority</option>
+                <option value="all">All Leads</option>
+                <option value="all_az">All Leads (A–Z)</option>
               </select>
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
             <span>{filtered.length} of {data?.filtered_total ?? 0} lead{data?.filtered_total === 1 ? '' : 's'} shown{refreshing || query.trim() !== debouncedQuery ? ' · Updating…' : ''}</span>
-            {(queue !== 'all' || industry !== 'all' || query || sortBy !== 'recommended') && (
-              <button type="button" onClick={() => { setQueue('all'); setIndustry('all'); setQuery(''); setSortBy('recommended'); }}
+            {(workView !== 'for_you' || industry !== 'all' || query) && (
+              <button type="button" onClick={() => { setWorkView('for_you'); setIndustry('all'); setQuery(''); }}
                 className="font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Clear filters</button>
             )}
           </div>
@@ -1083,7 +1083,7 @@ export function CrmClient() {
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">
                 {stats.total === 0
                   ? 'Once prospects are assigned to your account, they will appear here with their contact details and next actions.'
-                  : 'Try another category, search term or queue to find the prospect you need.'}
+                  : 'Try another category, search term or view to find the prospect you need.'}
               </p>
               {stats.total === 0 && (
                 <button type="button" onClick={() => void refresh(true)} disabled={refreshing}
@@ -1119,7 +1119,7 @@ export function CrmClient() {
           onClose={() => setAdding(false)}
           onCreated={() => {
             setAdding(false);
-            setQueue('all');
+            setWorkView('all');
             setIndustry('all');
             setQuery('');
             void refresh(true);
