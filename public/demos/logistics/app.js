@@ -137,6 +137,29 @@
    (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">No eligible driver for this load.</p>')+
    '</form></div></section></div>';
  }
+
+ function pairingModal(){
+  if(!pairFor)return "";
+  const isTruck=pairFor.kind==="truck";
+  const truck=isTruck?data.fleet.find(x=>x.id===pairFor.id):null;
+  const driver=!isTruck?data.drivers.find(x=>x.id===pairFor.id):null;
+  if((isTruck&&!truck)||(!isTruck&&!driver))return "";
+  const current=isTruck?(truck.driverId||""):(truckFor(driver.id)?.id||"");
+  const choices=isTruck?
+   data.drivers.map(x=>'<option value="'+esc(x.id)+'" '+(current===x.id?"selected":"")+'>'+esc(x.name+
+     (truckFor(x.id)&&truckFor(x.id).id!==truck.id?" · paired to "+truckFor(x.id).truckPlate:""))+'</option>').join(""):
+   data.fleet.map(x=>'<option value="'+esc(x.id)+'" '+(current===x.id?"selected":"")+'>'+esc(x.truckPlate+" · "+x.capacityTons+" tonnes")+'</option>').join("");
+  return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="pair-close" aria-label="Close fleet assignment"></button>'+
+   '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="pair-title">'+
+   '<header class="cargo-modal-header"><h2 id="pair-title">'+(isTruck?"Assign driver to truck":"Assign truck to driver")+'</h2>'+
+   '<button type="button" class="cargo-modal-close" data-action="pair-close" aria-label="Close fleet assignment">×</button></header>'+
+   '<div class="cargo-modal-body"><form id="pair-form" class="form-view"><p class="hint">'+esc(isTruck?truck.truckPlate:driver.name)+'</p>'+
+   '<div class="form-fields"><label>'+(isTruck?"Driver":"Truck")+'<select name="pairId">'+
+   '<option value="" '+(!current?"selected":"")+'>Unassigned</option>'+choices+'</select></label></div>'+
+   '<p class="hint">A driver is paired with at most one truck. Pairings cannot change during an active In Transit or Delivered trip.</p>'+
+   '<button class="button primary wide" type="submit">Save Fleet Assignment</button></form></div></section></div>';
+ }
+
  function evidenceModal(){
   if(!proofFor)return "";
   const l=core.find(data,proofFor.id);
@@ -264,7 +287,7 @@ function render(){
  const back=()=>{if(formOpen){formOpen=false;}else{screen=null;}toast="";render();};
  document.addEventListener("change",event=>{
   if(!mount.contains(event.target))return;
-  if(event.target.id==="demo-role"){const value=event.target.value;role=value.startsWith("driver:")?"driver":"dispatcher";if(role==="driver")driverId=value.slice(7);screen=null;formOpen=false;assignmentFor=null;proofFor=null;tab="board";drawer=false;search="";toast="";render();}
+  if(event.target.id==="demo-role"){const value=event.target.value;role=value.startsWith("driver:")?"driver":"dispatcher";if(role==="driver")driverId=value.slice(7);screen=null;formOpen=false;assignmentFor=null;proofFor=null;pairFor=null;tab="board";drawer=false;search="";toast="";render();}
   if(event.target.id==="board-filter"){filter=event.target.value;render();}
  });
  document.addEventListener("input",event=>{
@@ -284,12 +307,15 @@ function render(){
   if(a==="menu-close"){drawer=false;render();return;}
   if(a==="back"){back();return;}
   if(a==="assignment-close"){assignmentFor=null;render();return;}
+  if(a==="pair-close"){pairFor=null;render();return;}
+  if(a==="pair-truck"&&role==="dispatcher"){pairFor={kind:"truck",id};render();return;}
+  if(a==="pair-driver"&&role==="dispatcher"){pairFor={kind:"driver",id};render();return;}
   if(a==="proof-close"){proofFor=null;render();return;}
   if(a==="assign"&&role==="dispatcher"){assignmentFor=id;render();return;}
   if(a==="proof"){const l=core.find(data,id);if(!l||!(role==="dispatcher"||own(l))||!nextFor[l.status])return;proofFor={id,next:nextFor[l.status]};render();return;}
   if(a==="modal-close"){formOpen=false;toast="";render();return;}
   if(a==="dismiss"){toast="";render();return;}
-  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data and local evidence photos?"))return;data=core.seed();driverId=data.driver.id;save();screen=null;formOpen=false;assignmentFor=null;proofFor=null;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
+  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data and local evidence photos?"))return;data=core.seed();driverId=data.driver.id;save();screen=null;formOpen=false;assignmentFor=null;proofFor=null;pairFor=null;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
   if(a==="new"&&role==="dispatcher"){formOpen=true;mode="new";selected=null;render();return;}
   if(a==="edit"&&role==="dispatcher"){formOpen=true;mode="edit";selected=id;render();return;}
   if(a==="delete"&&role==="dispatcher"){
@@ -301,6 +327,20 @@ function render(){
  document.addEventListener("submit",event=>{
   const form=event.target;
   if(!mount.contains(form))return;
+  if(form.id==="pair-form"){
+   event.preventDefault();if(role!=="dispatcher"||!pairFor)return;
+   const chosen=String(new FormData(form).get("pairId")||""),context={...pairFor};
+   done(()=>{
+    if(context.kind==="truck")core.pair(data,context.id,chosen||null);
+    else {
+     const current=truckFor(context.id);
+     if(chosen)core.pair(data,chosen,context.id);
+     else if(current)core.pair(data,current.id,null);
+    }
+    pairFor=null;
+   },"Fleet driver/truck pairing updated.");
+   return;
+  }
   if(form.id==="assignment-form"){
    event.preventDefault();if(role!=="dispatcher"||!assignmentFor)return;
    const id=assignmentFor,driver=String(new FormData(form).get("driverId")||"");
@@ -328,6 +368,6 @@ function render(){
   if(form.dataset.kind==="new")done(()=>{const l=core.post(data,vals);selected=l.id;screen="detail";formOpen=false;},"Load posted.");
   if(form.dataset.kind==="edit")done(()=>{core.edit(data,selected,vals);screen="detail";formOpen=false;},"Load updated.");
  });
- document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(proofFor){proofFor=null;render();}else if(assignmentFor){assignmentFor=null;render();}else if(formOpen){formOpen=false;render();}else if(drawer){drawer=false;render();}else if(screen)back();}});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(proofFor){proofFor=null;render();}else if(assignmentFor){assignmentFor=null;render();}else if(pairFor){pairFor=null;render();}else if(formOpen){formOpen=false;render();}else if(drawer){drawer=false;render();}else if(screen)back();}});
  render();
 })(cargoCore);
