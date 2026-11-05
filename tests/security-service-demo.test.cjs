@@ -106,6 +106,9 @@ test('security service demo uses the mobile phone shell and dropdown role select
   const source = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.tsx'), 'utf8');
   const styles = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.module.css'), 'utf8');
   const landing = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/page.tsx'), 'utf8');
+  const directory = fs.readFileSync(path.join(__dirname, '..', 'app/demos/page.tsx'), 'utf8');
+  const chrome = fs.readFileSync(path.join(__dirname, '..', 'components/SiteChrome.tsx'), 'utf8');
+  const experiencePage = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/experience/page.tsx'), 'utf8');
   for (const value of ['operations', 'supervisor', 'client', 'Raise an issue', 'Confirm arrival on site', 'Publish', 'Reset demo data']) {
     assert.ok(source.includes(value), 'Missing expected interaction: ' + value);
   }
@@ -115,7 +118,9 @@ test('security service demo uses the mobile phone shell and dropdown role select
   assert.match(styles, /height: 100dvh/);
   assert.match(styles, /max-width: 600px/);
   assert.match(landing, /Multiple ways to confirm attendance/);
-  assert.doesNotMatch(landing + source, /No guard smartphone required|Guards do not need smartphones/i);
+  assert.doesNotMatch(landing + source + directory + experiencePage, /No guard smartphone required|Guards do not need smartphones/i);
+  assert.match(chrome, /path === '\/demos\/security\/experience'/);
+  assert.doesNotMatch(experiencePage, /About this solution|Discuss a similar system/);
   assert.match(source, /browser-only demo/);
   assert.doesNotMatch(source, /navigator\.geolocation|getUserMedia\(/);
 });
