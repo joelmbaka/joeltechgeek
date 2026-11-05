@@ -1,6 +1,6 @@
 (function cargoMobile(core){
  "use strict";
- const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v4";
+ const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v6";
  const esc=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
  const money=n=>"KSH "+Number(n||0).toLocaleString("en-KE");
  const place=id=>core.loc(id)?.name||"Unknown location";
@@ -121,20 +121,20 @@
   const l=core.find(data,assignmentFor);
   if(!l||l.status!=="Open")return "";
   const choices=data.drivers.map(x=>{
-   const truck=truckFor(x.id),overweight=truck&&l.weightTons>truck.capacityTons,busy=!!core.active(data,x.id);
+   const truck=truckFor(x.id),overweight=!!truck&&l.weightTons>truck.capacityTons,eligibility=core.assignmentAvailability(data,x.id),busy=!eligibility.allowed;
    return '<option value="'+esc(x.id)+'" '+(overweight||busy?"disabled":"")+'>'+
     esc(x.name+" · "+(truck?truck.truckPlate:"No truck paired yet")+
-       (busy?" (Assigned through Delivered; unavailable)":overweight?" (truck capacity exceeded)":""))+'</option>';
+       (busy?" ("+eligibility.reason+")":overweight?" (truck capacity exceeded)":""))+'</option>';
   }).join("");
-  const available=data.drivers.some(x=>!core.active(data,x.id)&&(!truckFor(x.id)||l.weightTons<=truckFor(x.id).capacityTons));
+  const available=data.drivers.some(x=>core.assignmentAvailability(data,x.id).allowed&&(!truckFor(x.id)||l.weightTons<=truckFor(x.id).capacityTons));
   return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="assignment-close" aria-label="Close assignment"></button>'+
    '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title">'+
    '<header class="cargo-modal-header"><h2 id="assignment-modal-title">Assign driver · '+esc(l.id)+'</h2>'+
    '<button type="button" class="cargo-modal-close" data-action="assignment-close" aria-label="Close assignment">×</button></header>'+
    '<div class="cargo-modal-body"><form id="assignment-form" class="form-view"><div class="form-fields">'+
    '<label>👤 Driver<select name="driverId" required>'+choices+'</select></label></div>'+
-   '<p class="hint">Assign to a driver, not a truck. Pair the driver’s truck in Fleet. A driver can have only one consignment from Assigned through Delivered. Complete the current consignment before assigning another.</p>'+
-   (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">All drivers are already assigned or unavailable for this load.</p>')+
+   '<p class="hint">Assign to a driver, not a truck. Pair the driver’s truck in Fleet. A driver can have at most two unfinished consignments. A second can be assigned once the first reaches Delivered, but the second cannot start In Transit until the first is Complete.</p>'+
+   (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">No eligible driver is available for another consignment.</p>')+
    '</form></div></section></div>';
  }
 
