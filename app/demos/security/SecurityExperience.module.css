@@ -1,0 +1,100 @@
+.stage {
+  --brand: #047857;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 15% 18%, #dff5e9 0, transparent 38%),
+    radial-gradient(circle at 92% 80%, #e0edf1 0, transparent 42%),
+    linear-gradient(130deg, #eef6f1, #f2f7f6);
+  color: #203c38;
+}
+.intro { width: 242px; flex: none; }
+.guide { width: 195px; flex: none; }
+.kicker { color: #047857; font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.intro h1 { margin: 14px 0; color: #133b32; font-size: 32px; font-weight: 800; line-height: 1.16; letter-spacing: -.055em; }
+.intro p, .guide p { color: #607b75; font-size: 12px; line-height: 1.85; }
+.intro a { display: inline-block; margin-top: 20px; color: #047857; font-size: 12px; font-weight: 800; text-decoration: none; }
+.guide h2 { margin: 12px 0; font-size: 19px; line-height: 1.25; font-weight: 800; letter-spacing: -.03em; }
+.guide ol { padding-left: 18px; font-size: 12px; line-height: 1.75; color: #617c75; }
+.guide li + li { margin-top: 6px; }
+.guide small { display: block; margin-top: 18px; color: #79938a; font-size: 10px; line-height: 1.6; }
+.reset {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 17px; padding: 10px 12px;
+  border: 1px solid #b9dccc; border-radius: 10px;
+  background: #eaf8ef; color: #047857; font-size: 11px; font-weight: 800;
+}
+.phone {
+  position: relative; display: flex; flex-direction: column;
+  flex: none; width: min(430px, 100%); height: min(875px, calc(100dvh - 36px)); min-height: 590px;
+  overflow: hidden; border: 8px solid #123731; border-radius: 38px;
+  background: #f5f8f6; color: #263b36;
+  box-shadow: 0 30px 80px #133e3742;
+}
+.statusbar {
+  display: flex; align-items: center; justify-content: space-between; flex: none;
+  height: 26px; padding: 3px 19px 0; background: white; color: #27463d;
+  font-size: 10px; font-weight: 900;
+}
+.appHeader {
+  display: flex; align-items: center; gap: 9px; flex: none;
+  min-height: 64px; padding: 10px 12px;
+  border-bottom: 1px solid #dfebe3; background: white;
+}
+.logo {
+  display: grid; place-items: center; flex: none; width: 38px; height: 38px;
+  border-radius: 11px; background: #059669; color: white;
+}
+.brand { flex: 1; min-width: 0; }
+.brand strong { display: block; font-size: 13px; font-weight: 850; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand span { display: block; margin-top: 3px; font-size: 9px; color: #77918a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roleLabel { display: block; flex: none; max-width: 46%; color: #607a72; font-size: 9px; font-weight: 850; letter-spacing: .025em; }
+.roleSelect {
+  display: block; width: 152px; max-width: 100%; min-height: 37px; margin-top: 4px; padding: 6px 5px;
+  border: 1px solid #bfe4d0; border-radius: 9px; background: #edf9f1; color: #075c46;
+  font-size: 11px; font-weight: 800; letter-spacing: normal;
+}
+.screen {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 16px 14px 23px; scrollbar-width: thin;
+  scrollbar-color: #c2d8cb transparent;
+}
+.tabBar {
+  display: flex; flex: none; min-height: 65px;
+  border-top: 1px solid #e0ece4; background: #fff;
+}
+.tab {
+  display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-width: 0; padding: 7px 2px; border-top: 3px solid transparent;
+  color: #879c93; font-size: 10px; font-weight: 750; text-align: center; line-height: 1.15;
+}
+.tab span { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabActive { border-top-color: #059669; background: #f3fbf6; color: #047857; }
+.gesture { display: grid; place-items: center; flex: none; height: 17px; background: white; }
+.gesture span { width: 102px; height: 4px; border-radius: 8px; background: #1c3d34; }
+.screen :is(button, select, input, textarea):focus-visible,
+.appHeader select:focus-visible, .tab:focus-visible,
+.reset:focus-visible {
+  outline: 2px solid #059669; outline-offset: 2px;
+}
+.screen :is(button, select, input, textarea) { font-size: 12px; }
+.screen h2 { line-height: 1.28; }
+.screen h3 { line-height: 1.3; }
+@media (max-width: 1150px) {
+  .intro, .guide { display: none; }
+  .stage { padding: 12px; }
+  .phone { height: min(875px, calc(100dvh - 24px)); }
+}
+@media (max-width: 600px) {
+  .stage { display: block; min-height: 100dvh; padding: 0; background: #f5f8f6; }
+  .phone {
+    width: 100%; height: 100dvh; min-height: 0; border: 0; border-radius: 0; box-shadow: none;
+  }
+  .statusbar { padding-top: max(3px, env(safe-area-inset-top, 0px)); height: calc(27px + env(safe-area-inset-top, 0px)); }
+  .gesture { height: calc(17px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+@media (prefers-reduced-motion: reduce) { .stage * { scroll-behavior: auto !important; transition: none !important; } }
