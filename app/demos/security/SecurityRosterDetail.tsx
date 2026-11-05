@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Camera, ChevronRight, Clock3, FileText, MessageSquare, ShieldCheck } from 'lucide-react';
 import {
-  dayOfInstant, formatClock, formatDay, timelineForDay, type State,
+  dayOfInstant, formatClock, formatDay, timelineForDay, shiftWindow, type State,
   type Role, type TimelineItem, type Asset,
 } from './security-demo-model';
 
@@ -47,8 +47,7 @@ export default function SecurityRosterDetail({
       <p className="mt-3 text-xs leading-6 text-[#4e705f]">{row.detail}</p>
       {shift && <div className="mt-4 space-y-2 rounded-xl bg-[#edf7f0] p-3 text-xs text-[#446853]">
         <p><strong>Officer:</strong> {officer?.name||'Unassigned'}</p>
-        <p><strong>Duty start:</strong> {formatDay(dayOfInstant(shift.startAt))} · {formatClock(shift.startAt)}</p>
-        <p><strong>Duty end:</strong> {formatDay(dayOfInstant(shift.endAt))} · {formatClock(shift.endAt)}</p>
+        <p><strong>Duty period:</strong> {shiftWindow(shift)}</p>
         <p><strong>Status:</strong> {shift.attendance}</p>
         <p><strong>Arrival:</strong> {shift.arrivalAt?formatDay(dayOfInstant(shift.arrivalAt))+' · '+formatClock(shift.arrivalAt):'Not recorded'}</p>
         <p><strong>Departure:</strong> {shift.departureAt?formatDay(dayOfInstant(shift.departureAt))+' · '+formatClock(shift.departureAt):'Not recorded'}</p>
