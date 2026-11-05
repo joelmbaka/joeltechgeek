@@ -205,8 +205,9 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
     </article>
   );
 }
-function LeadDialog({ lead, onClose, onSaved }: {
-  lead: Lead; onClose: () => void; onSaved: () => Promise<void>;
+function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
+  lead: Lead; onClose: () => void; onSaved: () => void | Promise<void>;
+  onNext: (lead: Lead | null) => void; industry: string;
 }) {
   const [form, setForm] = useState<FormValues>({
     channel: 'call', outcome: '', notes: '', next_action: lead.next_action || '',
@@ -215,6 +216,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     next_action_time: lead.next_action_time?.slice(0, 5) || '',
     stage: '', do_not_contact: false,
   });
+  const [advanceAfterSave] = useState(() => ({ current: false }));
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
   const [companyName, setCompanyName] = useState(lead.company_name);
@@ -384,9 +386,20 @@ function LeadDialog({ lead, onClose, onSaved }: {
         complete_due_call: form.channel === 'call' && !planFromCall,
       });
       await onSaved();
-      onClose();
+      if (advanceAfterSave.current) {
+        try {
+          const next = await api<Response>(leadPageUrl({
+            workView:'to_call',industry,query:'',alphabetical:false,
+          }));
+          onNext(next.leads.find((candidate)=>candidate.id!==lead.id) || null);
+        } catch {
+          // The interaction was already saved; a failed queue refresh
+          // must not display a misleading "save failed" message.
+          onClose();
+        }
+      } else onClose();
     } catch (err) { setError(errText(err)); }
-    finally { setSaving(false); }
+    finally { setSaving(false); advanceAfterSave.current=false; }
   }
 
   async function saveFollowup(event: React.FormEvent<HTMLFormElement>) {
@@ -856,10 +869,18 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   </span>
                 </label>
                 {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-                <button type="submit" disabled={!form.outcome || saving}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-                  <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save activity'}
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="submit" disabled={!form.outcome || saving}
+                    onClick={()=>{advanceAfterSave.current=false;}}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300">
+                    {saving ? 'Saving…' : 'Save & Stay'}
+                  </button>
+                  <button type="submit" disabled={!form.outcome || saving}
+                    onClick={()=>{advanceAfterSave.current=true;}}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
+                    <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Save & Next'}
+                  </button>
+                </div>
               </form>
             </section>
           </>
@@ -1240,6 +1261,7 @@ export function CrmClient() {
         </div>
       )}
       {selected && <LeadDialog key={selected.id} lead={selected}
+        industry={industry} onNext={setSelected}
         onClose={() => setSelected(null)} onSaved={() => refresh(true)} />}
       {adding && (
         <AddLeadModal

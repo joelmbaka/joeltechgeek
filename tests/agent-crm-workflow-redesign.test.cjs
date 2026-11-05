@@ -117,3 +117,12 @@ test('wrong numbers stay blocked until changed and secondary contacts cannot bor
   assert.match(queue,/b.next_action_contact_id=b.primary_contact_id/);
   assert.match(queue,/AND NOT \(COALESCE\(e.last_call_outcome/);
 });
+
+test('web CRM supports Save & Next with due Call eligibility and refresh',()=>{
+  const web=read('app/crm/CrmClient.tsx');
+  assert.match(web,/onNext: \(lead: Lead \| null\) => void/);
+  assert.match(web,/workView:'to_call',industry,query:'',alphabetical:false/);
+  assert.match(web,/Save & Next/);
+  assert.match(web,/Save & Stay/);
+  assert.match(web,/onNext={setSelected}/);
+});
