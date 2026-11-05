@@ -45,11 +45,11 @@ const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
 const PAGE_SIZE = 50;
-function leadPageUrl(filters: { workView: WorkView; industry: string; query: string }, offset = 0) {
+function leadPageUrl(filters: { workView: WorkView; industry: string; query: string; alphabetical: boolean }, offset = 0) {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
-    view: filters.workView,
+    view: filters.workView === 'all' && filters.alphabetical ? 'all_az' : filters.workView,
     tz: browserTimezone(),
     industry: filters.industry,
     q: filters.query,
@@ -64,12 +64,12 @@ function todayInZone(timeZone: string) {
   const part = (kind: string) => parts.find((value) => value.type === kind)?.value || '';
   return part('year') + '-' + part('month') + '-' + part('day');
 }
-function today() { return todayInZone('Africa/Nairobi'); }
+function today() { return todayInZone(browserTimezone()); }
 function dateLabel(str: string | null | undefined) {
   if (!str) return '';
-  const date = new Date(str.slice(0, 10) + 'T12:00:00+03:00');
+  const date = new Date(str.slice(0, 10) + 'T12:00:00Z');
   return Number.isNaN(date.valueOf()) ? str : date.toLocaleDateString('en-KE', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric',
   });
 }
 function timeLabel(str: string) {
@@ -915,6 +915,7 @@ export function CrmClient() {
   const [selected, setSelected] = useState<Lead | null>(null);
   const [adding, setAdding] = useState(false);
   const [workView, setWorkView] = useState<WorkView>('for_you');
+  const [alphabetical, setAlphabetical] = useState(false);
   const [industry, setIndustry] = useState('all');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -939,7 +940,7 @@ export function CrmClient() {
     const requestId = ++requestSeq.current;
     setRefreshing(true);
     setLoadingMore(false);
-    const url = leadPageUrl({ workView, industry, query: debouncedQuery });
+    const url = leadPageUrl({ workView, alphabetical, industry, query: debouncedQuery });
     void api<Response>(url).then((response) => {
       if (requestId !== requestSeq.current) return;
       setData(response);
@@ -964,12 +965,12 @@ export function CrmClient() {
     return () => {
       if (requestId === requestSeq.current) requestSeq.current++;
     };
-  }, [workView, industry, debouncedQuery, reloadKey]);
+  }, [workView, alphabetical, industry, debouncedQuery, reloadKey]);
 
   async function loadMore() {
     if (!data?.has_more || refreshing || loadingMore || query.trim() !== debouncedQuery) return;
     const requestId = requestSeq.current;
-    const url = leadPageUrl({ workView, industry, query: debouncedQuery }, data.leads.length);
+    const url = leadPageUrl({ workView, alphabetical, industry, query: debouncedQuery }, data.leads.length);
     setLoadingMore(true);
     try {
       const next = await api<Response>(url);
@@ -1171,14 +1172,20 @@ export function CrmClient() {
                 <option value="done_today">Done Today</option>
                 <option value="priority">High Priority</option>
                 <option value="all">All Leads</option>
-                <option value="all_az">All Leads (A–Z)</option>
+
               </select>
+              {workView === 'all' && <button type="button"
+                onClick={() => setAlphabetical((current) => !current)}
+                className="h-11 shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-emerald-800 dark:border-slate-700 dark:text-emerald-300"
+                aria-label={alphabetical ? 'Sort All Leads by recent' : 'Sort All Leads alphabetically'}>
+                {alphabetical ? 'Recent' : 'A–Z'}
+              </button>}
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
             <span>{filtered.length} of {data?.filtered_total ?? 0} lead{data?.filtered_total === 1 ? '' : 's'} shown{refreshing || query.trim() !== debouncedQuery ? ' · Updating…' : ''}</span>
-            {(workView !== 'for_you' || industry !== 'all' || query) && (
-              <button type="button" onClick={() => { setWorkView('for_you'); setIndustry('all'); setQuery(''); }}
+            {(workView !== 'for_you' || industry !== 'all' || query || alphabetical) && (
+              <button type="button" onClick={() => { setWorkView('for_you'); setIndustry('all'); setQuery(''); setAlphabetical(false); }}
                 className="font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Clear filters</button>
             )}
           </div>
