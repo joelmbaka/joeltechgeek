@@ -154,7 +154,7 @@ const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,nam
  return load;
 };
 function seed(){
- return {version:4,nextId:3100,
+ return {version:5,nextId:3100,
   driver:{...DRIVERS[0]},
   drivers:DRIVERS.map(x=>({...x})),
   fleet:TRUCKS.map(x=>({...x})),
