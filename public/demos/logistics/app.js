@@ -58,7 +58,7 @@
  }
  function activity(l){
   const rows=data.activity.filter(a=>a.loadId===l.id);
-  return group("Tracking Timeline",'<div class="timeline">'+(rows.length?rows:[{title:"Load posted",detail:"Available to drivers"}]).slice(0,9).map(a=>
+  return group("Tracking Timeline",'<div class="timeline">'+(rows.length?rows:[{title:"Load posted",detail:"Awaiting dispatcher assignment"}]).slice(0,9).map(a=>
   '<div class="timeline-item"><span>●</span><div><b>'+esc(a.title)+'</b><p>'+esc(a.detail)+'</p></div></div>').join("")+'</div>');
  }
  const nextFor={"Assigned":"In transit","In transit":"Delivered","Delivered":"Complete"};
@@ -66,7 +66,7 @@
  function actions(l){
   const buttons=[];
   if(role==="dispatcher"){
-   if(l.status==="Open")buttons.push(btn("Edit Load","edit",l.id,"soft"),btn("Delete Load","delete",l.id,"danger"),btn("Assign Truck","assign",l.id,"primary"));
+   if(l.status==="Open")buttons.push(btn("Edit Load","edit",l.id,"soft"),btn("Delete Load","delete",l.id,"danger"),btn("Assign Driver","assign",l.id,"primary"));
    if(l.status==="Complete"&&l.payment.status!=="Paid")buttons.push(btn("Mark Driver Paid","pay",l.id,"soft"));
   }
   if((role==="dispatcher"||own(l))&&nextFor[l.status]){
@@ -248,7 +248,7 @@
   const nested=!!screen;
   const label=screen==="detail"?"Load":
    screen?({fleet:"Fleet",drivers:"Drivers",finance:"Finance",locations:"Locations",consignees:"Consignees",settings:"Settings",profile:"My Profile"}[screen]):
-    tab==="board"?(role==="dispatcher"?"Grace (Dispatcher)":"Kevin (Driver)"):tab==="active"?"Active":"History";
+    tab==="board"?(role==="dispatcher"?"Grace (Dispatcher)":currentDriver().name.split(" ")[0]+" (Driver)"):tab==="active"?"Active":"History";
   return '<header class="app-header"><button type="button" aria-label="'+(nested?"Go back":"Open menu")+'" class="header-btn" data-action="'+(nested?"back":"menu")+'">'+(nested?"‹":"☰")+'</button>'+
    '<div class="header-heading"><b>'+esc(label)+'</b></div>'+
    (nested?'<span></span>':'<select id="demo-role" aria-label="Demo user"><option value="dispatcher" '+(role==="dispatcher"?"selected":"")+'>Grace (Dispatcher)</option>'+
@@ -273,11 +273,11 @@ function render(){
  const scrollKey=[role,tab,screen,selected].join(':');
  const previousScroll=mount.querySelector?.(".app-content")?.scrollTop||0;
  const keepScroll=lastViewScrollKey===scrollKey;
-  mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app for dispatcher-led truck assignment and evidence-backed trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
+  mount.innerHTML='<div class="scene"><aside class="scene-info"><span>INTERACTIVE MOBILE CONCEPT</span><h2>Cargo Dispatch</h2><p>A fleet app for driver-assigned loads, truck allocation in Fleet, and photo-backed trips.</p><a href="/demos/logistics">← View introduction</a></aside>'+
    '<div class="device"><div class="status-bar"><span>9:41</span><span>▰ ▱ ▰</span></div>'+toolbar()+
    '<main class="app-content">'+(screen==="detail"?detail():screen?directory():board())+'</main>'+tabs()+
    '<div class="gesture"><span></span></div>'+(role==="dispatcher"?sideMenu():"")+'</div>'+
-   '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · Photo previews saved locally · No live GPS or payments</small></aside></div>'+
+   '<aside class="scene-tools"><b>Demo controls</b><p>Switch between dispatcher and assigned drivers in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · Photo previews saved locally · No live GPS or payments</small></aside></div>'+
    cargoFormModal()+assignmentModal()+pairingModal()+evidenceModal()+
    (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
  if(keepScroll){const host=mount.querySelector?.(".app-content");if(host)host.scrollTop=previousScroll;}
