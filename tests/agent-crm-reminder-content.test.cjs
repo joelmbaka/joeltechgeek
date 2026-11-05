@@ -12,7 +12,7 @@ const reminder = (patch = {}) => ({
   next_action_timezone: 'Africa/Nairobi', ...patch,
 });
 
-test('notification names selected contact, company, task and due time', async () => {
+test('notification names selected contact and company, with action-only body', async () => {
   const { buildReminderPreview } = await modulePromise;
   const result = buildReminderPreview(reminder());
   assert.equal(result.title, 'BlazeShield · Daniel');
@@ -40,7 +40,7 @@ test('blank task has useful fallback', async () => {
   const { buildReminderPreview } = await modulePromise;
   assert.match(buildReminderPreview(reminder({ next_action: null })).body, /^Follow-up due/);
 });
-test('time zone conversion handles daylight saving', async () => {
+test('scheduled instants differ across dates while notification wording stays concise', async () => {
   const { buildReminderPreview } = await modulePromise;
   const summer = buildReminderPreview(reminder({
     next_action_due_at: '2026-07-01T13:00:00.000Z', next_action_timezone: 'America/New_York',

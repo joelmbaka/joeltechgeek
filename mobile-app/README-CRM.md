@@ -137,8 +137,11 @@ available for users without a Google profile photo.
 
 The authenticated reminder feed includes only the lead/company name, the explicitly
 selected follow-up contact's name (if any), the next action, due timestamp and IANA
-time zone. The Android notification previews **company · selected contact** and a
-short action with local due time. No phone numbers, full notes or history appear.
+time zone. The Android notification previews **company · selected contact** as
+the title and **only the next action** as the body. It does not display the
+time or time zone; those appear in Lead Details as **Reminder due**, separately
+from the **Recorded** timestamp in activity history. No phone numbers, full
+notes or history appear in the notification.
 A company-level follow-up never claims to be addressed to its primary contact.
 
 On login, foreground, or saving a follow-up, Android reconciles pending alarms.
