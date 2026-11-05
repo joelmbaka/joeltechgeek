@@ -559,7 +559,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
                     </label>
                   </div>
-                  {followupDate && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}. Without a time, reminders default to 9:00 AM (or 10 minutes from now if today's 9:00 AM has passed).</p>}
+                  {followupDate && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}. Without a time, reminders default to 9:00 AM (or 10 minutes from now if today&apos;s 9:00 AM has passed).</p>}
                   {followupError && <p role="alert" className="text-sm text-rose-700">{followupError}</p>}
                   <button type="submit" disabled={savingFollowup || Boolean(followupDate && !followupAction.trim())}
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
