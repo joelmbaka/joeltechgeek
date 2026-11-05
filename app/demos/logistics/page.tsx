@@ -4,20 +4,20 @@ import { ArrowLeft, ArrowRight, MonitorPlay, Truck, PackageCheck } from 'lucide-
 
 export const metadata: Metadata = {
   title: 'Cargo Dispatch Interactive Demo | Joeltech Geek Systems',
-  description: 'Explore a mobile-style cargo dispatch system for posting loads, assigning trucks directly, and progressing trips through photo-backed In Transit, Delivered and Complete stages.',
+  description: 'Explore a mobile-style cargo dispatch system for posting loads, assigning consignments to drivers, and progressing trips through photo-backed In Transit, Delivered and Complete stages.',
   alternates: { canonical: '/demos/logistics' },
   openGraph: {
     type: 'website',
     url: '/demos/logistics',
     title: 'Cargo Dispatch Interactive Concept | Joeltech Geek Systems',
-    description: 'Explore a mobile-style cargo dispatch system for posting loads, assigning trucks directly, and progressing trips through photo-backed In Transit, Delivered and Complete stages.',
+    description: 'Explore a mobile-style cargo dispatch system for posting loads, assigning consignments to drivers, and progressing trips through photo-backed In Transit, Delivered and Complete stages.',
   },
 };
 
 const steps = [
   {
     "role": "Dispatcher",
-    "description": "Create and edit loads, assign an available truck and driver directly, and monitor sample trip statuses."
+    "description": "Create and edit loads, assign loads to drivers and manage truck pairings in Fleet, and monitor sample trip statuses."
   },
   {
     "role": "Driver",
@@ -44,7 +44,7 @@ export default function DemoOverviewPage() {
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Logistics & transport · Interactive workflow concept</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Cargo Dispatch</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a mobile-style cargo dispatch system for posting loads, assigning trucks directly, and progressing trips through photo-backed In Transit, Delivered and Complete stages.</p>
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">Explore a mobile-style cargo dispatch system for posting loads, assigning consignments to drivers, and progressing trips through photo-backed In Transit, Delivered and Complete stages.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="/demos/logistics/demo.html" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
               <MonitorPlay className="h-5 w-5" aria-hidden /> Launch interactive demo <ArrowRight className="h-4 w-4" aria-hidden />
@@ -56,7 +56,7 @@ export default function DemoOverviewPage() {
         <aside className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-7 dark:border-emerald-900/50 dark:bg-emerald-950/20 sm:p-8">
           <Truck className="h-9 w-9 text-palm-green" aria-hidden />
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">See the operational handoffs</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace creates loads and directly assigns an available truck and driver. Assigned drivers progress trips with loaded-truck, delivery-note and EIR photos. No booking or approval step.</p>
+          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace assigns loads to drivers and pairs drivers with trucks in Fleet. Assigned drivers progress trips with loaded-truck, delivery-note and EIR photos. Drivers can queue future assignments, but only one trip can be active at a time. No booking or approval step.</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Industry workflow demo</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Simulated team roles</span>
