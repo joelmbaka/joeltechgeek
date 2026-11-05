@@ -244,6 +244,14 @@ export default function SecurityExperience() {
             </button>)}
           </div>
         </div>
+        <aside className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+          <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">Try a complete security-service journey</p>
+          <p className="mt-1 text-xs leading-6 text-emerald-900 dark:text-emerald-200">
+            1. In Operations, change a shift assignment. 2. In Supervisor, confirm the guard's arrival.
+            3. In Property owner, see the updated duty schedule and raise a site concern.
+            4. Return to Operations or Supervisor to respond, then publish a report for the client.
+          </p>
+        </aside>
         {message && <div role="status" className="mt-5 flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100"><span className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0" />{message}</span><button type="button" aria-label="Dismiss message" onClick={() => setMessage('')}>×</button></div>}
         <nav aria-label="Demo workspace tabs" className="my-6 flex gap-2 overflow-x-auto pb-1">
           {panes[role].tabs.map(t => <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}
