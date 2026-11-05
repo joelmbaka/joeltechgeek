@@ -110,3 +110,6 @@ Start the Next.js backend in a separate terminal using `npm run dev` from the re
 **Suggested opening:** "Continue the JTG CRM unified work queue redesign on branch `mobile`. Read `docs/crm-workflow-redesign-handoff.md` first. Verify GitHub CI and run the web/mobile TypeScript tests; fix any failures. Then run the Review Access end-to-end test plan before Vercel/Expo deployment. Preserve existing CRM data and note any deviations."
 
 Do not conflate code completeness with deployment or device acceptance.
+
+## Play Review fixture data (November 5, 2026)
+Production Neon Review Access account has **33 isolated demo leads**: 12 retained and 21 new workflow fixtures. Each has a lead brief and structured facts, 21 have callable demo numbers, and 10 have typed follow-ups. All six work views return nonzero results using current Nairobi-local dates. For detailed scenario expectations, safeguards, and the fact that counts are time dependent, read [`docs/crm-play-review-fixtures.md`](./crm-play-review-fixtures.md). This is production database fixture preparation, **not** proof of an Android release or deployed backend.
