@@ -554,12 +554,12 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         onChange={(e) => { setFollowupDate(e.target.value); if (!e.target.value) setFollowupTime(''); }} />
                     </label>
                     <label className="block text-sm font-semibold">
-                      Time (optional)
+                      Time (optional · 9:00 AM default)
                       <input type="time" className={input} disabled={!followupDate}
                         value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
                     </label>
                   </div>
-                  {followupTime && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}</p>}
+                  {followupDate && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}. Without a time, reminders default to 9:00 AM (or 10 minutes from now if today's 9:00 AM has passed).</p>}
                   {followupError && <p role="alert" className="text-sm text-rose-700">{followupError}</p>}
                   <button type="submit" disabled={savingFollowup || Boolean(followupDate && !followupAction.trim())}
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
@@ -601,7 +601,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                             }} />
                         </label>
                         <label className="block text-sm font-semibold">
-                          Time (optional)
+                          Time (optional · 9:00 AM default)
                           <input type="time" className={input} disabled={!completedNextDate}
                             value={completedNextTime} onChange={(e) => setCompletedNextTime(e.target.value)} />
                         </label>
@@ -689,7 +689,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                           }))} />
                       </label>
                       <label className="block text-sm font-semibold">
-                        Time (optional)
+                        Time (optional · 9:00 AM default)
                         <input type="time" className={input}
                           disabled={form.do_not_contact || !form.next_action_at}
                           value={form.next_action_time}

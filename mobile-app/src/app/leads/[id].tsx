@@ -380,7 +380,7 @@ export default function LeadScreen() {
               onChange={(value) => edit(() => setTime(value))}/>
           </View>
           <Text style={styles.subtitle}>
-            Add a next action and date to save a follow-up. Time is optional.
+            Leave time blank for a 9:00 AM reminder in your local time zone. For today after 9:00 AM, the reminder will be 10 minutes from now.
           </Text>
           <Button disabled={!canSaveFollowup} onPress={() => void save('followup')}>
             Save follow-up
