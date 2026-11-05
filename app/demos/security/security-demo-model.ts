@@ -68,7 +68,7 @@ export function assignGuard(data: DemoData, shiftId: string, guardId: string): D
   if (data.shifts.some(s => s.id !== shift.id && s.guardId === guardId && s.day === shift.day &&
     s.starts === shift.starts && s.ends === shift.ends)) throw new Error('That guard already has an overlapping assignment.');
   return {
-    ...data, shifts: data.shifts.map(s => s.id === shiftId ? { ...s, guardId, status: 'scheduled', arrival: undefined, source: undefined, confirmedBy: undefined } : s),
+    ...data, shifts: data.shifts.map(s => s.id === shiftId ? { ...s, guardId, status: 'scheduled' as Attendance, arrival: undefined, source: undefined, confirmedBy: undefined } : s),
     activity: append(data, shift.siteId, guard.name + ' assigned to the ' + shift.starts + ' shift (' + shift.day + ')', 'client'),
   };
 }
@@ -99,7 +99,7 @@ export function recordDeparture(data: DemoData, shiftId: string): DemoData {
   const guard = data.guards.find(g => g.id === shift.guardId)!;
   return {
     ...data,
-    shifts: data.shifts.map(s => s.id === shiftId ? { ...s, status: 'completed', departure: shift.ends === '06:00' ? '06:02' : '18:02' } : s),
+    shifts: data.shifts.map(s => s.id === shiftId ? { ...s, status: 'completed' as Attendance, departure: shift.ends === '06:00' ? '06:02' : '18:02' } : s),
     activity: append(data, shift.siteId, guard.name + ': shift departure confirmed by supervisor', 'client'),
   };
 }
