@@ -41,6 +41,14 @@ test('Late night today rolls forward to tomorrow rather than a past alarm', asyn
   assert.equal(result.value.next_action_at,'2026-11-06');
   assert.equal(result.value.next_action_time,'00:07');
 });
+test('Same-day reminder rounds up to a full ten minutes', async () => {
+  const { parseFollowupSchedule } = await modulePromise;
+  const result = parseFollowupSchedule({
+    next_action_at:'2026-11-05',next_action_timezone:'Africa/Nairobi'
+  },new Date('2026-11-05T06:30:30Z'));
+  assert.equal(result.ok,true);
+  assert.equal(result.value.next_action_time,'09:41');
+});
 test('Explicit time is preserved even after default 9 AM has passed', async () => {
   const { parseFollowupSchedule } = await modulePromise;
   const result = parseFollowupSchedule({

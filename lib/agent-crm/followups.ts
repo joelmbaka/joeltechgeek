@@ -58,8 +58,9 @@ export function parseFollowupSchedule(body: Record<string, unknown>, now = new D
     scheduledTime = DEFAULT_REMINDER_TIME;
     const local = zonedClock(now, timezone);
     if (scheduledDate === local.date && local.time >= DEFAULT_REMINDER_TIME) {
-      const soon = zonedClock(new Date(now.getTime() +
-        SAME_DAY_REMINDER_DELAY_MINUTES * 60_000), timezone);
+      const inTenMinutes = now.getTime() + SAME_DAY_REMINDER_DELAY_MINUTES * 60_000;
+      const reminderMinute = Math.ceil(inTenMinutes / 60_000) * 60_000;
+      const soon = zonedClock(new Date(reminderMinute), timezone);
       scheduledDate = soon.date;
       scheduledTime = soon.time;
     }

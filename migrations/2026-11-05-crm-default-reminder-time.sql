@@ -13,7 +13,7 @@ WITH pending AS (
   SELECT id,tz,
     CASE WHEN next_action_at=(now() AT TIME ZONE tz)::date
                AND (now() AT TIME ZONE tz)::time >= TIME '09:00'
-         THEN (now() + INTERVAL '10 minutes') AT TIME ZONE tz
+         THEN to_timestamp(ceil(extract(epoch from now() + INTERVAL '10 minutes') / 60) * 60) AT TIME ZONE tz
          ELSE next_action_at + TIME '09:00'
     END AS local_datetime
   FROM pending
