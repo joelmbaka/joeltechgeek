@@ -195,7 +195,7 @@ export function siteReports(state: State, siteId: string): Report[] {
 export function assignShift(state: State, shiftId: string, staffId: string): State {
   const shift = state.shifts.find(s => s.id === shiftId), staff = state.staff.find(p => p.id === staffId && p.active);
   if (!shift || !staff) throw new Error('Select a valid shift and active officer.');
-  if (shift.attendance === 'completed') throw new Error('Completed shifts cannot be reassigned.');
+  if (!['scheduled', 'unconfirmed'].includes(shift.attendance)) throw new Error('Only unstarted shifts can be reassigned.');
   if (state.shifts.some(s => s.id !== shiftId && s.staffId === staffId &&
     Date.parse(s.startAt) < Date.parse(shift.endAt) && Date.parse(s.endAt) > Date.parse(shift.startAt)))
     throw new Error('Officer is already assigned to an overlapping shift.');
@@ -218,6 +218,7 @@ export function addShift(state: State, siteId: string, staffId: string, day: str
 export function confirmAttendance(state: State, shiftId: string, method: 'office' | 'supervisor'): State {
   const shift = state.shifts.find(s => s.id === shiftId);
   if (!shift || shift.attendance === 'completed' || shift.attendance === 'confirmed') throw new Error('This shift cannot accept another arrival update.');
+  if (Date.parse(shift.startAt) > Date.now()) throw new Error('A future shift cannot be checked in before its start time.');
   const attendance: Attendance = method === 'supervisor' ? 'confirmed' : 'reported';
   if (method === 'office' && shift.attendance === 'reported') throw new Error('Attendance was already reported; confirm it on site.');
   const at = nowIso();
