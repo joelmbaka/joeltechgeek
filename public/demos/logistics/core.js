@@ -23,7 +23,7 @@ const str=(v,name,min=3,max=140)=>{const s=String(v??"").trim();if(s.length<min|
 const int=(v,name,min=0,max=10000000)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isSafeInteger(n)||n<min||n>max)throw new Error(name+" must be a whole number between "+min+" and "+max+".");return n;};
 const num=(v,name,min,max)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)throw new Error(name+" must be between "+min+" and "+max+".");return Math.round(n*10)/10;};
 const add=(d,title,detail,loadId)=>d.activity.unshift({id:"ACT-"+(d.activity.length+1),at:now(),title,detail,loadId});
-const active=(d,driverId=d.driver.id)=>d.loads.find(l=>l.driver?.id===driverId&&["In transit","Delivered"].includes(l.status));
+const active=(d,driverId=d.driver.id)=>d.loads.find(l=>l.driver?.id===driverId&&["Assigned","In transit","Delivered"].includes(l.status));
 const pairedTruck=(d,driverId)=>d.fleet.find(t=>t.driverId===driverId)||null;
 function fields(d,v,original){
  const from=loc(v.originId),to=loc(v.destinationId);
@@ -66,6 +66,7 @@ function assign(d,id,driverId){
  if(!load||load.status!=="Open")throw new Error("Only open loads can be assigned.");
  const driver=d.drivers.find(x=>x.id===driverId);
  if(!driver)throw new Error("Choose a driver.");
+ if(active(d,driver.id))throw new Error("This driver already has an assigned or active consignment. Complete it before assigning another.");
  const truck=pairedTruck(d,driver.id);
  if(truck&&load.weightTons>truck.capacityTons)throw new Error("This load exceeds the driver's assigned truck capacity.");
  load.driver={id:driver.id,name:driver.name};load.truck=null;load.status="Assigned";load.updatedAt=now();
@@ -161,7 +162,7 @@ function seed(){
    sample("LD-3090","mombasa-cfs","eldoret","Open",340000,24,430,null,0,"",null),
    sample("LD-3087","mombasa-port","kisumu","Open",330000,20,465,null,0,"",null),
    sample("LD-3086","mombasa-port","nairobi-icd","Assigned",280000,19,305,"KDA 384P",0,"Mombasa Port","Kevin Mwangi (fictional)"),
-   sample("LD-3085","mombasa-port","athi-river","Assigned",275000,20,291,"KDA 384P",0,"Mombasa Port","Kevin Mwangi (fictional)"),
+   sample("LD-3085","mombasa-port","athi-river","Open",275000,20,291,null,0,"",null),
    sample("LD-3084","mombasa-port","nairobi-icd","In transit",295000,22,305,"KDU 537R",128,"Voi · A109","Amina Wanjiku (fictional)"),
    sample("LD-3083","mombasa-port","nakuru","Delivered",310000,21,360,"KBA 241L",360,"Nakuru ICD","Peter Otieno (fictional)"),
    sample("LD-3082","mombasa-port","nairobi-icd","Complete",280000,20,305,"KDA 384P",610,"Mombasa Port","Kevin Mwangi (fictional)"),
