@@ -3,7 +3,7 @@ export type Day = 'today' | 'tomorrow';
 export type Attendance = 'scheduled' | 'unconfirmed' | 'reported' | 'confirmed' | 'completed';
 export type IssueStatus = 'open' | 'acknowledged' | 'responding' | 'resolved';
 
-export type Guard = { id: string; name: string; phone: string; active: boolean };
+export type Guard = { id: string; name: string; phone: string; workContact?: string; active: boolean };
 export type Site = { id: string; name: string; area: string; client: string; controlRoom: string };
 export type Shift = {
   id: string; siteId: string; guardId: string; day: Day; starts: string; ends: string;
@@ -24,10 +24,10 @@ export const STORAGE_KEY = 'joeltechgeek-security-service-demo-v2';
 export const seedDemo = (): DemoData => ({
   version: 2,
   guards: [
-    { id: 'kevin', name: 'Kevin Otieno', phone: '07XX XXX 201', active: true },
+    { id: 'kevin', name: 'Kevin Otieno', phone: '07XX XXX 201', workContact: '07XX XXX 301', active: true },
     { id: 'brian', name: 'Brian Mwangi', phone: '07XX XXX 202', active: true },
     { id: 'daniel', name: 'Daniel Mwangi', phone: '07XX XXX 203', active: true },
-    { id: 'mary', name: 'Mary Achieng', phone: '07XX XXX 204', active: true },
+    { id: 'mary', name: 'Mary Achieng', phone: '07XX XXX 204', workContact: '07XX XXX 304', active: true },
     { id: 'peter', name: 'Peter Kariuki', phone: '07XX XXX 205', active: true },
     { id: 'jane', name: 'Jane Wanjiru', phone: '07XX XXX 206', active: true },
   ],
@@ -117,6 +117,22 @@ export function raiseIssue(data: DemoData, siteId: string, title: string, detail
   return {
     ...data, issues: [issue, ...data.issues],
     activity: append(data, siteId, 'New client issue: ' + issue.title, 'client'),
+  };
+}
+
+export function logSiteIncident(data: DemoData, siteId: string, title: string, detail: string): DemoData {
+  if (!data.sites.some(s => s.id === siteId)) throw new Error('Select a valid site.');
+  const cleanTitle = title.trim();
+  const cleanDetail = detail.trim();
+  if (cleanTitle.length < 5 || cleanDetail.length < 10) throw new Error('Add an incident title and description.');
+  const issue: Issue = {
+    id: 'issue-' + (data.issues.reduce((n, i) => Math.max(n, Number(i.id.replace('issue-', '')) || 0), 0) + 1),
+    siteId, title: cleanTitle.slice(0, 90), detail: cleanDetail.slice(0, 500),
+    origin: 'operations', status: 'open', response: '', visibleToClient: true,
+  };
+  return {
+    ...data, issues: [issue, ...data.issues],
+    activity: append(data, siteId, 'Security incident logged: ' + issue.title, 'client'),
   };
 }
 
