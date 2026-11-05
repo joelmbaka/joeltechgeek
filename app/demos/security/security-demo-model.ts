@@ -1,5 +1,5 @@
 export type Role = 'client' | 'manager';
-export type Attendance = 'scheduled' | 'unconfirmed' | 'reported' | 'confirmed' | 'completed';
+export type Attendance = 'scheduled' | 'unconfirmed' | 'reported' | 'confirmed' | 'absent' | 'completed';
 export type IssueStatus = 'open' | 'acknowledged' | 'responding' | 'resolved';
 export type ReportPeriod = 'daily' | 'weekly' | 'monthly';
 export type AssetKind = 'image' | 'document';
@@ -10,7 +10,7 @@ export type Shift = {
   attendance: Attendance; arrivalAt?: string; departureAt?: string;
   method?: string; confirmedBy?: string;
 };
-export type Asset = { id: string; kind: AssetKind; name: string; sample: true };
+export type Asset = { id: string; kind: AssetKind; name: string; sample?: true; dataUrl?: string; mimeType?: string };
 export type IssueStep = { status: IssueStatus; at: string; note: string; by: string };
 export type Issue = {
   id: string; siteId: string; title: string; description: string; openedAt: string;
@@ -23,7 +23,7 @@ export type Activity = {
 };
 export type Report = {
   id: string; siteId: string; period: ReportPeriod; periodFrom: string;
-  periodTo: string; publishedAt: string; title: string; summary: string;
+  periodTo: string; publishedAt: string; title: string; summary: string; assets?: Asset[];
 };
 export type State = {
   version: 3; anchorDate: string; sites: Site[]; staff: Staff[];
@@ -260,7 +260,7 @@ export function timelineForDay(state: State, day: string, siteId: string): Timel
       id: 'timeline-' + s.id, at: new Date(Math.max(start, Date.parse(s.startAt))).toISOString(),
       kind: 'shift' as const,
       title: (state.staff.find(p => p.id === s.staffId)?.name || 'Assigned officer') + ' · Duty shift',
-      detail: shiftWindow(s) + ' · ' + (s.attendance === 'confirmed' ? 'Arrival confirmed' : s.attendance === 'completed' ? 'Shift completed' : s.attendance === 'reported' ? 'Arrival reported, not verified' : s.attendance === 'unconfirmed' ? 'Arrival not confirmed' : 'Scheduled'),
+      detail: shiftWindow(s) + ' · ' + (s.attendance === 'confirmed' ? 'Arrival confirmed' : s.attendance === 'completed' ? 'Shift completed' : s.attendance === 'reported' ? 'Arrival reported, not verified' : s.attendance === 'absent' ? 'Marked not on site' : s.attendance === 'unconfirmed' ? 'Arrival not confirmed' : 'Scheduled'),
       assets: [], shift: s,
     }));
   const events: TimelineItem[] = state.activity
@@ -314,6 +314,32 @@ export function confirmAttendance(state: State, shiftId: string, method: 'office
       detail: staffName + ' · ' + (method === 'supervisor' ? 'Confirmed by security manager.' : 'Reported to office; awaiting verification.'),
       type: 'attendance', clientVisible: true, assets: [] }) };
 }
+/** A supervisor records a simple, auditable on-site presence check. */
+export function setShiftPresence(state: State, shiftId: string, presence: 'on_site' | 'not_on_site', now: Date = new Date()): State {
+  const shift = state.shifts.find(s => s.id === shiftId);
+  if (!shift) throw new Error('Shift not found.');
+  if (shift.attendance === 'completed') throw new Error('Completed shifts cannot be changed.');
+  if (Date.parse(shift.startAt) > now.getTime()) throw new Error('A future shift cannot be marked present or absent.');
+  const status: Attendance = presence === 'on_site' ? 'confirmed' : 'absent';
+  const at = now.toISOString();
+  const guard = state.staff.find(p => p.id === shift.staffId)?.name || 'Officer';
+  return {
+    ...state,
+    shifts: state.shifts.map(s => s.id === shiftId ? {
+      ...s, attendance: status,
+      arrivalAt: presence === 'on_site' ? (s.arrivalAt || at) : s.arrivalAt,
+      method: presence === 'on_site' ? 'Supervisor on-site check' : 'Supervisor marked not on site',
+      confirmedBy: 'Grace · Security Supervisor',
+    } : s),
+    activity: activity(state, {
+      siteId: shift.siteId, at,
+      title: presence === 'on_site' ? 'Officer confirmed on site' : 'Officer marked not on site',
+      detail: guard + ' · ' + (presence === 'on_site' ? 'On-site presence confirmed by supervisor.' : 'Supervisor recorded officer not on site.'),
+      type: 'attendance', clientVisible: true, assets: [],
+    }),
+  };
+}
+
 export function completeShift(state: State, shiftId: string): State {
   const shift = state.shifts.find(s => s.id === shiftId);
   if (!shift || shift.attendance !== 'confirmed') throw new Error('Confirm arrival before recording departure.');
@@ -372,17 +398,32 @@ export function logVisit(state: State, siteId: string, note: string, attachSampl
     detail: note.trim().slice(0,600), type: 'visit', clientVisible: true,
     assets: attachSample ? [{ id: newId('visit-photo'), kind: 'image', name: 'Site visit · sample photo', sample: true }] : [] }) };
 }
-export function publishReport(state: State, siteId: string, period: ReportPeriod): State {
+/** Save a report for one client property, an explicit inclusive date range and optional evidence. */
+export function publishReport(
+  state: State, siteId: string, period: ReportPeriod, from: string, to: string,
+  summary: string, assets: Asset[] = [],
+): State {
   if (!state.sites.some(s => s.id === siteId)) throw new Error('Choose a valid site.');
-  const today = kenyaToday(), start = period === 'daily' ? today : period === 'weekly' ? addDays(today, -6) : today.slice(0, 7) + '-01';
+  const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) &&
+    new Date(value + 'T12:00:00Z').toISOString().slice(0, 10) === value;
+  if (!isDate(from) || !isDate(to) || from > to) throw new Error('Choose a valid From and To date range.');
+  if (to > kenyaToday()) throw new Error('A published report cannot cover future dates.');
+  if (summary.trim().length < 10) throw new Error('Enter a meaningful report summary.');
+  if (assets.length > 3) throw new Error('Attach no more than three evidence files.');
+  const allowed = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+  if (assets.some(a => a.dataUrl && (!a.mimeType || !allowed.includes(a.mimeType) ||
+    !a.dataUrl.startsWith('data:' + a.mimeType + ';base64,'))))
+    throw new Error('Unsupported evidence file type.');
   const title = period[0].toUpperCase() + period.slice(1) + ' security service report';
-  const assignments = state.shifts.filter(s => s.siteId === siteId && dayOfInstant(s.startAt) >= start && dayOfInstant(s.startAt) <= today);
-  const confirmed = assignments.filter(s => s.attendance === 'confirmed' || s.attendance === 'completed').length;
-  const summary = assignments.length + ' assigned shifts; ' + confirmed + ' confirmed or completed; ' +
-    state.issues.filter(i => i.siteId === siteId && i.status !== 'resolved').length + ' outstanding issues.';
-  const report: Report = { id: newId('report'), siteId, period, periodFrom: start, periodTo: today,
-    publishedAt: nowIso(), title, summary };
-  return { ...state, reports: [report, ...state.reports],
-    activity: activity(state, { siteId, at: report.publishedAt, title: 'New ' + period + ' report published',
-      detail: summary, type: 'update', clientVisible: true, assets: [] }) };
+  const report: Report = {
+    id: newId('report'), siteId, period, periodFrom: from, periodTo: to,
+    publishedAt: nowIso(), title, summary: summary.trim().slice(0, 1200), assets,
+  };
+  return {
+    ...state, reports: [report, ...state.reports],
+    activity: activity(state, {
+      siteId, at: report.publishedAt, title: 'Security service report published',
+      detail: title + ' · ' + from + ' to ' + to, type: 'update', clientVisible: true, assets: [],
+    }),
+  };
 }
