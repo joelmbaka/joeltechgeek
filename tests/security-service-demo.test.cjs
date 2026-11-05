@@ -3,124 +3,153 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-let model;
-test.before(async () => { model = await import('../app/demos/security/security-demo-model.ts'); });
+let m;
+test.before(async () => { m = await import('../app/demos/security/security-demo-model.ts'); });
+const find = (xs, id) => xs.find(x => x.id === id);
 
-test('security operations seed includes clients, guards, rosters, and clear evidence levels', () => {
-  const d = model.seedDemo();
-  assert.equal(d.version, 2);
-  assert.equal(d.sites.length, 3);
-  assert.equal(d.guards.length, 6);
-  assert.equal(d.shifts.filter(s => s.day === 'today').length, 4);
-  assert.ok(d.shifts.some(s => s.status === 'unconfirmed'));
-  assert.ok(d.shifts.some(s => s.status === 'reported'));
-  assert.ok(d.shifts.some(s => s.status === 'confirmed'));
+test('seed represents client properties, manager staff, dated shifts and reporting history', () => {
+  const data = m.seedDemo('2026-11-05');
+  assert.ok(m.valid(data));
+  assert.equal(data.version, 3);
+  assert.equal(data.sites.length, 3);
+  assert.equal(data.staff.length, 5);
+  assert.ok(data.shifts.some(s => s.attendance === 'reported'));
+  assert.ok(data.issues.some(i => i.status === 'resolved'));
+  assert.deepEqual([...new Set(data.reports.map(r => r.period))].sort(), ['daily','monthly','weekly']);
 });
 
-test('office telephone report stays unverified until supervisor confirms on site', () => {
-  const d = model.seedDemo();
-  const called = model.markArrival(d, 'shift-1', 'office');
-  assert.equal(called.shifts[0].status, 'reported');
-  assert.match(called.shifts[0].source, /not independently verified/);
-  assert.equal(d.shifts[0].status, 'unconfirmed');
-  assert.throws(() => model.markArrival(called, 'shift-1', 'office'), /already reported/);
-  const onsite = model.markArrival(called, 'shift-1', 'supervisor');
-  assert.equal(onsite.shifts[0].status, 'confirmed');
-  assert.match(onsite.shifts[0].source, /Supervisor visual confirmation/);
-  assert.equal(onsite.shifts[0].confirmedBy, 'Beatrice');
+test('Kenya calendar utilities handle midnight and month/year rollover', () => {
+  assert.equal(m.addDays('2026-11-30', 1), '2026-12-01');
+  assert.equal(m.addDays('2026-12-31', 1), '2027-01-01');
+  assert.equal(m.addDays('2026-01-01', -1), '2025-12-31');
+  assert.equal(m.dayOfInstant('2026-11-04T22:00:00Z'), '2026-11-05');
+  const [start, end] = m.dayBounds('2026-11-05');
+  assert.equal((end-start)/(60*60*1000), 24);
 });
 
-test('shift changes update the shared roster but block duplicate overlapping assignments', () => {
-  const d = model.seedDemo();
-  assert.throws(() => model.assignGuard(d, 'shift-1', 'peter'), /overlapping assignment/);
-  const changed = model.assignGuard(d, 'shift-1', 'daniel');
-  assert.equal(changed.shifts[0].guardId, 'daniel');
-  assert.equal(d.shifts[0].guardId, 'kevin');
-  assert.ok(changed.activity[0].message.includes('Daniel Mwangi'));
+test('overnight shift appears on both days but not after ending', () => {
+  const data = m.seedDemo('2026-11-05');
+  const shift = find(data.shifts, 's-night');
+  assert.equal(m.shiftOnDay(shift, '2026-11-05'), true);
+  assert.equal(m.shiftOnDay(shift, '2026-11-06'), true);
+  assert.equal(m.shiftOnDay(shift, '2026-11-07'), false);
+  assert.match(m.shiftWindow(shift, '2026-11-05'), /18:00.*00:00/);
+  assert.match(m.shiftWindow(shift, '2026-11-06'), /00:00.*06:00/);
+  const next = m.timelineForDay(data, '2026-11-06', 'greenview');
+  assert.ok(next.some(row => row.shift?.id === 's-night'));
+  assert.ok(next.some(row => row.detail.includes('Continued from previous day')));
 });
 
-test('confirmed attendance is required before recording departure', () => {
-  const d = model.seedDemo();
-  assert.throws(() => model.recordDeparture(d, 'shift-1'), /requires a confirmed arrival/);
-  const verified = model.markArrival(d, 'shift-1', 'supervisor');
-  const completed = model.recordDeparture(verified, 'shift-1');
-  assert.equal(completed.shifts[0].status, 'completed');
-  assert.equal(completed.shifts[0].departure, '18:02');
+test('client roster is a chronological daily history including evidence and property isolation', () => {
+  const data = m.seedDemo('2026-11-05');
+  const rows = m.timelineForDay(data, '2026-11-05', 'greenview');
+  assert.ok(rows.some(r => r.kind === 'shift'));
+  assert.ok(rows.some(r => r.kind === 'event'));
+  assert.ok(rows.some(r => r.assets.some(a => a.kind === 'image')));
+  assert.ok(rows.some(r => r.issueId === 'issue-gate'));
+  const epochs = rows.map(r => Date.parse(r.at));
+  assert.deepEqual(epochs, [...epochs].sort((a,b)=>a-b));
+  assert.equal(m.timelineForDay(data,'2026-11-05','karen').some(r => r.issueId === 'issue-gate'), false);
+  assert.ok(m.timelineForDay(data,'2026-11-04','greenview').some(r => r.title === 'Night patrol observation'));
 });
 
-test('property owner issue passes from open to acknowledged, responded, and resolved', () => {
-  const d = model.seedDemo();
-  assert.throws(() => model.raiseIssue(d, 'greenview', 'Gate', 'small'), /title and details/);
-  const submitted = model.raiseIssue(d, 'greenview', 'Unsecured pedestrian gate', 'The side entrance is unlocked during the day.');
-  const issue = submitted.issues[0];
-  assert.equal(issue.origin, 'client');
-  assert.equal(issue.visibleToClient, true);
-  assert.equal(issue.status, 'open');
-  assert.throws(() => model.progressIssue(submitted, issue.id, 'resolved', 'Fixed lock'), /must progress/);
-  const acknowledged = model.progressIssue(submitted, issue.id, 'acknowledged');
-  assert.throws(() => model.progressIssue(acknowledged, issue.id, 'responding', ''), /response note/);
-  const responding = model.progressIssue(acknowledged, issue.id, 'responding', 'Supervisor visiting the site now.');
-  const resolved = model.progressIssue(responding, issue.id, 'resolved', 'Lock replaced and site inspected.');
-  assert.equal(resolved.issues[0].status, 'resolved');
-  assert.match(resolved.activity[0].message, /resolved/);
+test('manager can schedule a night shift but overlapping staff assignments are rejected', () => {
+  const data = m.seedDemo('2026-11-05');
+  assert.throws(() => m.addShift(data,'greenview','brian','2026-11-05','20:00','06:00'), /overlapping duty shift/);
+  const added = m.addShift(data,'karen','daniel','2026-11-05','20:00','06:00');
+  const shift = added.shifts[added.shifts.length-1];
+  assert.equal(m.dayOfInstant(shift.endAt),'2026-11-06');
+  assert.equal(m.shiftOnDay(shift,'2026-11-06'),true);
+  assert.equal(data.shifts.length+1,added.shifts.length);
+  assert.throws(()=>m.assignShift(data,'s-night','kevin'),/overlapping shift/);
+  const changed = m.assignShift(data,'s-night','daniel');
+  assert.equal(find(changed.shifts,'s-night').staffId,'daniel');
 });
 
-test('published client reports distinguish confirmed versus telephone-reported shifts', () => {
-  const d = model.seedDemo();
-  const next = model.publishReport(d, 'karen');
-  assert.equal(next.reports[0].siteId, 'karen');
-  assert.match(next.reports[0].summary, /0 of 1 shifts confirmed/);
-  assert.match(next.reports[0].summary, /1 reported but not independently confirmed/);
-  assert.equal(next.activity[0].audience, 'client');
+test('telephone attendance remains unverified until manager confirmation', () => {
+  const data = m.seedDemo('2026-11-05');
+  const reported = m.confirmAttendance(data,'s-westlands','office');
+  assert.equal(find(reported.shifts,'s-westlands').attendance,'reported');
+  assert.match(find(reported.shifts,'s-westlands').method,/unverified/);
+  assert.throws(()=>m.confirmAttendance(reported,'s-westlands','office'),/already reported/);
+  const confirmed = m.confirmAttendance(reported,'s-westlands','supervisor');
+  assert.equal(find(confirmed.shifts,'s-westlands').attendance,'confirmed');
+  assert.equal(find(confirmed.shifts,'s-westlands').confirmedBy,'Grace · Security Manager');
+  const completed = m.completeShift(confirmed,'s-westlands');
+  assert.equal(find(completed.shifts,'s-westlands').attendance,'completed');
 });
 
-test('security office can log a site incident visible to its client only', () => {
-  const d = model.seedDemo();
-  const incident = model.logSiteIncident(d, 'westlands', 'Service entrance unsecured', 'The entrance gate lock needs immediate attention.');
-  assert.equal(incident.issues[0].origin, 'operations');
-  assert.equal(incident.issues[0].siteId, 'westlands');
-  assert.equal(incident.issues[0].visibleToClient, true);
-  assert.match(incident.activity[0].message, /Security incident logged/);
-  assert.equal(incident.issues.filter(i => i.siteId === 'greenview').length, 1);
+test('issues have stable IDs, chronological status history and sample attachments', () => {
+  const data = m.seedDemo('2026-11-05');
+  assert.deepEqual(m.siteIssues(data,'greenview').map(i=>i.id),['issue-gate','issue-light']);
+  assert.throws(()=>m.addIssue(data,'greenview','Gate','short','client'),/meaningful description/);
+  const submitted = m.addIssue(data,'greenview','Entrance gate concern','Side gate is open during shift handover.','client');
+  const id = submitted.issues[0].id;
+  assert.equal(find(submitted.issues,id).status,'open');
+  const ack = m.advanceIssue(submitted,id,'');
+  assert.equal(find(ack.issues,id).status,'acknowledged');
+  assert.throws(()=>m.advanceIssue(ack,id,'brief'),/action taken/);
+  const responding = m.advanceIssue(ack,id,'Site manager has inspected the gate.');
+  assert.equal(find(responding.issues,id).status,'responding');
+  const withPhoto = m.addSampleEvidence(responding,id,'image');
+  const withDocument = m.addSampleEvidence(withPhoto,id,'document');
+  assert.deepEqual(find(withDocument.issues,id).assets.map(a=>a.kind),['image','document']);
+  const done = m.advanceIssue(withDocument,id,'Caretaker secured the side gate.');
+  assert.equal(find(done.issues,id).status,'resolved');
+  assert.equal(find(done.issues,id).history.length,4);
+  assert.throws(()=>m.advanceIssue(done,id,'anything'),/no open issue/);
 });
 
-test('night shifts use a suitable arrival and departure time in demo records', () => {
-  const d = model.seedDemo();
-  const confirmed = model.markArrival(d, 'shift-2', 'supervisor');
-  const shift = confirmed.shifts.find(s => s.id === 'shift-2');
-  assert.equal(shift.arrival, '18:04');
-  const departed = model.recordDeparture(confirmed, 'shift-2');
-  assert.equal(departed.shifts.find(s => s.id === 'shift-2').departure, '06:02');
+test('client reports are sorted by publication and preserve reporting periods', () => {
+  const data = m.seedDemo('2026-11-05');
+  const dates = m.siteReports(data,'greenview').map(r=>Date.parse(r.publishedAt));
+  assert.deepEqual(dates,[...dates].sort((a,b)=>b-a));
+  const next = m.publishReport(data,'karen','weekly');
+  const report = next.reports[0];
+  assert.equal(report.siteId,'karen');
+  assert.equal(report.period,'weekly');
+  assert.ok(report.periodFrom <= report.periodTo);
+  assert.equal(m.siteReports(next,'greenview').length,m.siteReports(data,'greenview').length);
 });
 
-test('client-facing guard contact is optional and distinct from internal staff phone', () => {
-  const d = model.seedDemo();
-  const kevin = d.guards.find(g => g.id === 'kevin');
-  const brian = d.guards.find(g => g.id === 'brian');
-  assert.ok(kevin.workContact);
-  assert.notEqual(kevin.workContact, kevin.phone);
-  assert.equal(brian.workContact, undefined);
+test('manager can add a client site, officer and a visit with illustrative evidence', () => {
+  const data = m.seedDemo('2026-11-05');
+  const withSite = m.addSite(data,'Sunrise Court','Mombasa Road','Jane Njeri','07XX XXX 123');
+  const site = withSite.sites[withSite.sites.length-1];
+  const withStaff = m.addStaff(withSite,'New Officer','07XX XXX 777');
+  assert.ok(withStaff.staff.some(s=>s.name==='New Officer'));
+  const visited = m.logVisit(withStaff,site.id,'Inspected the entrance and shift register.',true);
+  assert.equal(visited.activity[0].type,'visit');
+  assert.equal(visited.activity[0].assets[0].kind,'image');
+  assert.throws(()=>m.addSite(visited,'Sunrise Court','Mombasa Road','Jane Njeri',''),/already listed/);
 });
 
-test('security service demo uses the mobile phone shell and dropdown role selector', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.tsx'), 'utf8');
-  const styles = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.module.css'), 'utf8');
-  const landing = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/page.tsx'), 'utf8');
-  const directory = fs.readFileSync(path.join(__dirname, '..', 'app/demos/page.tsx'), 'utf8');
-  const chrome = fs.readFileSync(path.join(__dirname, '..', 'components/SiteChrome.tsx'), 'utf8');
-  const experiencePage = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/experience/page.tsx'), 'utf8');
-  for (const value of ['operations', 'supervisor', 'client', 'Raise an issue', 'Confirm arrival on site', 'Publish', 'Reset demo data']) {
-    assert.ok(source.includes(value), 'Missing expected interaction: ' + value);
-  }
-  assert.match(source, /<select id="security-role-select"/);
-  assert.match(source, /<nav className=\{styles\.tabBar\}/);
-  assert.match(source, /className=\{styles\.phone\}/);
-  assert.match(styles, /height: 100dvh/);
-  assert.match(styles, /max-width: 600px/);
-  assert.match(landing, /Multiple ways to confirm attendance/);
-  assert.doesNotMatch(landing + source + directory + experiencePage, /No guard smartphone required|Guards do not need smartphones/i);
-  assert.match(chrome, /path === '\/demos\/security\/experience'/);
-  assert.doesNotMatch(experiencePage, /About this solution|Discuss a similar system/);
-  assert.match(source, /browser-only demo/);
-  assert.doesNotMatch(source, /navigator\.geolocation|getUserMedia\(/);
+test('mobile interface has two role options, client roster default, and consistent light cards', () => {
+  const root = path.join(__dirname,'..');
+  const read = p=>fs.readFileSync(path.join(root,p),'utf8');
+  const ui = read('app/demos/security/SecurityExperience.tsx');
+  const css = read('app/demos/security/SecurityExperience.module.css');
+  const landing = read('app/demos/security/page.tsx');
+  const directory = read('app/demos/page.tsx');
+  const chrome = read('components/SiteChrome.tsx');
+  assert.match(ui,/useState<Role>\('client'\)/);
+  assert.match(ui,/useState\('roster'\)/);
+  assert.match(ui,/<select id="security-role-select"/);
+  assert.match(ui,/<option value="client"/);
+  assert.match(ui,/<option value="manager"/);
+  assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
+  assert.match(ui,/type="date"/);
+  assert.match(ui,/Previous day/);
+  assert.match(ui,/Next day/);
+  assert.match(ui,/Issue #/);
+  assert.match(ui,/Media & documents/);
+  assert.match(ui,/Published reports/);
+  assert.match(ui,/styles\.tabBar/);
+  assert.match(css,/height: 100dvh/);
+  assert.match(css,/max-width: 600px/);
+  assert.doesNotMatch(ui,/dark:bg-|dark:text-/);
+  assert.match(landing,/Two connected perspectives/);
+  assert.match(directory,/>2 connected roles<\/span>/);
+  assert.match(chrome,/path === '\/demos\/security\/experience'/);
+  assert.doesNotMatch(ui+landing+directory,/No guard smartphone required|Guards do not need smartphones/i);
 });
