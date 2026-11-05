@@ -24,6 +24,7 @@ export default function AddLead() {
   const [website, setWebsite] = useState('');
   const [priority, setPriority] = useState('normal');
   const [notes, setNotes] = useState('');
+  const [brief, setBrief] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export default function AddLead() {
     return result.category;
   };
 
-  const canCreate = !busy && Boolean(company.trim() || contact.trim()) &&
+  const canCreate = !busy && brief.length <= 220 && Boolean(company.trim() || contact.trim()) &&
     Boolean(country.trim()) && Boolean(priority) &&
     (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
   const save = async () => {
@@ -58,7 +59,7 @@ export default function AddLead() {
         body: JSON.stringify({
           company_name: company.trim(), industry, country: country.trim(),
           city, contact_name: contact, contact_role: role, phone, email, website,
-          priority, notes,
+          priority, notes, lead_brief: brief.trim(),
         }),
       });
       router.replace({ pathname: '/leads/[id]', params: { id: result.lead.id } });
@@ -92,7 +93,8 @@ export default function AddLead() {
         { value: 'high', label: 'High' },
         { value: 'low', label: 'Low' },
       ]}/>
-    <Field label="Initial notes" value={notes} onChangeText={setNotes} multiline/>
+    <Field label="Lead brief (optional, 220 characters)" value={brief} onChangeText={setBrief} multiline/>
+    <Field label="Initial activity notes (optional)" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     <Button disabled={!canCreate}
       onPress={() => void save()}>
