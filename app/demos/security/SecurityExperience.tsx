@@ -80,6 +80,7 @@ function Assets({assets}: {assets: Asset[]}) {
 export default function SecurityExperience() {
   const [data, setData] = useState<State>(() => fillRollingWindow(seedDemo()));
   const [hydrated,setHydrated] = useState(false);
+  const [clockMs,setClockMs] = useState(0);
   const [role,setRole] = useState<Role>('client');
   const [tab,setTab] = useState('roster');
   const [siteId,setSiteId] = useState('greenview');
@@ -118,6 +119,12 @@ export default function SecurityExperience() {
   const scrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    const update=()=>setClockMs(Date.now());
+    update();
+    const interval=window.setInterval(update,60000);
+    return ()=>window.clearInterval(interval);
+  }, []);
+  useEffect(() => {
     const today = kenyaToday();
     let source = seedDemo(today);
     try {
@@ -133,7 +140,7 @@ export default function SecurityExperience() {
   }, []);
   useEffect(() => {
     if (!hydrated) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* optional local storage */ }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { setNotice('Browser storage is full or unavailable. Some demo changes may not survive a refresh.'); }
   }, [data,hydrated]);
 
   const currentSite = data.sites.find(s => s.id === siteId) || data.sites[0];
@@ -272,7 +279,7 @@ export default function SecurityExperience() {
   }
   function managerShiftCard(shift: Shift) {
     const officer=data.staff.find(s=>s.id===shift.staffId);
-    const started=Date.parse(shift.startAt)<=Date.now() && shift.attendance!=='completed';
+    const started=Date.parse(shift.startAt)<=clockMs && shift.attendance!=='completed';
     return <Card key={shift.id}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -616,7 +623,7 @@ export default function SecurityExperience() {
           <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple className={field}
             onChange={e=>{void readReportFiles(e);}}/>
         </label>
-        <p className={textMuted}>PNG, JPEG, WebP or PDF. Maximum 3 files, 600 KB each. Files remain in this browser demo.</p>
+        <p className={textMuted}>PNG, JPEG, WebP or PDF. Maximum 3 files, 600 KB each. Files stay in this browser. Avoid uploading sensitive real-world evidence.</p>
         {reportEvidence.length>0&&<div className="space-y-2">
           {reportEvidence.map(file=><div key={file.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#edf7f0] px-3 py-2">
             <span className="min-w-0 truncate text-[11px] text-[#276447]">{file.name}</span>
