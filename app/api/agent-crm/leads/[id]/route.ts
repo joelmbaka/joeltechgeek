@@ -137,8 +137,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null; next_action_type: ActionType | null; next_action_due_at: Date | null }>(
-      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text, next_action_type, next_action_due_at FROM public.crm_leads
+    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; phone: string | null; next_action: string | null; next_action_contact_id: string | null; next_action_type: ActionType | null; next_action_due_at: Date | null }>(
+      `SELECT stage, do_not_contact, phone, next_action, next_action_contact_id::text, next_action_type, next_action_due_at FROM public.crm_leads
          WHERE id = $1 AND user_id = $2 FOR UPDATE`,
       [id, access.user.id],
     );
@@ -157,6 +157,15 @@ export async function PATCH(request: Request, { params }: Params) {
       await client.query('ROLLBACK');
       return response(callContact.error, 400);
     }
+    // Snapshot the dialed number used for this particular contact.
+    // For historic activities this field is NULL and retry logic stays conservative.
+    const contactNumber = callContact.id && channel === 'call'
+      ? await client.query<{phone:string|null}>(
+          'SELECT phone FROM public.crm_lead_contacts WHERE id=$1 AND lead_id=$2',
+          [callContact.id,id])
+      : null;
+    const calledPhone = channel === 'call'
+      ? contactNumber?.rows[0]?.phone || current.phone || null : null;
     const actionContact = optOut || !nextAction.trim()
       ? { ok: true as const, id: null, name: null }
       : await resolveContactTarget(
@@ -207,11 +216,12 @@ export async function PATCH(request: Request, { params }: Params) {
       `INSERT INTO public.crm_lead_events
          (lead_id, event_type, outcome, notes, next_action, next_action_at,
           next_action_time, next_action_timezone, next_action_due_at,
-          contact_id, contact_name_snapshot, channel)
+          contact_id, contact_name_snapshot, channel, called_phone)
          VALUES ($1,'outreach',$2,$3,$4,$5::date,$6::time,$7,
-           ${followupDueAtSQL(5, 6, 7)},$8::uuid,$9,$10)`,
+           ${followupDueAtSQL(5, 6, 7)},$8::uuid,$9,$10,$11)
+      `,
       [id, outcome, note, action, date, time, timezone,
-        callContact.id, callContact.name, channel],
+        callContact.id, callContact.name, channel, calledPhone],
     );
     if (finishDueCall) {
       await client.query(

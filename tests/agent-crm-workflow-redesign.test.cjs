@@ -100,3 +100,13 @@ test('Save & Next continues To Call regardless of original list sort',()=>{
   assert.match(lead,/const nextView = channel === 'call' \? 'to_call' : 'for_you'/);
   assert.match(lead,/view: nextView/);
 });
+
+test('changing a failed phone number makes the contact eligible to retry',()=>{
+  const queue=read('lib/agent-crm/work-queue.ts');
+  const api=read('app/api/agent-crm/leads/[id]/route.ts');
+  assert.match(queue,/phone_changed/);
+  assert.match(queue,/called_phone/);
+  assert.match(api,/called_phone/);
+  assert.match(api,/const calledPhone/);
+  assert.match(queue,/AND NOT e.phone_changed/);
+});
