@@ -8,8 +8,10 @@ import {
   ShieldCheck, Users, X
 } from 'lucide-react';
 import styles from './SecurityExperience.module.css';
+import SecurityRosterDetail from './SecurityRosterDetail';
 import {
   STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant,
+  HISTORY_DAYS, PLANNING_DAYS, fillRollingWindow,
   seedDemo, valid, timelineForDay, siteIssues, siteReports, shiftOnDay,
   assignShift, addShift, confirmAttendance, completeShift, addSite, addStaff,
   addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
@@ -76,7 +78,7 @@ function Assets({assets}: {assets: Asset[]}) {
 }
 
 export default function SecurityExperience() {
-  const [data, setData] = useState<State>(seedDemo);
+  const [data, setData] = useState<State>(() => fillRollingWindow(seedDemo()));
   const [hydrated,setHydrated] = useState(false);
   const [role,setRole] = useState<Role>('client');
   const [tab,setTab] = useState('roster');
@@ -84,6 +86,7 @@ export default function SecurityExperience() {
   const [date,setDate] = useState(kenyaToday);
   const [notice,setNotice] = useState('');
   const [activeIssueId,setActiveIssueId] = useState<string | null>(null);
+  const [activeTimelineId,setActiveTimelineId] = useState<string | null>(null);
   const [serviceMode,setServiceMode] = useState<'issues'|'reports'>('issues');
   const [issueTitle,setIssueTitle] = useState('');
   const [issueText,setIssueText] = useState('');
@@ -106,13 +109,17 @@ export default function SecurityExperience() {
   const scrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    const today = kenyaToday();
+    let source = seedDemo(today);
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const stored: unknown = JSON.parse(raw);
-        if (valid(stored)) { setData(stored); setDate(stored.anchorDate); }
+        if (valid(stored)) source = stored;
       }
     } catch { /* unavailable or corrupt browser storage: use sample state */ }
+    setData(fillRollingWindow(source, today));
+    setDate(today);
     setHydrated(true);
   }, []);
   useEffect(() => {
@@ -124,6 +131,9 @@ export default function SecurityExperience() {
   const issue = activeIssueId ? data.issues.find(i=>i.id === activeIssueId) : undefined;
   const roster = data.shifts.filter(s => s.siteId === siteId && shiftOnDay(s,date));
   const timeline = timelineForDay(data,date,siteId);
+  const selectedTimeline = activeTimelineId ? timeline.find(item=>item.id===activeTimelineId) : undefined;
+  const windowStart = addDays(kenyaToday(),-HISTORY_DAYS);
+  const windowEnd = addDays(kenyaToday(),PLANNING_DAYS);
   const issues = siteIssues(data,siteId);
   const reports = siteReports(data,siteId);
   const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
@@ -136,12 +146,26 @@ export default function SecurityExperience() {
     catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to update sample data.'); }
   }
   function switchRole(next: Role) {
-    setRole(next); setTab(next==='client'?'roster':'overview');setActiveIssueId(null);setNotice('');
+    setRole(next); setTab(next==='client'?'roster':'overview');setActiveIssueId(null);setActiveTimelineId(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function moveTab(next: string) {
-    setTab(next);setActiveIssueId(null);setNotice('');
+    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function openTimeline(id: string) {
+    setActiveTimelineId(id);
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function changeRosterDate(next: string) {
+    setDate(next);setActiveTimelineId(null);
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function viewTimelineIssue(id: string) {
+    setActiveTimelineId(null);
+    setTab(role==='client'?'issues':'service');
+    if(role==='manager')setServiceMode('issues');
+    openIssue(id);
   }
   function openIssue(id: string) {
     setActiveIssueId(id);setReply('');
@@ -150,7 +174,7 @@ export default function SecurityExperience() {
   function reset() {
     if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
     const next = seedDemo();setData(next);setDate(next.anchorDate);setSiteId('greenview');
-    setRole('client');setTab('roster');setActiveIssueId(null);setNotice('Sample data restored.');
+    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setNotice('Sample data restored.');
   }
   function submitIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -207,11 +231,19 @@ export default function SecurityExperience() {
     </div>;
   }
   function rosterTimeline() {
+    if(selectedTimeline) return <SecurityRosterDetail
+      row={selectedTimeline} state={data} date={date} siteId={siteId} role={role}
+      onBack={()=>setActiveTimelineId(null)} onIssue={viewTimelineIssue} onSelectRecord={openTimeline}/>;
     return <div>
-      <SectionTitle title="Daily activity" note="One date at a time · Shifts, observations and site events in time order"/>
-      {timeline.length===0 ? <Card><p className={textMuted}>No shifts or site events recorded for this date. Select another day to browse the history.</p></Card> :
-      <div className="space-y-3">
-        {timeline.map(row=><Card key={row.id}>
+      <SectionTitle title="Daily activity" note="Select an event or duty shift to view its record ID, all related activities, and evidence."/>
+      {timeline.length===0 ? <Card>
+        <p className={textMuted}>There are no sample site records for this date.</p>
+        <p className="mt-2 text-[11px] leading-5 text-[#6c8979]">Sample history covers {formatDay(windowStart)} through today, with planned shifts until {formatDay(windowEnd)}. Outside that window, dates remain empty.</p>
+        <button type="button" className={secondary+' mt-3 w-full'} onClick={()=>changeRosterDate(kenyaToday())}>Return to today</button>
+      </Card> : <div className="space-y-3">
+        {timeline.map(row=><button type="button" key={row.id}
+          onClick={()=>openTimeline(row.id)} aria-label={'Open activity '+(row.shift?.id||row.id)}
+          className={panel+' block w-full text-left transition hover:border-[#a1d2b7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600'}>
           <div className="flex items-start gap-3">
             <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-[#edf7f1] py-2 text-[11px] font-extrabold text-[#087c59]">
               <Clock3 className="mb-1 h-4 w-4"/>{formatClock(row.at)}
@@ -224,11 +256,12 @@ export default function SecurityExperience() {
                 <div className="flex flex-wrap items-center gap-2"><Status value={row.shift.attendance}/>{row.shift.method && <span className="text-[10px] text-[#739085]">{row.shift.method}</span>}</div>
                 <p className="text-[10px] text-[#738f7e]">Duty contact: {data.staff.find(p=>p.id===row.shift!.staffId)?.workContact || data.sites.find(s=>s.id===row.shift!.siteId)?.contact || 'Control room'}</p>
               </div>}
-              {row.assets.length>0 && <Assets assets={row.assets}/>}
-              {row.issueId && <button type="button" className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#008765]" onClick={()=>{setTab('issues');openIssue(row.issueId!);}}>Open linked issue <ChevronRight className="h-3 w-3"/></button>}
+              {row.assets.length>0 && <p className="mt-2 text-[10px] font-semibold text-emerald-700">{row.assets.length} sample attachment(s)</p>}
+              <p className="mt-2 break-all text-[10px] text-[#8da99a]">ID: {row.shift?.id||row.id}</p>
             </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[#699b81]"/>
           </div>
-        </Card>)}
+        </button>)}
       </div>}
     </div>;
   }
@@ -272,9 +305,9 @@ export default function SecurityExperience() {
       <h1 className="mt-1 text-xl font-extrabold text-[#214935]">{currentSite.name}</h1>
       <p className="mt-1 flex items-center gap-1 text-[11px] text-[#718d7e]"><MapPin className="h-3.5 w-3.5"/>{currentSite.area}</p></div>
     <label className="block text-[11px] font-semibold text-[#749084]">Sample property
-      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);}}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);setActiveTimelineId(null);}}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
     </label>
-    <DateNavigator date={date} onChange={setDate}/>
+    <DateNavigator date={date} onChange={changeRosterDate}/
     {rosterTimeline()}
     <p className="px-1 text-[11px] text-[#849b8e]">For assistance, contact the security control room: {currentSite.contact}.</p>
   </div>;
@@ -331,7 +364,7 @@ export default function SecurityExperience() {
   </div>;
   const managerRoster = <div className="space-y-4">
     <SectionTitle title="Duty roster" note="Manage assignments, record attendance and review previous shifts."/>
-    <DateNavigator date={date} onChange={setDate}/>
+    <DateNavigator date={date} onChange={changeRosterDate}/
     <label className="block text-[11px] font-bold text-[#5c806d]">Property
       <select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
     </label>
