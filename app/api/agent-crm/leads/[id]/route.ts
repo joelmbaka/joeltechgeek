@@ -137,8 +137,8 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     client = await getCrmPool().connect();
     await client.query('BEGIN');
-    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null; next_action_type: ActionType | null }>(
-      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text, next_action_type FROM public.crm_leads
+    const lock = await client.query<{ stage: LeadStage; do_not_contact: boolean; next_action: string | null; next_action_contact_id: string | null; next_action_type: ActionType | null; next_action_due_at: Date | null }>(
+      `SELECT stage, do_not_contact, next_action, next_action_contact_id::text, next_action_type, next_action_due_at FROM public.crm_leads
          WHERE id = $1 AND user_id = $2 FOR UPDATE`,
       [id, access.user.id],
     );
@@ -175,12 +175,21 @@ export async function PATCH(request: Request, { params }: Params) {
         ? stageOverride as LeadStage
         : stageForOutcome(current.stage, outcome as ActivityOutcome));
     const note = notes.trim() || null;
-    const action = optOut ? null : nextAction.trim() || null;
+    // A logged call may complete the same due Call task. Other tasks must
+    // remain outstanding. Never complete an unrelated email/meeting action.
+    const finishDueCall = body.complete_due_call === true &&
+      channel === 'call' && current.next_action_type === 'call' &&
+      Boolean(current.next_action_due_at) &&
+      new Date(current.next_action_due_at!).getTime() <= Date.now() &&
+      (current.next_action_contact_id === null ||
+        current.next_action_contact_id === callContact.id) &&
+      current.next_action === nextAction.trim();
+    const action = optOut || finishDueCall ? null : nextAction.trim() || null;
     const parsedType = parseActionType(body.next_action_type, action, current.next_action_type);
     if (!parsedType.ok) {await client.query('ROLLBACK');return response(parsedType.error,400);}
-    const date = optOut ? null : dueDate;
-    const time = optOut ? null : schedule.next_action_time;
-    const timezone = optOut ? null : schedule.next_action_timezone;
+    const date = optOut || finishDueCall ? null : dueDate;
+    const time = optOut || finishDueCall ? null : schedule.next_action_time;
+    const timezone = optOut || finishDueCall ? null : schedule.next_action_timezone;
 
     await client.query(
       `UPDATE public.crm_leads
@@ -191,7 +200,8 @@ export async function PATCH(request: Request, { params }: Params) {
              next_action_contact_id = $11::uuid, last_activity_channel = $12,
              next_action_type = $13, updated_at = now()
          WHERE id = $1 AND user_id = $2`,
-      [id, access.user.id, outcome, note, action, date, optOut, stage, time, timezone, actionContact.id, channel, parsedType.value],
+      [id, access.user.id, outcome, note, action, date, optOut, stage, time, timezone,
+        finishDueCall ? null : actionContact.id, channel, parsedType.value],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events
@@ -203,6 +213,14 @@ export async function PATCH(request: Request, { params }: Params) {
       [id, outcome, note, action, date, time, timezone,
         callContact.id, callContact.name, channel],
     );
+    if (finishDueCall) {
+      await client.query(
+        `INSERT INTO public.crm_lead_events
+           (lead_id, event_type, action, contact_id, contact_name_snapshot)
+         VALUES ($1,'action_completed',$2,$3::uuid,$4)`,
+        [id, current.next_action, callContact.id, callContact.name],
+      );
+    }
     const result = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
       [id, access.user.id],
