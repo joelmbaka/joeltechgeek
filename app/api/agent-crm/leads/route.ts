@@ -7,6 +7,7 @@ import type { ActivityOutcome, CrmUser, Lead, LeadStage, LeadStats } from '@/lib
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
+import { getSmartPagedLeads } from '@/lib/agent-crm/work-queue';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -114,6 +115,7 @@ export async function GET(request: Request) {
   if ('response' in access) return access.response;
 
   const searchParams = new URL(request.url).searchParams;
+  if (searchParams.has('view')) return getSmartPagedLeads(searchParams, access.user);
   if (searchParams.has('limit')) {
     return getPagedLeads(searchParams, access.user);
   }
