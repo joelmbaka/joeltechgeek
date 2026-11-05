@@ -139,7 +139,7 @@ export default function DemosPage() {
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Security Operations &amp; Client Visibility</h3>
               <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
                 Explore connected shift schedules, attendance confirmations, property-owner updates,
-                client-raised concerns and security company responses—no guard smartphone required.
+                client-raised concerns and security company responses.
               </p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">3 connected roles</span>
