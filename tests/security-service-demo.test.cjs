@@ -53,6 +53,51 @@ test('client roster is a chronological daily history including evidence and prop
   assert.ok(m.timelineForDay(data,'2026-11-04','greenview').some(r => r.title === 'Night patrol observation'));
 });
 
+test('rolling window covers the last thirty days and the next thirty days', () => {
+  const center = '2026-11-05';
+  const data = m.fillRollingWindow(m.seedDemo(center),center);
+  assert.equal(data.anchorDate,center);
+  for(let offset=-30;offset<=30;offset++){
+    const day=m.addDays(center,offset);
+    for(const site of ['greenview','karen','westlands']){
+      assert.ok(m.timelineForDay(data,day,site).some(row=>row.kind==='shift'),
+        'Missing planned or historical shift for '+site+' on '+day);
+    }
+  }
+  assert.ok(data.activity.filter(a=>a.id.startsWith('sample-activity-')).length>=80);
+  assert.ok(data.activity.some(a=>a.id.startsWith('sample-activity-') && a.assets.length));
+  assert.equal(data.shifts.filter(s=>s.id.startsWith('sample-shift-') && m.dayOfInstant(s.startAt)>center)
+    .every(s=>s.attendance==='scheduled' && !s.arrivalAt && !s.departureAt),true);
+});
+
+test('generated roster is idempotent and preserves changes when the date window moves', () => {
+  const day='2026-11-05';
+  const first=m.fillRollingWindow(m.seedDemo(day),day);
+  const second=m.fillRollingWindow(first,day);
+  assert.equal(first.shifts.length,second.shifts.length);
+  assert.equal(first.activity.length,second.activity.length);
+  const id='sample-shift-greenview-2026-11-12-night';
+  assert.ok(first.shifts.some(s=>s.id===id));
+  const edited=m.assignShift(first,id,'peter');
+  const repeated=m.fillRollingWindow(edited,day);
+  assert.equal(repeated.shifts.find(s=>s.id===id).staffId,'peter');
+  assert.equal(repeated.shifts.length,edited.shifts.length);
+  const moved=m.fillRollingWindow(repeated,'2026-12-01');
+  assert.equal(moved.anchorDate,'2026-12-01');
+  assert.equal(moved.shifts.find(s=>s.id===id).staffId,'peter');
+  assert.ok(m.timelineForDay(moved,'2026-12-29','greenview').some(row=>row.kind==='shift'));
+});
+
+test('rolling roster crosses New Year without breaking overnight shifts', () => {
+  const center='2026-12-30';
+  const data=m.fillRollingWindow(m.seedDemo(center),center);
+  assert.ok(m.timelineForDay(data,'2027-01-15','westlands').some(row=>row.kind==='shift'));
+  assert.ok(m.timelineForDay(data,'2026-12-01','karen').some(row=>row.kind==='shift'));
+  const night=data.shifts.find(s=>s.id==='sample-shift-greenview-2026-12-31-night');
+  assert.ok(night);
+  assert.equal(m.dayOfInstant(night.endAt),'2027-01-01');
+});
+
 test('manager can schedule a night shift but overlapping staff assignments are rejected', () => {
   const data = m.seedDemo('2026-11-05');
   assert.throws(() => m.addShift(data,'greenview','brian','2026-11-05','20:00','06:00'), /overlapping duty shift/);
@@ -153,6 +198,13 @@ test('mobile interface has two role options, client roster default, and consiste
   assert.match(ui,/<option value="manager"/);
   assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
   assert.match(ui,/type="date"/);
+  const details=read('app/demos/security/SecurityRosterDetail.tsx');
+  assert.match(ui,/fillRollingWindow/);
+  assert.match(ui,/openTimeline/);
+  assert.match(details,/Record ID:/);
+  assert.match(details,/All activities during this duty/);
+  assert.match(details,/Media and documents/);
+
   assert.match(ui,/Previous day/);
   assert.match(ui,/Next day/);
   assert.match(ui,/Issue #/);
