@@ -1,5 +1,6 @@
 -- Backfill upcoming date-only reminders, preserving all historical audit records.
--- Apply after the new reminder-default API is deployed and checked.
+-- Safe to apply while the old API is running: it only fills existing date-only
+-- follow-ups. New date-only API writes gain this behavior after backend deployment.
 -- Only active leads with a next action and a date >= today in their OWN timezone.
 -- Past date-only follow-ups remain overdue (no invented historical reminder).
 BEGIN;
