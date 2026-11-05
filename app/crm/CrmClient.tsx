@@ -381,6 +381,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
             : lead.next_action_at ? lead.next_action_timezone || browserTimezone() : null,
         ...(form.stage ? { stage: form.stage } : {}),
         do_not_contact: form.do_not_contact,
+        complete_due_call: form.channel === 'call' && !planFromCall,
       });
       await onSaved();
       onClose();

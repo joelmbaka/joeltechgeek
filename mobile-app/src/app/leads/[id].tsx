@@ -233,7 +233,7 @@ export default function LeadScreen() {
           next_action_at: lead.next_action_at || null,
           next_action_time: lead.next_action_time?.slice(0, 5) || null,
           next_action_timezone: lead.next_action_timezone || timezone,
-          do_not_contact: optOut }
+          do_not_contact: optOut, complete_due_call: channel === 'call' }
         : kind === 'complete'
           ? { notes: completionNotes, ...completionSchedule,
               next_action_contact_id: completionSchedule.next_action ? followupContactId || null : null }
