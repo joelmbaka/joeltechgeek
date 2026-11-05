@@ -142,7 +142,7 @@ export default function DemosPage() {
                 client-raised concerns and security company responses.
               </p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
-                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">3 connected roles</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">2 connected roles</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">3 sample client sites</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Client portal & rosters</span>
               </div>
