@@ -65,18 +65,18 @@ export function workQueueSQL(): string {
     "WHEN e.is_due THEN 'due' WHEN e.next_action_at IS NOT NULL THEN 'scheduled' WHEN e.done_today THEN 'done_today'",
     "WHEN e.last_call_outcome IN "+BAD+" THEN 'fix_contact'",
     "WHEN e.last_call_outcome IN "+FAIL+" AND e.failed_call_streak>=5 THEN 'review'",
-    "WHEN e.call_eligible AND NULLIF(btrim(e.callable_phone),'') IS NOT NULL THEN 'ready'",
+    "WHEN e.call_eligible AND length(regexp_replace(COALESCE(e.callable_phone,''),'[^0-9]','','g'))>=7 THEN 'ready'",
     "WHEN e.last_call_outcome IN "+FAIL+" THEN 'cooldown' ELSE 'needs_next_step' END work_state,",
-    "(e.is_due AND e.next_action_type='call' AND NULLIF(btrim(e.callable_phone),'') IS NOT NULL",
-    'AND (e.last_worked_at IS NULL OR e.next_action_due_at>e.last_worked_at OR e.next_action_due_at IS NULL))',
+    "(e.is_due AND e.next_action_type='call' AND length(regexp_replace(COALESCE(e.callable_phone,''),'[^0-9]','','g'))>=7",
+    ')',
     'OR (e.next_action_at IS NULL AND NOT e.done_today AND e.call_eligible',
-    "AND NULLIF(btrim(e.callable_phone),'') IS NOT NULL AND COALESCE(e.last_call_outcome,'') NOT IN "+BAD+") to_call_now",
+    "AND length(regexp_replace(COALESCE(e.callable_phone,''),'[^0-9]','','g'))>=7 AND COALESCE(e.last_call_outcome,'') NOT IN "+BAD+") to_call_now",
     'FROM eligible e)'
   ].join(' ');
 }
 
 export function workViewFilter(view: WorkView): string {
-  if(view==='for_you') return ACTIVE+" AND ((w.is_due AND (w.last_worked_at IS NULL OR w.next_action_due_at>w.last_worked_at OR w.next_action_due_at IS NULL)) OR (NOT w.done_today AND w.next_action_at IS NULL AND (w.to_call_now OR w.work_state IN ('needs_next_step','fix_contact','review'))))";
+  if(view==='for_you') return ACTIVE+" AND (w.is_due OR (NOT w.done_today AND w.next_action_at IS NULL AND (w.to_call_now OR w.work_state IN ('needs_next_step','fix_contact','review'))))";
   if(view==='to_call') return ACTIVE+' AND w.to_call_now';
   if(view==='followups') return ACTIVE+' AND w.next_action_at IS NOT NULL';
   if(view==='done_today') return 'w.done_today';
