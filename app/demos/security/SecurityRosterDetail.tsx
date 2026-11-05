@@ -48,7 +48,7 @@ export default function SecurityRosterDetail({
       {shift && <div className="mt-4 space-y-2 rounded-xl bg-[#edf7f0] p-3 text-xs text-[#446853]">
         <p><strong>Officer:</strong> {officer?.name||'Unassigned'}</p>
         <p><strong>Duty period:</strong> {shiftWindow(shift)}</p>
-        <p><strong>Status:</strong> {shift.attendance}</p>
+        <p><strong>Status:</strong> {shift.attendance==='absent'?'Not on site':shift.attendance==='confirmed'?'On site':shift.attendance==='completed'?'Completed':shift.attendance==='reported'?'Reported · unverified':shift.attendance==='unconfirmed'?'Unconfirmed':'Scheduled'}</p>
         <p><strong>Arrival:</strong> {shift.arrivalAt?formatDay(dayOfInstant(shift.arrivalAt))+' · '+formatClock(shift.arrivalAt):'Not recorded'}</p>
         <p><strong>Departure:</strong> {shift.departureAt?formatDay(dayOfInstant(shift.departureAt))+' · '+formatClock(shift.departureAt):'Not recorded'}</p>
         <p><strong>Method:</strong> {shift.method||'Not yet confirmed'}</p>
