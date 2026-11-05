@@ -372,146 +372,263 @@ export default function SecurityExperience() {
   </div>;
   const clientReports = <div><SectionTitle title="Site reports" note="Daily, weekly and monthly reports published by your security company."/>
     {reportList(reports)}</div>;
-  const unresolved = data.issues.filter(i=>i.status!=='resolved');
-  const unconfirmed = data.shifts.filter(s=>shiftOnDay(s,kenyaToday()) && ['reported','unconfirmed'].includes(s.attendance));
-  const managerOverview = <div className="space-y-4">
-    <div><p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700">Security management</p>
-      <h1 className="mt-1 text-xl font-extrabold text-[#214935]">Today's operations</h1>
-      <p className={textMuted}>Site coverage, staff and client service in one place.</p></div>
-    <div className="grid grid-cols-2 gap-2">
-      {[['Active sites',data.sites.length],['Staff',data.staff.length],['Attendance exceptions',unconfirmed.length],['Open issues',unresolved.length]].map(([label,value])=>
-        <Card key={label}><p className="text-[11px] font-semibold text-[#728f80]">{label}</p><p className="mt-2 text-2xl font-extrabold text-[#0f7051]">{value}</p></Card>)}
-    </div>
-    <SectionTitle title="Needs attention"/>
-    <div className="space-y-3">
-      {unconfirmed.slice(0,3).map(s=><Card key={s.id}>
-        <div className="flex items-start justify-between gap-2">
-          <div><h3 className="text-xs font-bold text-[#264c37]">{data.sites.find(site=>site.id===s.siteId)?.name}</h3>
-            <p className="mt-1 text-[11px] text-[#789486]">{data.staff.find(person=>person.id===s.staffId)?.name} · Attendance follow-up</p></div>
-          <Status value={s.attendance}/>
-        </div>
-        <button type="button" className="mt-2 text-[11px] font-bold text-emerald-700" onClick={()=>{setTab('roster');setDate(dayOfInstant(s.startAt));}}>Review roster →</button>
-      </Card>)}
-      {unresolved.slice(0,3).map(i=><Card key={i.id}>
-        <p className="text-xs font-bold text-[#264c37]">{i.title}</p><p className={'mt-1 '+textMuted}>{data.sites.find(site=>site.id===i.siteId)?.name}</p>
-        <div className="mt-2 flex items-center justify-between"><Status value={i.status}/><button className="text-[11px] font-bold text-emerald-700" onClick={()=>{setTab('service');setServiceMode('issues');openIssue(i.id);}}>View issue →</button></div>
-      </Card>)}
-    </div>
-    <Card>
-      <SectionTitle title="Quick actions"/>
-      <div className="grid grid-cols-2 gap-2">
-        <button className={secondary} onClick={()=>moveTab('roster')}><CalendarDays className="h-4 w-4"/> Duty roster</button>
-        <button className={secondary} onClick={()=>moveTab('sites')}><Building2 className="h-4 w-4"/> Visit a site</button>
-        <button className={secondary} onClick={()=>{moveTab('service');setServiceMode('issues');}}><MessageSquare className="h-4 w-4"/> Resolve issue</button>
-        <button className={secondary} onClick={()=>{moveTab('service');setServiceMode('reports');}}><FileText className="h-4 w-4"/> Publish report</button>
-      </div>
-    </Card>
-  </div>;
+  const clients=Array.from(new Set(data.sites.map(s=>s.client))).sort((a,b)=>a.localeCompare(b));
+  const selectedSite=selectedSiteId ? data.sites.find(s=>s.id===selectedSiteId) : undefined;
+
   const managerRoster = rosterDetail || <div className="space-y-4">
-    <SectionTitle title="Duty roster" note="Manage assignments, record attendance and review previous shifts."/>
-    <DateNavigator date={date} onChange={changeRosterDate} />
-    <label className="block text-[11px] font-bold text-[#5c806d]">Property
-      <select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-    </label>
-    <SectionTitle title="Shifts on selected day"/>
-    <div className="space-y-3">{roster.length?roster.map(managerShiftCard):<Card><p className={textMuted}>No shifts recorded for this property on the selected day.</p></Card>}</div>
-    <details className={panel}>
-      <summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Schedule a shift</summary>
-      <form className="mt-4 space-y-3" onSubmit={e=>{
+    <SectionTitle title="Duty roster" note="View shifts for one day and mark whether an officer is on site."
+      action={<button type="button" className={secondary} onClick={()=>setShowShiftForm(v=>!v)}><Plus className="h-4 w-4"/> Add shift</button>}/>
+    {showShiftForm&&<Card>
+      <h3 className="text-sm font-extrabold text-[#24533c]">Schedule a shift</h3>
+      <form className="mt-3 space-y-3" onSubmit={e=>{
         e.preventDefault();
-        perform(d=>addShift(d,newShiftSite,newShiftStaff,date,newShiftStart,newShiftEnd),'Shift scheduled. Overnight shifts appear on both days.');
+        try {
+          setData(addShift(data,newShiftSite,newShiftStaff,date,newShiftStart,newShiftEnd));
+          setNotice('Shift scheduled. Overnight assignments appear on both dates.');
+          setShowShiftForm(false);setSiteId(newShiftSite);
+        }catch(error){setNotice(error instanceof Error?error.message:'Unable to add shift.');}
       }}>
-        <label className="block text-xs font-bold">Property<select className={field} value={newShiftSite} onChange={e=>setNewShiftSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-        <label className="block text-xs font-bold">Assigned officer<select className={field} value={newShiftStaff} onChange={e=>setNewShiftStaff(e.target.value)}>{data.staff.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <p className={textMuted}>Date: {formatDay(date)}. Change the roster date below to schedule another day.</p>
+        <label className="block text-xs font-bold text-[#3c604b]">Site
+          <select className={field} value={newShiftSite} onChange={e=>setNewShiftSite(e.target.value)}>
+            {data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Officer
+          <select className={field} value={newShiftStaff} onChange={e=>setNewShiftStaff(e.target.value)}>
+            {data.staff.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
         <div className="grid grid-cols-2 gap-2">
-          <label className="block text-xs font-bold">Start time<input type="time" required className={field} value={newShiftStart} onChange={e=>setNewShiftStart(e.target.value)}/></label>
-          <label className="block text-xs font-bold">End time<input type="time" required className={field} value={newShiftEnd} onChange={e=>setNewShiftEnd(e.target.value)}/></label>
+          <label className="block text-xs font-bold text-[#3c604b]">Starts
+            <input type="time" className={field} required value={newShiftStart} onChange={e=>setNewShiftStart(e.target.value)}/>
+          </label>
+          <label className="block text-xs font-bold text-[#3c604b]">Ends
+            <input type="time" className={field} required value={newShiftEnd} onChange={e=>setNewShiftEnd(e.target.value)}/>
+          </label>
         </div>
-        <p className={textMuted}>Shifts ending before their start time continue into the next calendar day.</p>
-        <button type="submit" className={primary+' w-full'}><Plus className="h-4 w-4"/> Add shift</button>
+        <button className={primary+' w-full'} type="submit">Save shift</button>
       </form>
-    </details>
-    <SectionTitle title="Chronological site record"/>
-    {rosterTimeline()}
+    </Card>}
+    <DateNavigator date={date} onChange={changeRosterDate}/>
+    <label className="block text-[11px] font-bold text-[#5c806d]">Property
+      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveTimelineId(null);}}>
+        {data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+      </select>
+    </label>
+    <SectionTitle title="Assigned officers" note="Presence is recorded by the supervisor. Future shifts remain scheduled."/>
+    <div className="space-y-3">
+      {roster.length?roster.map(managerShiftCard):<Card><p className={textMuted}>No assignments for this property on the selected date.</p></Card>}
+    </div>
   </div>;
-  const managerSites = <div className="space-y-4">
-    <SectionTitle title="Clients & sites" note="Maintain assigned properties and make site visit records."/>
-    <div className="space-y-3">{data.sites.map(site=><Card key={site.id}>
-      <p className="text-sm font-extrabold text-[#24523b]">{site.name}</p>
-      <p className={'mt-1 '+textMuted}><MapPin className="mr-1 inline h-3.5 w-3.5"/>{site.area}</p>
-      <p className="mt-2 text-[11px] font-semibold text-[#668a77]">Client: {site.client}</p>
-      <p className="mt-1 text-[11px] text-[#779387]">{data.shifts.filter(s=>s.siteId===site.id).length} scheduled/historical assignments</p>
-    </Card>)}</div>
-    <details className={panel}><summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Add client & property</summary>
-      <form className="mt-4 space-y-3" onSubmit={e=>{e.preventDefault();try{
+
+  const siteForm = <Card>
+    <h3 className="text-sm font-extrabold text-[#24533c]">Add client / property</h3>
+    <form className="mt-3 space-y-3" onSubmit={e=>{
+      e.preventDefault();
+      try {
         setData(addSite(data,newSiteName,newSiteArea,newClientName,newSiteContact));
-        setNewSiteName('');setNewSiteArea('');setNewClientName('');setNewSiteContact('');setNotice('Client site added.');
-      }catch(error){setNotice(error instanceof Error?error.message:'Unable to create client site.');}}}>
-        {[['Client name',newClientName,setNewClientName],['Property / site name',newSiteName,setNewSiteName],['Location',newSiteArea,setNewSiteArea],['Control room contact',newSiteContact,setNewSiteContact]].map(([label,val,change])=>
-          <label key={label as string} className="block text-xs font-bold">{label as string}<input className={field} required={label!=='Control room contact'} value={val as string} onChange={e=>(change as (x:string)=>void)(e.target.value)}/></label>)}
-        <button className={primary+' w-full'} type="submit">Add client site</button>
-      </form>
-    </details>
-    <details className={panel}><summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Add staff member</summary>
-      <form className="mt-4 space-y-3" onSubmit={e=>{e.preventDefault();try{
-        setData(addStaff(data,newStaffName,newStaffPhone));setNewStaffName('');setNewStaffPhone('');setNotice('Staff member added.');
-      }catch(error){setNotice(error instanceof Error?error.message:'Unable to add officer.');}}}>
-        <label className="block text-xs font-bold">Officer name<input required className={field} value={newStaffName} onChange={e=>setNewStaffName(e.target.value)}/></label>
-        <label className="block text-xs font-bold">Contact<input className={field} value={newStaffPhone} onChange={e=>setNewStaffPhone(e.target.value)} placeholder="Work contact / phone"/></label>
-        <button type="submit" className={primary+' w-full'}>Add staff member</button>
-      </form>
-    </details>
+        setNewSiteName('');setNewSiteArea('');setNewClientName('');setNewSiteContact('');
+        setShowAddSite(false);setNotice('Client property added.');
+      }catch(error){setNotice(error instanceof Error?error.message:'Unable to add property.');}
+    }}>
+      <label className="block text-xs font-bold text-[#3c604b]">Client
+        <input className={field} required minLength={3} value={newClientName} placeholder="Property owner / company"
+          onChange={e=>setNewClientName(e.target.value)}/>
+      </label>
+      <label className="block text-xs font-bold text-[#3c604b]">Property / site
+        <input className={field} required minLength={4} value={newSiteName} onChange={e=>setNewSiteName(e.target.value)}/>
+      </label>
+      <label className="block text-xs font-bold text-[#3c604b]">Location
+        <input className={field} required minLength={3} value={newSiteArea} onChange={e=>setNewSiteArea(e.target.value)}/>
+      </label>
+      <label className="block text-xs font-bold text-[#3c604b]">Office contact
+        <input className={field} value={newSiteContact} onChange={e=>setNewSiteContact(e.target.value)}/>
+      </label>
+      <button className={primary+' w-full'} type="submit">Save client property</button>
+    </form>
+  </Card>;
+
+  const staffForm = <Card>
+    <h3 className="text-sm font-extrabold text-[#24533c]">Add staff member</h3>
+    <form className="mt-3 space-y-3" onSubmit={e=>{
+      e.preventDefault();
+      try{
+        setData(addStaff(data,newStaffName,newStaffPhone));
+        setNewStaffName('');setNewStaffPhone('');setShowAddStaff(false);setNotice('Staff member added.');
+      }catch(error){setNotice(error instanceof Error?error.message:'Unable to add staff member.');}
+    }}>
+      <label className="block text-xs font-bold text-[#3c604b]">Officer name
+        <input className={field} required minLength={3} value={newStaffName} onChange={e=>setNewStaffName(e.target.value)}/>
+      </label>
+      <label className="block text-xs font-bold text-[#3c604b]">Contact
+        <input className={field} value={newStaffPhone} onChange={e=>setNewStaffPhone(e.target.value)}/>
+      </label>
+      <button className={primary+' w-full'} type="submit">Save staff member</button>
+    </form>
+  </Card>;
+
+  const managerSites = selectedSite ? <div className="space-y-4">
+    <button type="button" className="inline-flex min-h-10 items-center gap-2 text-xs font-bold text-emerald-700" onClick={()=>setSelectedSiteId(null)}>
+      <ArrowLeft className="h-4 w-4"/> Back to clients
+    </button>
     <Card>
-      <SectionTitle title="Record a site visit" note="Visit details and sample photos appear in that client's daily timeline."/>
-      <form className="space-y-3" onSubmit={e=>{e.preventDefault();try{
-        setData(logVisit(data,visitSite,visitNote,visitPhoto));setVisitNote('');setVisitPhoto(false);setNotice('Site visit recorded in the client timeline.');
-      }catch(error){setNotice(error instanceof Error?error.message:'Unable to record visit.');}}}>
-        <label className="block text-xs font-bold">Site<select className={field} value={visitSite} onChange={e=>setVisitSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-        <label className="block text-xs font-bold">Visit notes<textarea required minLength={10} className={field} rows={3} value={visitNote} onChange={e=>setVisitNote(e.target.value)} placeholder="What was checked and observed?"/></label>
-        <label className="flex items-center gap-2 text-xs text-[#456d5a]"><input type="checkbox" checked={visitPhoto} onChange={e=>setVisitPhoto(e.target.checked)}/> Include an illustrative sample photo</label>
-        <button className={primary+' w-full'} type="submit"><ClipboardCheck className="h-4 w-4"/> Save site visit</button>
+      <p className="text-[10px] font-extrabold uppercase text-emerald-700">Property · {selectedSite.id}</p>
+      <h2 className="mt-1 text-lg font-extrabold text-[#234a35]">{selectedSite.name}</h2>
+      <p className={'mt-1 '+textMuted}>{selectedSite.area} · {selectedSite.client}</p>
+      <p className="mt-2 text-[11px] text-[#6b8b77]">Security office: {selectedSite.contact}</p>
+    </Card>
+    <Card>
+      <SectionTitle title="Record a site visit" note="This visit will appear in this property's client activity timeline."/>
+      <form className="space-y-3" onSubmit={e=>{
+        e.preventDefault();
+        try{
+          setData(logVisit(data,selectedSite.id,visitNote,visitPhoto));
+          setVisitNote('');setVisitPhoto(false);
+          setNotice('Site visit saved for '+selectedSite.name+'.');
+        }catch(error){setNotice(error instanceof Error?error.message:'Unable to save visit.');}
+      }}>
+        <label className="block text-xs font-bold text-[#3c604b]">Visit notes
+          <textarea className={field} rows={3} required minLength={10} value={visitNote}
+            onChange={e=>setVisitNote(e.target.value)} placeholder="Who was on site, checks performed and observations"/>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-[#456d5a]">
+          <input type="checkbox" checked={visitPhoto} onChange={e=>setVisitPhoto(e.target.checked)}/>
+          Attach illustrative sample photo
+        </label>
+        <button className={primary+' w-full'} type="submit">Save site visit</button>
       </form>
     </Card>
-    <SectionTitle title="Staff directory"/>
-    <div className="space-y-2">{data.staff.map(s=><div key={s.id} className="flex items-center justify-between rounded-xl border border-[#e0eae3] bg-white px-3 py-3 text-xs">
-      <span className="font-bold text-[#2c4d3d]">{s.name}</span><span className="text-[#7b9186]">{s.phone}</span>
-    </div>)}</div>
-  </div>;
-  const managerService = <div className="space-y-4">
-    <SectionTitle title="Client service" note="Respond to concerns and publish service reports."/>
-    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#e9f3ec] p-1">
-      {(['issues','reports'] as const).map(value=><button key={value} type="button" onClick={()=>{setServiceMode(value);setActiveIssueId(null);}}
-        className={'rounded-lg px-3 py-2.5 text-xs font-bold '+(serviceMode===value?'bg-white text-emerald-800 shadow-sm':'text-[#68867a]')}>{value==='issues'?'Issues':'Reports'}</button>)}
+    <SectionTitle title="Recent site visits" note="Recorded by the security team for this property."/>
+    <div className="space-y-2">
+      {data.activity.filter(a=>a.siteId===selectedSite.id&&a.type==='visit')
+        .sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)).slice(0,6)
+        .map(item=><Card key={item.id}>
+          <p className="text-[11px] font-extrabold text-[#185d44]">{formatDay(dayOfInstant(item.at))} · {formatClock(item.at)}</p>
+          <p className="mt-2 text-xs text-[#3c644f]">{item.detail}</p>
+          <Assets assets={item.assets}/>
+        </Card>)}
     </div>
-    {serviceMode==='issues' ? (issue ? issueDetails(issue) : <div className="space-y-4">
-      <SectionTitle title="Active concerns"/>
-      <div className="space-y-3">{managerIssues.filter(i=>i.status!=='resolved').map(showIssue)}</div>
-      <SectionTitle title="Resolved history"/>
-      <div className="space-y-3">{managerIssues.filter(i=>i.status==='resolved').map(showIssue)}</div>
-      <Card>
-        <SectionTitle title="Record site incident"/>
-        <form className="space-y-3" onSubmit={e=>{e.preventDefault();try{
-          setData(addIssue(data,siteId,issueTitle,issueText,'manager'));setIssueTitle('');setIssueText('');setNotice('Site incident recorded.');
-        }catch(error){setNotice(error instanceof Error?error.message:'Unable to log incident.');}}}>
-          <label className="block text-xs font-bold">Site<select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-          <label className="block text-xs font-bold">Incident title<input required minLength={5} className={field} value={issueTitle} onChange={e=>setIssueTitle(e.target.value)}/></label>
-          <label className="block text-xs font-bold">Details<textarea required minLength={10} rows={3} className={field} value={issueText} onChange={e=>setIssueText(e.target.value)}/></label>
-          <button type="submit" className={primary+' w-full'}>Record incident</button>
-        </form>
-      </Card>
-    </div>) : <div className="space-y-4">
-      <Card><SectionTitle title="Publish report" note="Choose a property and reporting period."/>
-        <div className="space-y-3">
-          <label className="block text-xs font-bold">Site<select className={field} value={reportSite} onChange={e=>setReportSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-          <label className="block text-xs font-bold">Reporting period<select className={field} value={reportPeriod} onChange={e=>setReportPeriod(e.target.value as ReportPeriod)}>
-            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
-          </select></label>
-          <button type="button" className={primary+' w-full'} onClick={()=>perform(d=>publishReport(d,reportSite,reportPeriod),'Report published to selected client.')}><FileText className="h-4 w-4"/> Publish report</button>
+  </div> : <div className="space-y-4">
+    <SectionTitle title="Clients" note="Properties grouped by client. Open a property to record site visits."
+      action={<button type="button" className={secondary} onClick={()=>setShowAddSite(v=>!v)}><Plus className="h-4 w-4"/> Add</button>}/>
+    {showAddSite&&siteForm}
+    <div className="space-y-3">
+      {clients.map(name=><Card key={name}>
+        <h3 className="text-sm font-extrabold text-[#234e38]">{name}</h3>
+        <p className="mt-1 text-[10px] text-[#789383]">{data.sites.filter(s=>s.client===name).length} properties</p>
+        <div className="mt-3 space-y-2">
+          {data.sites.filter(s=>s.client===name).map(site=><button type="button" key={site.id}
+            onClick={()=>{setSelectedSiteId(site.id);setVisitNote('');setVisitPhoto(false);}}
+            className="flex min-h-12 w-full items-center justify-between gap-2 rounded-xl border border-[#dcebe0] bg-[#f6faf7] p-3 text-left hover:border-emerald-400">
+            <span className="min-w-0"><span className="block text-xs font-bold text-[#235a3d]">{site.name}</span>
+              <span className="mt-1 block text-[10px] text-[#7b9986]">{site.area}</span></span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-emerald-700"/>
+          </button>)}
         </div>
-      </Card>
-      <SectionTitle title="Published reports" note="Most recent first across all client sites."/>
-      {reportList([...data.reports].sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt)))}
-    </div>}
+      </Card>)}
+    </div>
+    <SectionTitle title="Staff" note="Staff available for assignments and site coverage."
+      action={<button type="button" className={secondary} onClick={()=>setShowAddStaff(v=>!v)}><Plus className="h-4 w-4"/> Add</button>}/>
+    {showAddStaff&&staffForm}
+    <div className="space-y-2">
+      {data.staff.map(staff=><div key={staff.id}
+        className="flex items-center justify-between gap-2 rounded-xl border border-[#e0eae3] bg-white px-3 py-3">
+        <p className="text-xs font-bold text-[#2c4d3d]">{staff.name}</p>
+        <p className="text-[10px] text-[#7b9186]">{staff.phone}</p>
+      </div>)}
+    </div>
+  </div>;
+
+  const managerIssuesView = issue ? issueDetails(issue) : <div className="space-y-4">
+    <SectionTitle title="Issues" note="Site incidents, client concerns and resolution history."
+      action={<button type="button" className={secondary} onClick={()=>setShowIncidentForm(v=>!v)}><Plus className="h-4 w-4"/> Add</button>}/>
+    {showIncidentForm&&<Card>
+      <h3 className="text-sm font-extrabold text-[#24533c]">Record a site issue</h3>
+      <form className="mt-3 space-y-3" onSubmit={e=>{
+        e.preventDefault();
+        try{
+          setData(addIssue(data,siteId,issueTitle,issueText,'manager'));
+          setIssueTitle('');setIssueText('');setShowIncidentForm(false);setNotice('Site issue recorded.');
+        }catch(error){setNotice(error instanceof Error?error.message:'Unable to record issue.');}
+      }}>
+        <label className="block text-xs font-bold text-[#3c604b]">Site
+          <select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>
+            {data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Issue
+          <input className={field} required minLength={5} value={issueTitle} onChange={e=>setIssueTitle(e.target.value)}/>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Details
+          <textarea className={field} required minLength={10} rows={3} value={issueText} onChange={e=>setIssueText(e.target.value)}/>
+        </label>
+        <button className={primary+' w-full'} type="submit">Save issue</button>
+      </form>
+    </Card>}
+    <SectionTitle title="Current issues"/>
+    <div className="space-y-3">{managerIssues.filter(i=>i.status!=='resolved').map(showIssue)}</div>
+    <SectionTitle title="Resolved issues"/>
+    <div className="space-y-3">{managerIssues.filter(i=>i.status==='resolved').map(showIssue)}</div>
+  </div>;
+
+  const managerReports = <div className="space-y-4">
+    <SectionTitle title="Reports" note="Create dated site reports with optional evidence, visible to each client."
+      action={<button type="button" className={secondary} onClick={()=>setShowReportForm(v=>!v)}><Plus className="h-4 w-4"/> Add</button>}/>
+    {showReportForm&&<Card>
+      <h3 className="text-sm font-extrabold text-[#24533c]">New report</h3>
+      <form className="mt-3 space-y-3" onSubmit={e=>{
+        e.preventDefault();
+        try{
+          setData(publishReport(data,reportSite,reportPeriod,reportFrom,reportTo,reportText,reportEvidence));
+          setReportText('');setReportEvidence([]);setShowReportForm(false);
+          setNotice('Report saved. The property client can view it under Reports.');
+        }catch(error){setNotice(error instanceof Error?error.message:'Unable to save report.');}
+      }}>
+        <label className="block text-xs font-bold text-[#3c604b]">For site
+          <select className={field} value={reportSite} onChange={e=>setReportSite(e.target.value)}>
+            {data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Report frequency
+          <select className={field} value={reportPeriod}
+            onChange={e=>{
+              const period=e.target.value as ReportPeriod;
+              setReportPeriod(period);setReportTo(kenyaToday());
+              setReportFrom(period==='daily'?kenyaToday():period==='weekly'?addDays(kenyaToday(),-6):kenyaToday().slice(0,7)+'-01');
+            }}>
+            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block text-xs font-bold text-[#3c604b]">From
+            <input type="date" required className={field} value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/>
+          </label>
+          <label className="block text-xs font-bold text-[#3c604b]">To
+            <input type="date" required max={kenyaToday()} className={field} value={reportTo} onChange={e=>setReportTo(e.target.value)}/>
+          </label>
+        </div>
+        <label className="block text-xs font-bold text-[#3c604b]">Summary and findings
+          <textarea className={field} rows={4} minLength={10} required value={reportText}
+            onChange={e=>setReportText(e.target.value)} placeholder="Attendance, site condition, incidents, and recommendations"/>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Attach evidence (optional)
+          <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple className={field}
+            onChange={e=>{void readReportFiles(e);}}/>
+        </label>
+        <p className={textMuted}>PNG, JPEG, WebP or PDF. Maximum 3 files, 600 KB each. Files remain in this browser demo.</p>
+        {reportEvidence.length>0&&<div className="space-y-2">
+          {reportEvidence.map(file=><div key={file.id} className="flex items-center justify-between gap-2 rounded-lg bg-[#edf7f0] px-3 py-2">
+            <span className="min-w-0 truncate text-[11px] text-[#276447]">{file.name}</span>
+            <button type="button" aria-label={'Remove '+file.name} onClick={()=>setReportEvidence(items=>items.filter(item=>item.id!==file.id))}
+              className="rounded-lg p-2 text-[#9c564e]"><X className="h-4 w-4"/></button>
+          </div>)}
+        </div>}
+        <button type="submit" className={primary+' w-full'}><FileText className="h-4 w-4"/> Save report</button>
+      </form>
+    </Card>}
+    <SectionTitle title="Published reports" note="Most recent first; each is available to its property client."/>
+    {reportList([...data.reports].sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt)))}
   </div>;
 
   return <div className={styles.stage}>
@@ -541,11 +658,11 @@ export default function SecurityExperience() {
         {role==='client' && tab==='roster' && clientRoster}
         {role==='client' && tab==='issues' && clientIssues}
         {role==='client' && tab==='reports' && clientReports}
-        {role==='manager' && tab==='overview' && managerOverview}
         {role==='manager' && tab==='roster' && managerRoster}
         {role==='manager' && tab==='sites' && managerSites}
-        {role==='manager' && tab==='service' && managerService}
-        <p className="mt-7 rounded-xl bg-[#e9f1eb] px-3 py-2 text-[10px] leading-5 text-[#6b8779]">Fictional demonstration · No live staff, GPS, calls, messages, evidence uploads or emergency dispatch. Sample attachments are illustrative.</p>
+        {role==='manager' && tab==='issues' && managerIssuesView}
+        {role==='manager' && tab==='reports' && managerReports}
+        <p className="mt-7 rounded-xl bg-[#e9f1eb] px-3 py-2 text-[10px] leading-5 text-[#6b8779]">Fictional demonstration · No live staff, GPS, calls or emergency dispatch. Uploaded report evidence stays in this browser; sample evidence is illustrative.</p>
       </main>
       <nav className={styles.tabBar} aria-label="Mobile app navigation">
         {tabs.map(({id,name,Icon})=><button key={id} type="button" className={styles.tab+' '+(tab===id?styles.tabActive:'')} aria-current={tab===id?'page':undefined}
