@@ -173,7 +173,7 @@ export default function SecurityExperience() {
   }
   function reset() {
     if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
-    const next = seedDemo();setData(next);setDate(next.anchorDate);setSiteId('greenview');
+    const next = fillRollingWindow(seedDemo());setData(next);setDate(next.anchorDate);setSiteId('greenview');
     setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setNotice('Sample data restored.');
   }
   function submitIssue(event: FormEvent<HTMLFormElement>) {
@@ -231,9 +231,6 @@ export default function SecurityExperience() {
     </div>;
   }
   function rosterTimeline() {
-    if(selectedTimeline) return <SecurityRosterDetail
-      row={selectedTimeline} state={data} date={date} siteId={siteId} role={role}
-      onBack={()=>setActiveTimelineId(null)} onIssue={viewTimelineIssue} onSelectRecord={openTimeline}/>;
     return <div>
       <SectionTitle title="Daily activity" note="Select an event or duty shift to view its record ID, all related activities, and evidence."/>
       {timeline.length===0 ? <Card>
@@ -300,7 +297,11 @@ export default function SecurityExperience() {
     </Card>)}</div> : <Card><p className={textMuted}>No published reports yet.</p></Card>;
   }
 
-  const clientRoster = <div className="space-y-4">
+  const rosterDetail = selectedTimeline ? <SecurityRosterDetail
+    row={selectedTimeline} state={data} date={date} siteId={siteId} role={role}
+    onBack={()=>{setActiveTimelineId(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}}
+    onIssue={viewTimelineIssue} onSelectRecord={openTimeline}/> : null;
+  const clientRoster = rosterDetail || <div className="space-y-4">
     <div><p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700">My property</p>
       <h1 className="mt-1 text-xl font-extrabold text-[#214935]">{currentSite.name}</h1>
       <p className="mt-1 flex items-center gap-1 text-[11px] text-[#718d7e]"><MapPin className="h-3.5 w-3.5"/>{currentSite.area}</p></div>
@@ -362,7 +363,7 @@ export default function SecurityExperience() {
       </div>
     </Card>
   </div>;
-  const managerRoster = <div className="space-y-4">
+  const managerRoster = rosterDetail || <div className="space-y-4">
     <SectionTitle title="Duty roster" note="Manage assignments, record attendance and review previous shifts."/>
     <DateNavigator date={date} onChange={changeRosterDate}/
     <label className="block text-[11px] font-bold text-[#5c806d]">Property
