@@ -1,0 +1,36 @@
+name: Security Service Demo Checks
+
+on:
+  push:
+    branches: [mobile]
+    paths:
+      - 'app/demos/security/**'
+      - 'public/demos/security/**'
+      - 'tests/security-demo.test.cjs'
+      - 'tests/security-service-demo.test.cjs'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'app/demos/security/**'
+      - 'public/demos/security/**'
+      - 'tests/security-demo.test.cjs'
+      - 'tests/security-service-demo.test.cjs'
+      - 'package.json'
+
+jobs:
+  security-service-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test redesigned security service flows
+        run: npm run test:security-service-demo
+      - name: Preserve legacy guard-demo tests
+        run: npm run test:security-demo
+      - name: Typecheck website
+        run: npx tsc --noEmit
