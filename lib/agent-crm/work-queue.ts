@@ -128,7 +128,13 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
     const [rows,counts,stats,categories,toCall]=await Promise.all([
       db.query<Lead & {work_state:string}>(select,listArgs),
       db.query<{total:number}>(count,values),
-      db.query('SELECT count(*)::int total,count(*) FILTER(WHERE next_action_due_at<=now() AND NOT do_not_contact AND stage NOT IN (\\'won\\',\\'lost\\',\\'competitor\\'))::int followups_due,count(*) FILTER(WHERE stage IN (\\'interested\\',\\'meeting\\',\\'proposal\\',\\'negotiation\\'))::int interested,count(*) FILTER(WHERE stage=\\'meeting\\')::int meetings,count(*) FILTER(WHERE stage=\\'won\\')::int won FROM public.crm_leads WHERE user_id=$1',[user.id]),
+      db.query(`SELECT count(*)::int AS total,
+        count(*) FILTER(WHERE next_action_due_at<=now()
+          AND NOT do_not_contact AND stage NOT IN ('won','lost','competitor'))::int AS followups_due,
+        count(*) FILTER(WHERE stage IN ('interested','meeting','proposal','negotiation'))::int AS interested,
+        count(*) FILTER(WHERE stage='meeting')::int AS meetings,
+        count(*) FILTER(WHERE stage='won')::int AS won
+        FROM public.crm_leads WHERE user_id=$1`,[user.id]),
       db.query<{industry:string;count:number}>("SELECT industry,count(*)::int count FROM public.crm_leads WHERE user_id=$1 AND btrim(industry)<>'' GROUP BY industry ORDER BY industry",[user.id]),
       db.query<{total:number}>(prefix+' SELECT count(*)::int total FROM classified w WHERE '+workViewFilter('to_call'),[user.id,zone]),
     ]);
