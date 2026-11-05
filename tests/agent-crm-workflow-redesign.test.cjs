@@ -90,3 +90,13 @@ test('existing 9am reminder scheduler and tapping behavior remain intact',()=>{
   assert.match(notifications,/notificationLeadId/);
   assert.match(notifications,/cancelScheduledNotificationAsync/);
 });
+
+test('search includes leads hidden from selected work view',()=>{
+  const q=read('lib/agent-crm/work-queue.ts');
+  assert.match(q,/search \? 'true' : workViewFilter\(view\)/);
+});
+test('Save & Next continues To Call regardless of original list sort',()=>{
+  const lead=read('mobile-app/src/app/leads/[id].tsx');
+  assert.match(lead,/const nextView = channel === 'call' \? 'to_call' : 'for_you'/);
+  assert.match(lead,/view: nextView/);
+});

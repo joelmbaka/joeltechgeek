@@ -89,7 +89,7 @@ export default function LeadScreen() {
           setNextAction('');
           setDate('');
           setTime('');
-          setActionType('call');
+          setActionType(data.lead.next_action_type || 'call');
           setNotes('');
           setCompletionNotes('');
           setOptOut(false);
@@ -256,15 +256,18 @@ export default function LeadScreen() {
       if (user) void reconcileReminders(user).catch(() => {});
       if (advance && kind === 'call') {
         try {
+          // A calling session must continue in To Call, even when the user
+          // originally opened a lead through All Leads or High Priority.
+          const nextView = channel === 'call' ? 'to_call' : 'for_you';
           const params = new URLSearchParams({
-            view: view || 'for_you', industry: industry || 'all',
+            view: nextView, industry: industry || 'all',
             tz: timezone, limit: '25', offset: '0',
           });
           const next = await apiFetch<LeadList>('/api/agent-crm/leads?' + params);
           const candidate = next.leads.find((item) => item.id !== id);
           if (candidate) {
             router.replace({ pathname: '/leads/[id]',
-              params: { id: candidate.id, view: view || 'for_you', industry: industry || 'all' } });
+              params: { id: candidate.id, view: nextView, industry: industry || 'all' } });
           } else {
             router.replace('/');
           }

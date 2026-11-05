@@ -108,7 +108,9 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   if(search.length>120||industry.length>100) return NextResponse.json({ok:false,error:'Invalid filter.'},{status:400});
   const values:unknown[]=[user.id,zone];
   const bind=(value:unknown)=>{values.push(value);return '$'+values.length;};
-  const filters:string[]=[workViewFilter(view)];
+  // Search is global across work views, so a lead hidden as Done Today or
+  // Scheduled can always be found by company, contact or other context.
+  const filters:string[]=[search ? 'true' : workViewFilter(view)];
   if(industry==='__uncategorized__') filters.push("btrim(w.industry)=''");
   else if(industry && industry!=='all') filters.push('w.industry='+bind(industry));
   for(const word of search.split(/\s+/).filter(Boolean).slice(0,8)){
