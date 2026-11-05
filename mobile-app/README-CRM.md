@@ -1,5 +1,12 @@
 # JoelTechGeek CRM · Android MVP
 
+## Reminder default (November 5, 2026)
+The API now resolves omitted times into an actual date, time, timezone and UTC
+reminder instant. Current Android and web clients send their device IANA timezone;
+if unavailable, the backend explicitly defaults to Etc/UTC rather than assuming
+all users live in Nairobi. A one-time data-only backfill migration fills existing
+active, upcoming date-only reminders, without rewriting historical activity.
+
 ## Phase 5: individual user accounts (canonical)
 Phase 5 introduces **one identity table**, public Google sign-up, and consistent
 `user_id` owner columns. No agent registrations, organizations, workspaces or teams.
@@ -57,8 +64,10 @@ Leads are never saved to device storage. Opening a list, individual lead, or
 foregrounding the app fetches fresh data. Search is debounced 300ms, performed
 in PostgreSQL and paginated 25 at a time. Navigation requests use AbortController.
 
-Notifications: timed follow-ups only; date-only follow-ups remain in the Due
-queue. If permission is granted, Android schedules the next 50 future alarms.
+Notifications: date-only follow-ups default to 9:00 AM in the user's IANA timezone.
+For a same-day follow-up added after 9:00 AM, the backend schedules the next
+full minute at least 10 minutes ahead. Explicit times always take precedence.
+If permission is granted, Android schedules the next 50 future alarms.
 The app reconciles them with the server on visits and after mobile mutations.
 Android may deliver late due to battery restrictions, and an offline device
 cannot learn about a follow-up cancelled on the web until it reconnects.
@@ -74,7 +83,7 @@ cannot learn about a follow-up cancelled on the web until it reconnects.
 - Call outcome/history, action completion, contact change and follow-up edits work.
 - Android notification appears when mobile data/Wi-Fi are off; on tapping it,
   a live server request is made before presenting lead data.
-- Time-only without date is rejected; date-only generates no alarm.
+- Time-only without date is rejected; a date without time generates a local-time 9:00 AM alarm (or a near-term alarm if 9:00 AM today has passed).
 - Server failure displays Retry without deleting the refresh token.
 - npm lockfile is committed and matched to the mobile package manifest.
 
