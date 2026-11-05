@@ -30,6 +30,7 @@ type FormValues = {
   outcome: string;
   notes: string;
   next_action: string;
+  next_action_type: string;
   next_action_at: string;
   next_action_time: string;
   stage: string;
@@ -209,6 +210,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
 }) {
   const [form, setForm] = useState<FormValues>({
     channel: 'call', outcome: '', notes: '', next_action: lead.next_action || '',
+    next_action_type: lead.next_action_type || 'call',
     next_action_at: lead.next_action_at || '',
     next_action_time: lead.next_action_time?.slice(0, 5) || '',
     stage: '', do_not_contact: false,
@@ -216,6 +218,11 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
   const [companyName, setCompanyName] = useState(lead.company_name);
+  const [contextBrief, setContextBrief] = useState(lead.lead_brief || '');
+  const [contextDetails, setContextDetails] = useState(lead.important_details || '');
+  const [editingContext, setEditingContext] = useState(false);
+  const [savingContext, setSavingContext] = useState(false);
+  const [contextError, setContextError] = useState('');
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [identityError, setIdentityError] = useState('');
@@ -231,6 +238,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
   const [editingFollowup, setEditingFollowup] = useState(false);
   const [followupAction, setFollowupAction] = useState(lead.next_action || '');
+  const [followupType, setFollowupType] = useState(lead.next_action_type || 'call');
   const [followupDate, setFollowupDate] = useState(lead.next_action_at || '');
   const [followupTime, setFollowupTime] = useState(lead.next_action_time?.slice(0, 5) || '');
   const [savingFollowup, setSavingFollowup] = useState(false);
@@ -239,6 +247,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [showComplete, setShowComplete] = useState(false);
   const [completedNotes, setCompletedNotes] = useState('');
   const [completedNextAction, setCompletedNextAction] = useState('');
+  const [completedNextType, setCompletedNextType] = useState('call');
   const [completedNextDate, setCompletedNextDate] = useState('');
   const [completedNextTime, setCompletedNextTime] = useState('');
   const [completing, setCompleting] = useState(false);
@@ -320,6 +329,20 @@ function LeadDialog({ lead, onClose, onSaved }: {
     } finally { setSavingIdentity(false); }
   }
 
+  async function saveContext(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if(savingContext||contextBrief.length>220||contextDetails.length>5000)return;
+    setSavingContext(true);setContextError('');
+    try {
+      await api('/api/agent-crm/leads/'+lead.id+'/brief','PATCH',{
+        lead_brief:contextBrief.trim(),important_details:contextDetails.trim(),
+      });
+      setEditingContext(false);
+      await onSaved();
+    }catch(err){setContextError(errText(err));}
+    finally{setSavingContext(false);}
+  }
+
   async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.outcome || saving) return;
@@ -344,6 +367,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         // Otherwise preserve the existing follow-up contact on the server.
         ...(planFromCall ? { next_action_contact_id: form.do_not_contact ? null : callContactId || null } : {}),
         next_action: form.do_not_contact ? '' : planFromCall ? form.next_action : lead.next_action || '',
+        next_action_type: form.do_not_contact ? null : planFromCall ? form.next_action_type : lead.next_action_type,
         next_action_at: form.do_not_contact ? null
           : planFromCall ? form.next_action_at || null : lead.next_action_at || null,
         next_action_time: form.do_not_contact ? null
@@ -373,6 +397,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     try {
       await api('/api/agent-crm/leads/' + lead.id + '/followup', 'PATCH', {
         next_action: followupAction,
+        next_action_type: followupType,
         next_action_at: followupDate || null,
         next_action_time: followupTime || null,
         next_action_timezone: followupDate ? browserTimezone() : null,
@@ -398,6 +423,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
       await api('/api/agent-crm/leads/' + lead.id + '/actions', 'POST', {
         notes: completedNotes,
         next_action: completedNextAction,
+        next_action_type: completedNextType,
         next_action_at: completedNextDate || null,
         next_action_time: completedNextTime || null,
         next_action_timezone: completedNextDate ? browserTimezone() : null,
@@ -466,6 +492,35 @@ function LeadDialog({ lead, onClose, onSaved }: {
             </form>
           )}
         </div>
+        <section className="mt-4 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lead brief</p>
+          <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">
+            {contextBrief || lead.problem_summary || 'No lead brief yet'}
+          </p>
+          {contextDetails ? <p className="mt-2 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
+            <strong>Important details:</strong> {contextDetails}
+          </p> : null}
+          <button type="button" onClick={() => setEditingContext((v)=>!v)}
+            className="mt-2 text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+            {editingContext ? 'Cancel editing context' : 'Edit lead context'}
+          </button>
+          {editingContext && <form onSubmit={(e)=>void saveContext(e)}
+            className="mt-3 space-y-3">
+            <label className="block text-xs font-semibold">Lead brief (220 characters)
+              <textarea className={input} rows={2} maxLength={220} value={contextBrief}
+                onChange={(e)=>setContextBrief(e.target.value)} />
+            </label>
+            <label className="block text-xs font-semibold">Important details
+              <textarea className={input} rows={4} maxLength={5000} value={contextDetails}
+                onChange={(e)=>setContextDetails(e.target.value)} />
+            </label>
+            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>}
+            <button type="submit" disabled={savingContext}
+              className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
+              {savingContext ? 'Saving…' : 'Save context'}
+            </button>
+          </form>}
+        </section>
         {contacts !== null && <LeadContactsPanel leadId={lead.id} contacts={contacts}
           locked={lead.do_not_contact || lead.stage === 'competitor'} onUpdated={refreshContacts}/>}
         {lead.problem_summary && (
@@ -551,6 +606,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   </p>
                   {contactPicker(followupContactId, setFollowupContactChoice, 'Contact (optional)')}
                   <label className="block text-sm font-semibold">
+                    Action type
+                    <select className={input} value={followupType}
+                      onChange={(e)=>setFollowupType(e.target.value)}>
+                      {['call','email','whatsapp','meeting','other'].map((type)=>
+                        <option key={type} value={type}>{label(type)}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold">
                     Next action
                     <input required={Boolean(followupDate)} className={input} maxLength={300}
                       value={followupAction} onChange={(e) => setFollowupAction(e.target.value)}
@@ -592,6 +655,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         <textarea rows={2} maxLength={2500} className={input}
                           placeholder="What did you finish?"
                           value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} />
+                      </label>
+                      <label className="block text-sm font-semibold">
+                        Next action type
+                        <select className={input} value={completedNextType}
+                          onChange={(e)=>setCompletedNextType(e.target.value)}>
+                          {['call','email','whatsapp','meeting','other'].map((type)=>
+                            <option key={type} value={type}>{label(type)}</option>)}
+                        </select>
                       </label>
                       <label className="block text-sm font-semibold">
                         Next action (optional)
@@ -680,6 +751,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                 </button>
                 {planFromCall && (
                   <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+                    <label className="block text-sm font-semibold">
+                      Action type
+                      <select className={input} value={form.next_action_type}
+                        onChange={(e)=>setForm((x)=>({...x,next_action_type:e.target.value}))}>
+                        {['call','email','whatsapp','meeting','other'].map((type)=>
+                          <option key={type} value={type}>{label(type)}</option>)}
+                      </select>
+                    </label>
                     <label className="block text-sm font-semibold">
                       Next action
                       <input className={input} maxLength={300} disabled={form.do_not_contact}
