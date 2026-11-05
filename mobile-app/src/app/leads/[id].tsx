@@ -58,6 +58,9 @@ export default function LeadScreen() {
   const [editingContext, setEditingContext] = useState(false);
   const [briefDraft, setBriefDraft] = useState('');
   const [detailsDraft, setDetailsDraft] = useState('');
+  const [factsDraft, setFactsDraft] = useState<Array<{label:string;value:string}>>([]);
+  const [newFactLabel, setNewFactLabel] = useState('');
+  const [newFactValue, setNewFactValue] = useState('');
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
   const [optOut, setOptOut] = useState(false);
@@ -132,6 +135,8 @@ export default function LeadScreen() {
     if (!lead) return;
     setBriefDraft(lead.lead_brief || '');
     setDetailsDraft(lead.important_details || '');
+    setFactsDraft(lead.lead_facts || []);
+    setNewFactLabel('');setNewFactValue('');
     setEditingContext(true);
   };
   const saveContext = async () => {
@@ -143,6 +148,7 @@ export default function LeadScreen() {
         '/api/agent-crm/leads/' + encodeURIComponent(id) + '/brief',
         {method:'PATCH',body:JSON.stringify({
           lead_brief:briefDraft.trim(),important_details:detailsDraft.trim(),
+          lead_facts:factsDraft,
         })});
       setLead(result.lead);
       setEditingContext(false);
@@ -331,6 +337,28 @@ export default function LeadScreen() {
               onChangeText={setBriefDraft} multiline/>
             <Field label="Important details" value={detailsDraft}
               onChangeText={setDetailsDraft} multiline/>
+            {factsDraft.map((fact,index) => <View key={fact.label + index} style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.value}>{fact.label}</Text>
+                <Text style={styles.subtitle}>{fact.value}</Text>
+              </View>
+              <Button secondary onPress={() => setFactsDraft((current) =>
+                current.filter((_,itemIndex) => itemIndex !== index))}>Remove</Button>
+            </View>)}
+            <Field label="Fact label" value={newFactLabel} onChangeText={setNewFactLabel}
+              placeholder="e.g. Decision maker"/>
+            <Field label="Fact value" value={newFactValue} onChangeText={setNewFactValue}
+              placeholder="e.g. Operations manager"/>
+            <Button secondary disabled={factsDraft.length >= 12 || !newFactLabel.trim() ||
+              !newFactValue.trim() || newFactLabel.trim().length > 80 ||
+              newFactValue.trim().length > 300 ||
+              factsDraft.some((fact)=>fact.label.toLowerCase()===newFactLabel.trim().toLowerCase())}
+              onPress={() => {
+                setFactsDraft((current)=>[...current,{
+                  label:newFactLabel.trim(),value:newFactValue.trim(),
+                }]);
+                setNewFactLabel('');setNewFactValue('');
+              }}>Add important fact</Button>
             <Button disabled={saving || briefDraft.length > 220 || detailsDraft.length > 5000}
               onPress={() => void saveContext()}>{saving ? 'Saving…' : 'Save context'}</Button>
             <Button secondary disabled={saving} onPress={() => setEditingContext(false)}>Cancel</Button>
@@ -481,9 +509,12 @@ export default function LeadScreen() {
         reload();
         if (user) void reconcileReminders(user).catch(() => {});
       }}/>
-      {lead.important_details ? <View style={styles.card}>
+      {lead.important_details || lead.lead_facts?.length ? <View style={styles.card}>
         <Text style={styles.label}>Important details</Text>
-        <Text style={styles.value}>{lead.important_details}</Text>
+        {(lead.lead_facts || []).map((fact,index)=><Text key={index} style={styles.subtitle}>
+          {fact.label}: {fact.value}
+        </Text>)}
+        {lead.important_details ? <Text style={styles.value}>{lead.important_details}</Text> : null}
       </View> : null}
       <Pressable accessibilityRole="button" onPress={() => setHistoryExpanded((v) => !v)}
         style={styles.card}>
