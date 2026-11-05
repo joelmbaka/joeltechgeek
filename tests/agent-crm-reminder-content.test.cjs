@@ -95,3 +95,15 @@ test('company and selected-contact edits trigger notification reconciliation', (
   assert.match(screen, /setEditingIdentity\(false\);\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
   assert.match(screen, /<LeadContacts[\s\S]*?onRefresh=\{\(\) => \{\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
 });
+
+test('Android may serialize notification data numbers as strings', async () => {
+  const { buildReminderPreview, isCurrentScheduledReminder, REMINDER_PREVIEW_VERSION } = await modulePromise;
+  const preview = buildReminderPreview(reminder());
+  const existing = {content:{
+    title: preview.title, body: preview.body, data: {
+      crm_user_id:'owner-uuid', lead_id:reminder().id,
+      due:String(preview.dueAtMs),reminder_preview_version:String(REMINDER_PREVIEW_VERSION),
+    },
+  }};
+  assert.equal(isCurrentScheduledReminder(existing,'owner-uuid',reminder().id,preview),true);
+});

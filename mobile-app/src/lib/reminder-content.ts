@@ -72,8 +72,8 @@ export function isCurrentScheduledReminder(
   const data = existing.content.data;
   return data?.crm_user_id === userId &&
     data?.lead_id === leadId &&
-    data?.due === preview.dueAtMs &&
-    data?.reminder_preview_version === REMINDER_PREVIEW_VERSION &&
+    String(data?.due) === String(preview.dueAtMs) &&
+    Number(data?.reminder_preview_version) === REMINDER_PREVIEW_VERSION &&
     existing.content.title === preview.title &&
     existing.content.body === preview.body;
 }
