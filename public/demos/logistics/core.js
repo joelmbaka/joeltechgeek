@@ -12,10 +12,10 @@ const PORTS=[
  {id:"naivasha",name:"Naivasha",region:"Nakuru"},
  {id:"thika",name:"Thika",region:"Kiambu"}
 ];
-const STATUSES=["Open","Booked","Assigned","Picked up","In transit","Delivered","Complete"];
+const STATUSES=["Open","Assigned","In transit","Delivered","Complete"];
 const CONSIGNEES=["Harbor Freight Co.","Cedar Imports Ltd.","Nairobi Distribution Hub","Valley Logistics Ltd."];
-const NEXT={"Assigned":"Picked up","Picked up":"In transit","In transit":"Delivered","Delivered":"Complete"};
-const LABELS={pickup:"Pickup photo",delivery:"Delivery note",eir:"Equipment Interchange Receipt (EIR)"};
+const NEXT={"Assigned":"In transit","In transit":"Delivered","Delivered":"Complete"};
+const LABELS={pickup:"Loaded truck photo (container visible)",delivery:"Delivery note",eir:"Equipment Interchange Receipt (EIR)"};
 const now=()=>new Date().toISOString();
 const loc=id=>PORTS.find(p=>p.id===id);
 const find=(d,id)=>d.loads.find(l=>l.id===id);
@@ -23,7 +23,7 @@ const str=(v,name,min=3,max=140)=>{const s=String(v??"").trim();if(s.length<min|
 const int=(v,name,min=0,max=10000000)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isSafeInteger(n)||n<min||n>max)throw new Error(name+" must be a whole number between "+min+" and "+max+".");return n;};
 const num=(v,name,min,max)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)throw new Error(name+" must be between "+min+" and "+max+".");return Math.round(n*10)/10;};
 const add=(d,title,detail,loadId)=>d.activity.unshift({id:"ACT-"+(d.activity.length+1),at:now(),title,detail,loadId});
-const active=d=>d.loads.find(l=>l.driver?.id===d.driver.id&&l.status!=="Complete");
+const active=(d,driverId=d.driver.id)=>d.loads.find(l=>l.driver?.id===driverId&&["Assigned","In transit","Delivered"].includes(l.status));
 function fields(d,v,original){
  const from=loc(v.originId),to=loc(v.destinationId);
  if(!from||!to)throw new Error("Select both pickup and delivery locations.");
@@ -51,62 +51,47 @@ function post(d,v){
 }
 function edit(d,id,v){
  const load=find(d,id);
- if(!load||load.status!=="Open")throw new Error("Only open, unbooked loads can be edited.");
+ if(!load||load.status!=="Open")throw new Error("Only open loads can be edited.");
  const details=fields(d,v,load);Object.assign(load,details,{updatedAt:now()});
  add(d,"Load updated",load.id+" · KES "+load.driverPay.toLocaleString()+" driver pay.",id);return load;
 }
 function remove(d,id){
  const load=find(d,id);
- if(!load||load.status!=="Open")throw new Error("Only open, unbooked loads can be deleted.");
+ if(!load||load.status!=="Open")throw new Error("Only open loads can be deleted.");
  d.loads=d.loads.filter(l=>l.id!==id);add(d,"Load deleted",id+" removed from the board.",id);return id;
 }
-function book(d,id){
+function assign(d,id,driverId){
  const load=find(d,id);
- if(!load||load.status!=="Open")throw new Error("Only open loads can be booked.");
- if(active(d))throw new Error("You already have a booked or active load. Complete it before booking another.");
- if(load.weightTons>d.driver.capacityTons)throw new Error("Load weight exceeds your truck's "+d.driver.capacityTons+"-tonne capacity.");
- load.driver={id:d.driver.id,name:d.driver.name,truckPlate:d.driver.truckPlate};
+ if(!load||load.status!=="Open")throw new Error("Only open loads can be assigned.");
+ const driver=d.fleet.find(x=>x.id===driverId);
+ if(!driver)throw new Error("Choose an available truck and driver.");
+ if(load.weightTons>driver.capacityTons)throw new Error("This load exceeds the truck's "+driver.capacityTons+"-tonne capacity.");
+ if(active(d,driver.id)||d.loads.some(l=>l.id!==id&&["Assigned","In transit","Delivered"].includes(l.status)&&l.driver?.truckPlate===driver.truckPlate))
+   throw new Error("This truck or driver already has an active load.");
+ load.driver={id:driver.id,name:driver.name,truckPlate:driver.truckPlate};
  load.truck={location:loc(load.originId).name+" · sample",miles:0,updatedAt:now()};
- load.status="Booked";load.updatedAt=now();
- add(d,"Booking requested",d.driver.name+" requested "+id+". Waiting for dispatcher approval.",id);return load;
-}
-function approve(d,id){
- const load=find(d,id);
- if(!load||load.status!=="Booked"||!load.driver)throw new Error("Only booked loads can be approved.");
  load.status="Assigned";load.updatedAt=now();
- add(d,"Driver approved",load.id+" assigned to "+load.driver.name,load.id);return load;
+ add(d,"Truck assigned",load.id+" assigned to "+driver.truckPlate+" · "+driver.name,id);
+ return load;
 }
-function cancel(d,id){
+function progress(d,id,next,evidence){
  const load=find(d,id);
- if(!load||load.status!=="Booked"||load.driver?.id!==d.driver.id)throw new Error("Only your pending booking can be cancelled.");
- load.status="Open";load.driver=null;load.truck=null;load.updatedAt=now();
- add(d,"Booking cancelled",id+" returned to open loads.",id);return load;
-}
-function decline(d,id){
- const load=find(d,id);
- if(!load||load.status!=="Booked")throw new Error("Only a pending booking can be declined.");
- load.status="Open";load.driver=null;load.truck=null;load.updatedAt=now();
- add(d,"Reservation declined",id+" returned to the open board.",id);return load;
-}
-function progress(d,id,next){
- const load=find(d,id);
- if(!load||load.driver?.id!==d.driver.id)throw new Error("Only the assigned driver can update this trip.");
+ if(!load||!load.driver)throw new Error("Assign a truck and driver before progressing a load.");
  if(NEXT[load.status]!==next)throw new Error("Trip status cannot skip or repeat stages.");
- const evidenceType={"Picked up":"pickup","Delivered":"delivery","Complete":"eir"}[next];
- const miles=load.routeMiles,truck=load.truck||{miles:0,location:"Awaiting pickup"};
+ const evidenceType={"In transit":"pickup","Delivered":"delivery","Complete":"eir"}[next];
+ if(!evidenceType||!evidence||typeof evidence.filename!=="string"||!evidence.filename.trim()||
+    typeof evidence.preview!=="string"||!/^data:image\/jpeg;base64,/.test(evidence.preview)||evidence.preview.length>750000)
+   throw new Error("A valid photo of the required evidence must be attached before this status can change.");
+ const miles=load.routeMiles,truck=load.truck||{miles:0,location:"Awaiting dispatch"};
  switch(next){
-  case "Picked up":truck.miles=8;truck.location=loc(load.originId).name+" · pickup (sample)";break;
-  case "In transit":truck.miles=Math.max(truck.miles,Math.round(miles*.42));truck.location="En route to "+loc(load.destinationId).name+" · simulated";break;
+  case "In transit":truck.miles=Math.max(truck.miles,Math.round(miles*.12));truck.location="En route to "+loc(load.destinationId).name+" · sample";break;
   case "Delivered":truck.miles=miles;truck.location=loc(load.destinationId).name+" · delivered (sample)";break;
   case "Complete":truck.miles=miles*2;truck.location=loc(load.returnId||"mombasa-port").name+" · empty container returned (sample)";break;
  }
- if(evidenceType&&!load.evidence[evidenceType]){
-  load.evidence[evidenceType]={type:evidenceType,label:LABELS[evidenceType],
-   reference:"SAMPLE-"+evidenceType.toUpperCase()+"-"+load.id,
-   placeholder:true,at:now()};
- }
+ load.evidence[evidenceType]={type:evidenceType,label:LABELS[evidenceType],filename:evidence.filename.slice(0,120),
+  preview:evidence.preview,placeholder:false,at:now()};
  truck.updatedAt=now();load.truck=truck;load.status=next;load.updatedAt=now();
- add(d,"Load "+next.toLowerCase(),id+" · "+truck.location,id);return load;
+ add(d,"Load "+next.toLowerCase(),id+" · "+truck.location+" · evidence attached",id);return load;
 }
 function pay(d,id){
  const load=find(d,id);
@@ -123,21 +108,26 @@ const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,nam
   evidence:{pickup:null,delivery:null,eir:null},
   payment:{status:payment,reference:payment==="Paid"?"SIM-PAY-"+id:null,paidAt:payment==="Paid"?"2026-10-31T12:00:00Z":null}
  };
- if(["Picked up","In transit","Delivered","Complete"].includes(status))load.evidence.pickup={type:"pickup",label:LABELS.pickup,reference:"SAMPLE-PICKUP-"+id,placeholder:true};
+ if(["In transit","Delivered","Complete"].includes(status))load.evidence.pickup={type:"pickup",label:LABELS.pickup,reference:"SAMPLE-PICKUP-"+id,placeholder:true};
  if(["Delivered","Complete"].includes(status))load.evidence.delivery={type:"delivery",label:LABELS.delivery,reference:"SAMPLE-DELIVERY-"+id,placeholder:true};
  if(status==="Complete")load.evidence.eir={type:"eir",label:LABELS.eir,reference:"SAMPLE-EIR-"+id,placeholder:true};
  return load;
 };
 function seed(){
- return {version:2,nextId:3100,
+ return {version:3,nextId:3100,
   driver:{id:"DRV-DEMO-001",name:"Kevin Mwangi (fictional)",truckPlate:"KDA 384P · DEMO",capacityTons:28},
+  fleet:[
+   {id:"DRV-DEMO-001",name:"Kevin Mwangi (fictional)",truckPlate:"KDA 384P · DEMO",capacityTons:28},
+   {id:"DRV-DEMO-002",name:"Amina Wanjiku (fictional)",truckPlate:"KDU 537R · DEMO",capacityTons:24},
+   {id:"DRV-DEMO-003",name:"Peter Otieno (fictional)",truckPlate:"KBA 241L · DEMO",capacityTons:26}
+  ],
   loads:[
    sample("LD-3088","mombasa-port","nairobi-icd","Open",280000,22,305,null,0,"",null),
    sample("LD-3089","mombasa-port","nakuru","Open",310000,21,360,null,0,"",null),
    sample("LD-3090","mombasa-cfs","eldoret","Open",340000,24,430,null,0,"",null),
-   sample("LD-3087","mombasa-port","kisumu","Booked",330000,20,465,"KDK 218C",0,"Mombasa Port","Joseph N. (sample)"),
+   sample("LD-3087","mombasa-port","kisumu","Open",330000,20,465,null,0,"",null),
    sample("LD-3086","mombasa-port","nairobi-icd","Assigned",280000,19,305,"KCY 319P",0,"Mombasa Port","Peter O. (sample)"),
-   sample("LD-3085","mombasa-port","athi-river","Picked up",275000,20,291,"KCN 205J",8,"Mariakani","Brian L. (sample)"),
+   sample("LD-3085","mombasa-port","athi-river","In transit",275000,20,291,"KCN 205J",8,"Mariakani","Brian L. (sample)"),
    sample("LD-3084","mombasa-port","nairobi-icd","In transit",295000,22,305,"KDH 117A",128,"Voi · A109","Esther K. (sample)"),
    sample("LD-3083","mombasa-port","nakuru","Delivered",310000,21,360,"KDJ 908M",360,"Nakuru ICD","Moses T. (sample)"),
    sample("LD-3082","mombasa-port","nairobi-icd","Complete",280000,20,305,"KCC 290Q",610,"Mombasa Port","Njeri W. (sample)"),
@@ -148,14 +138,14 @@ function seed(){
 }
 function metrics(d){
  const count=s=>d.loads.filter(l=>l.status===s).length;
- return {total:d.loads.length,open:count("Open"),booked:count("Booked"),moving:d.loads.filter(l=>["Picked up","In transit","Delivered"].includes(l.status)).length,
+ return {total:d.loads.length,open:count("Open"),assigned:count("Assigned"),moving:d.loads.filter(l=>["In transit","Delivered"].includes(l.status)).length,
   completed:count("Complete"),unpaid:d.loads.filter(l=>l.status==="Complete"&&l.payment.status==="Unpaid").length,
   owed:d.loads.filter(l=>l.status==="Complete"&&l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0)};
 }
 function validate(d){
- return !!d&&d.version===2&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&!!d.driver&&
+ return !!d&&d.version===3&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&Array.isArray(d.fleet)&&!!d.driver&&
    typeof d.driver.id==="string"&&Number.isSafeInteger(d.nextId)&&
    d.loads.every(l=>!!l&&typeof l.id==="string"&&STATUSES.includes(l.status)&&!!l.evidence&&!!l.payment);
 }
-return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,book,approve,cancel,decline,progress,pay};
+return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,post,edit,remove,assign,progress,pay};
 })();
