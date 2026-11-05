@@ -113,6 +113,67 @@
    '<button type="button" class="cargo-modal-close" data-action="modal-close" aria-label="Close form">×</button></header>'+
    '<div class="cargo-modal-body">'+create()+'</div></section></div>';
  }
+
+ function assignmentModal(){
+  if(!assignmentFor)return "";
+  const l=core.find(data,assignmentFor);
+  if(!l||l.status!=="Open")return "";
+  const choices=data.fleet.map(x=>{
+   const unavailable=!!core.active(data,x.id),overweight=l.weightTons>x.capacityTons;
+   return '<option value="'+esc(x.id)+'" '+(unavailable||overweight?"disabled":"")+'>'+
+    esc(x.truckPlate+" · "+x.name+" · "+x.capacityTons+" t"+(unavailable?" (busy)":overweight?" (capacity exceeded)":""))+'</option>';
+  }).join("");
+  const available=data.fleet.some(x=>!core.active(data,x.id)&&l.weightTons<=x.capacityTons);
+  return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="assignment-close" aria-label="Close assignment"></button>'+
+   '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title">'+
+   '<header class="cargo-modal-header"><h2 id="assignment-modal-title">Assign truck · '+esc(l.id)+'</h2>'+
+   '<button type="button" class="cargo-modal-close" data-action="assignment-close" aria-label="Close assignment">×</button></header>'+
+   '<div class="cargo-modal-body"><form id="assignment-form" class="form-view"><div class="form-fields">'+
+   '<label>🚚 Truck and driver<select name="driverId" required>'+choices+'</select></label></div>'+
+   '<p class="hint">Dispatcher chooses a truck. Driver receives the assigned load in their demo view; no booking is required.</p>'+
+   (available?'<button class="button primary wide" type="submit">Assign Load</button>':'<p class="hint warning">No available truck can carry this load.</p>')+
+   '</form></div></section></div>';
+ }
+ function evidenceModal(){
+  if(!proofFor)return "";
+  const l=core.find(data,proofFor.id);
+  if(!l)return "";
+  const spec={
+   "In transit":["Loaded truck photo","Take or select a photo of the loaded truck with its container clearly visible before starting transit."],
+   "Delivered":["Delivery note","Take or select a legible photo of the delivery note as proof of delivery."],
+   "Complete":["Equipment Interchange Receipt (EIR)","Take or select a clear photo of the EIR after the empty container has been returned."]
+  }[proofFor.next];
+  if(!spec)return "";
+  return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="proof-close" aria-label="Close evidence form"></button>'+
+   '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="evidence-modal-title">'+
+   '<header class="cargo-modal-header"><h2 id="evidence-modal-title">'+esc(proofFor.next)+' · '+esc(l.id)+'</h2>'+
+   '<button type="button" class="cargo-modal-close" data-action="proof-close" aria-label="Close evidence form">×</button></header>'+
+   '<div class="cargo-modal-body"><form id="evidence-form" class="form-view">'+
+   '<p class="hint"><strong>'+esc(spec[0])+' required.</strong> '+esc(spec[1])+'</p>'+
+   '<div class="proof-input"><label for="evidence-image">📷 '+esc(spec[0])+'</label>'+
+   '<input id="evidence-image" name="evidence" type="file" accept="image/*" required/></div>'+
+   '<button type="submit" class="button primary wide">Confirm '+esc(proofFor.next)+'</button>'+
+   '<p class="hint">Demo only: selected photos are resized and stored in this browser, not uploaded to any server.</p>'+
+   '</form></div></section></div>';
+ }
+ async function imageEvidence(file){
+  if(!file||!file.type.startsWith("image/"))throw new Error("Select a valid photo.");
+  if(file.size>12*1024*1024)throw new Error("Choose a photo under 12 MB.");
+  const bitmap=await createImageBitmap(file);
+  try{
+   const factor=Math.min(1,900/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement("canvas");
+   canvas.width=Math.max(1,Math.round(bitmap.width*factor));
+   canvas.height=Math.max(1,Math.round(bitmap.height*factor));
+   const ctx=canvas.getContext("2d");
+   if(!ctx)throw new Error("Unable to process this photo.");
+   ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   const preview=canvas.toDataURL("image/jpeg",0.58);
+   if(preview.length>750000)throw new Error("Photo is too large after compression; choose a smaller image.");
+   return {filename:file.name.slice(0,120),preview};
+  }finally{bitmap.close?.();}
+ }
+
  const drivers=()=>data.fleet;
  function fleetDirectory(){
   const trucks=new Map();
@@ -241,12 +302,35 @@ function render(){
   if(a==="pay"&&role==="dispatcher"){done(()=>core.pay(data,id),"Driver payment marked paid (demo).");return;}
  });
  document.addEventListener("submit",event=>{
-  const form=event.target;if(form.id!=="cargo-form"||!mount.contains(form))return;
+  const form=event.target;
+  if(!mount.contains(form))return;
+  if(form.id==="assignment-form"){
+   event.preventDefault();if(role!=="dispatcher"||!assignmentFor)return;
+   const id=assignmentFor,driver=String(new FormData(form).get("driverId")||"");
+   done(()=>{core.assign(data,id,driver);assignmentFor=null;},"Truck assigned to load.");return;
+  }
+  if(form.id==="evidence-form"){
+   event.preventDefault();if(!proofFor)return;
+   const ctx={...proofFor},load=core.find(data,ctx.id);
+   if(!load||!(role==="dispatcher"||own(load)))return;
+   const file=form.querySelector('input[type="file"]')?.files?.[0];
+   const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+   (async()=>{
+    try{
+     const evidence=await imageEvidence(file);
+     core.progress(data,ctx.id,ctx.next,evidence);
+     proofFor=null;save();toast="Load marked "+ctx.next.toLowerCase()+"; photo attached locally.";
+    }catch(ex){toast=ex?.message||"Could not attach evidence.";}
+    render();
+   })();
+   return;
+  }
+  if(form.id!=="cargo-form")return;
   event.preventDefault();if(role!=="dispatcher")return;
   const vals=Object.fromEntries(new FormData(form).entries());
   if(form.dataset.kind==="new")done(()=>{const l=core.post(data,vals);selected=l.id;screen="detail";formOpen=false;},"Load posted.");
   if(form.dataset.kind==="edit")done(()=>{core.edit(data,selected,vals);screen="detail";formOpen=false;},"Load updated.");
  });
- document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(formOpen){formOpen=false;render();}else if(drawer){drawer=false;render();}else if(screen)back();}});
+ document.addEventListener("keydown",event=>{if(event.key==="Escape"){if(proofFor){proofFor=null;render();}else if(assignmentFor){assignmentFor=null;render();}else if(formOpen){formOpen=false;render();}else if(drawer){drawer=false;render();}else if(screen)back();}});
  render();
 })(cargoCore);
