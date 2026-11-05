@@ -1,6 +1,6 @@
 (function cargoMobile(core){
  "use strict";
- const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v6";
+ const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v7";
  const esc=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
  const money=n=>"KSH "+Number(n||0).toLocaleString("en-KE");
  const place=id=>core.loc(id)?.name||"Unknown location";
@@ -38,11 +38,27 @@
    '<div class="card-bottom"><span>🛣 Full trip: '+l.routeMiles+' mi · sample</span><span>🕒 '+esc(l.id)+'</span>'+
    (l.driver?'<span class="driver-name">◉ '+esc(l.driver.name)+'</span>':"")+'</div></button>';
  };
+ function assignmentSnapshot(){
+  const pendingStatuses=["Assigned","In transit","Delivered"];
+  const rows=data.drivers.map(driver=>{
+   const pending=data.loads.filter(l=>l.driver?.id===driver.id&&pendingStatuses.includes(l.status));
+   const eligibility=core.assignmentAvailability(data,driver.id);
+   const stage=pending.length?pending.map(l=>l.status).join(" + "):"No unfinished loads";
+   const status=eligibility.allowed?(pending.length?"2nd load eligible":"Available"):(pending.length>=2?"2/2 · Full":"Wait until Delivered");
+   return '<div class="assignment-snapshot-row"><span><strong>'+esc(driver.name.replace(" (fictional)",""))+
+    '</strong><small>'+esc(stage)+'</small></span><span class="assignment-snapshot-status '+(eligibility.allowed?"eligible":"blocked")+'">'+esc(status)+'</span></div>';
+  }).join("");
+  return '<section class="assignment-snapshot" aria-label="Driver assignment availability">'+
+   '<h2>Driver assignment availability</h2>'+
+   '<p>Maximum 2 unfinished loads. Assign #2 after #1 is Delivered; start #2 only when #1 is Complete.</p>'+
+   '<div class="assignment-snapshot-list">'+rows+'</div></section>';
+ }
  function board(){
   const items=list(),query=search.trim().toLowerCase();
   const found=items.filter(l=>(l.id+" "+l.containerNo+" "+place(l.originId)+" "+place(l.destinationId)+" "+l.driver?.name+" "+truckFor(l.driver?.id)?.truckPlate).toLowerCase().includes(query));
   return '<div class="board"><div class="board-head"><h1>'+({board:"Board",active:"Active",history:"History"}[tab])+'</h1>'+
    (tab==="board"&&role==="dispatcher"?btn("＋ New Load","new",null,"primary"):"")+'</div>'+
+   (role==="dispatcher"&&tab==="board"?assignmentSnapshot():"")+
    '<div class="search-field"><span>⌕</span><input id="load-search" aria-label="Search loads" placeholder="Search pickup, destination, container, truck, or driver" value="'+esc(search)+'"/></div>'+
    (role==="dispatcher"&&tab==="board"?'<div class="board-filter"><label>Status <select id="board-filter">'+["Board","All",...core.STATUSES].map(s=>'<option value="'+esc(s)+'" '+(filter===s?"selected":"")+'>'+esc(s==="Board"?"Open & assigned":s==="All"?"All statuses":s)+'</option>').join("")+'</select></label><span>'+found.length+' loads</span></div>':
    '<p class="load-total">'+found.length+' '+(tab==="board"?"assigned":tab==="active"?"active":"completed")+' loads</p>')+
@@ -315,7 +331,7 @@ function render(){
   if(a==="proof"){const l=core.find(data,id);if(!l||!(role==="dispatcher"||own(l))||!nextFor[l.status])return;proofFor={id,next:nextFor[l.status]};render();return;}
   if(a==="modal-close"){formOpen=false;toast="";render();return;}
   if(a==="dismiss"){toast="";render();return;}
-  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data and local evidence photos?"))return;data=core.seed();driverId=data.driver.id;save();screen=null;formOpen=false;assignmentFor=null;proofFor=null;pairFor=null;tab="board";filter="Board";search="";drawer=false;toast="Sample loads restored.";render();return;}
+  if(a==="reset"){if(!window.confirm("Reset fictional Cargo Dispatch data and local evidence photos?"))return;data=core.seed();role="dispatcher";driverId=data.driver.id;save();screen=null;formOpen=false;assignmentFor=null;proofFor=null;pairFor=null;tab="board";filter="Board";search="";drawer=false;toast="Demo reset: five driver assignment scenarios restored.";render();return;}
   if(a==="new"&&role==="dispatcher"){formOpen=true;mode="new";selected=null;render();return;}
   if(a==="edit"&&role==="dispatcher"){formOpen=true;mode="edit";selected=id;render();return;}
   if(a==="delete"&&role==="dispatcher"){
