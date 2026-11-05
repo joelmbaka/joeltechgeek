@@ -125,6 +125,9 @@ export type Lead = {
   existing_system: string | null;
   problem_summary: string | null;
   qualification_reason: string | null;
+  lead_brief: string | null;
+  important_details: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   source_url: string | null;
   priority: 'high' | 'normal' | 'low';
   stage: LeadStage;

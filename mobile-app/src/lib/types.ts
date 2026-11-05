@@ -5,6 +5,10 @@ export type Lead = {
   contact_role: string | null; phone: string | null; email: string | null;
   existing_system: string | null; problem_summary: string | null;
   qualification_reason: string | null; source_url: string | null;
+  lead_brief: string | null; important_details: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
+  work_state?: string; last_call_at?: string | null;
+  failed_call_streak?: number; retry_eligible_at?: string | null; last_worked_at?: string | null;
   priority: 'high' | 'normal' | 'low'; stage: string;
   last_outcome: string | null; last_activity_channel: ActivityChannel | null; last_notes: string | null;
   next_action: string | null; next_action_at: string | null;
