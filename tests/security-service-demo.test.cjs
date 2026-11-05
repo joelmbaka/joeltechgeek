@@ -61,7 +61,9 @@ test('manager can schedule a night shift but overlapping staff assignments are r
   assert.equal(m.dayOfInstant(shift.endAt),'2026-11-06');
   assert.equal(m.shiftOnDay(shift,'2026-11-06'),true);
   assert.equal(data.shifts.length+1,added.shifts.length);
-  assert.throws(()=>m.assignShift(data,'s-day','peter'),/overlapping shift/);
+  const extra = m.addShift(data,'karen','peter','2026-11-05','19:00','21:00');
+  assert.throws(()=>m.assignShift(extra,'s-night','peter'),/overlapping shift/);
+  assert.throws(()=>m.assignShift(data,'s-day','daniel'),/Only unstarted shifts/);
   const changed = m.assignShift(data,'s-night','daniel');
   assert.equal(find(changed.shifts,'s-night').staffId,'daniel');
 });
@@ -77,6 +79,11 @@ test('telephone attendance remains unverified until manager confirmation', () =>
   assert.equal(find(confirmed.shifts,'s-westlands').confirmedBy,'Grace · Security Manager');
   const completed = m.completeShift(confirmed,'s-westlands');
   assert.equal(find(completed.shifts,'s-westlands').attendance,'completed');
+});
+
+test('future shifts cannot be marked present before starting', () => {
+  const future = m.seedDemo('2099-01-01');
+  assert.throws(()=>m.confirmAttendance(future,'s-day','supervisor'),/future shift cannot be checked in/);
 });
 
 test('issues have stable IDs, chronological status history and sample attachments', () => {
