@@ -133,7 +133,7 @@
    '<button type="button" class="cargo-modal-close" data-action="assignment-close" aria-label="Close assignment">×</button></header>'+
    '<div class="cargo-modal-body"><form id="assignment-form" class="form-view"><div class="form-fields">'+
    '<label>👤 Driver<select name="driverId" required>'+choices+'</select></label></div>'+
-   '<p class="hint">Assign to a driver, not a truck. Allocate the driver's truck in Fleet. Additional assigned loads can be queued, but only one trip may be active in transit.</p>'+
+   '<p class="hint">Assign to a driver, not a truck. Pair the driver’s truck in Fleet. Additional assigned loads can be queued, but only one trip may be active in transit.</p>'+
    (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">No eligible driver for this load.</p>')+
    '</form></div></section></div>';
  }
