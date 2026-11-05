@@ -235,7 +235,7 @@ export default function SecurityExperience() {
       <SectionTitle title="Daily activity" note="Select an event or duty shift to view its record ID, all related activities, and evidence."/>
       {timeline.length===0 ? <Card>
         <p className={textMuted}>There are no sample site records for this date.</p>
-        <p className="mt-2 text-[11px] leading-5 text-[#6c8979]">Sample history covers {formatDay(windowStart)} through today, with planned shifts until {formatDay(windowEnd)}. Outside that window, dates remain empty.</p>
+        <p className="mt-2 text-[11px] leading-5 text-[#6c8979]">Sample history is generated from {formatDay(windowStart)} to today, with planned shifts through {formatDay(windowEnd)}. Dates farther away do not receive additional sample records; a night shift may still carry into the following day.</p>
         <button type="button" className={secondary+' mt-3 w-full'} onClick={()=>changeRosterDate(kenyaToday())}>Return to today</button>
       </Card> : <div className="space-y-3">
         {timeline.map(row=><button type="button" key={row.id}
