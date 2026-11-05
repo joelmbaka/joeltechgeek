@@ -83,7 +83,7 @@ test('telephone attendance remains unverified until manager confirmation', () =>
 
 test('future shifts cannot be marked present before starting', () => {
   const future = m.seedDemo('2099-01-01');
-  assert.throws(()=>m.confirmAttendance(future,'s-day','supervisor'),/future shift cannot be checked in/);
+  assert.throws(()=>m.confirmAttendance(future,'s-night','supervisor'),/future shift cannot be checked in/);
 });
 
 test('issues have stable IDs, chronological status history and sample attachments', () => {
