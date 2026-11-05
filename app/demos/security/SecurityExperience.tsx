@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  AlertCircle, ArrowRight, Bell, Building2, CalendarDays, Check, CheckCircle2,
-  ClipboardCheck, Clock3, FileText, Info, MapPin, MessageSquarePlus,
-  Phone, RotateCcw, Send, ShieldCheck, Users, WifiOff
+  AlertCircle, ArrowRight, Bell, CheckCircle2, Clock3, FileText, Info,
+  MapPin, MessageSquarePlus, Phone, RotateCcw, Send, ShieldCheck, WifiOff
 } from 'lucide-react';
 import {
   STORAGE_KEY, seedDemo, assignGuard, markArrival, recordDeparture,
-  raiseIssue, progressIssue, publishReport,
+  raiseIssue, logSiteIncident, progressIssue, publishReport,
   type Attendance, type Day, type DemoData, type Issue, type IssueStatus, type Role, type Shift
 } from './security-demo-model';
 
@@ -72,6 +71,9 @@ export default function SecurityExperience() {
   const [message, setMessage] = useState('');
   const [issueTitle, setIssueTitle] = useState('');
   const [issueDetail, setIssueDetail] = useState('');
+  const [incidentSiteId, setIncidentSiteId] = useState('greenview');
+  const [incidentTitle, setIncidentTitle] = useState('');
+  const [incidentDetail, setIncidentDetail] = useState('');
   const [responseNotes, setResponseNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -82,7 +84,10 @@ export default function SecurityExperience() {
         if (parsed && typeof parsed === 'object' && 'version' in parsed &&
             parsed.version === 2 && 'shifts' in parsed && Array.isArray(parsed.shifts) &&
             'issues' in parsed && Array.isArray(parsed.issues) &&
-            'activity' in parsed && Array.isArray(parsed.activity)) setData(parsed as DemoData);
+            'activity' in parsed && Array.isArray(parsed.activity) &&
+            'sites' in parsed && Array.isArray(parsed.sites) && parsed.sites.length > 0 &&
+            'guards' in parsed && Array.isArray(parsed.guards) &&
+            'reports' in parsed && Array.isArray(parsed.reports)) setData(parsed as DemoData);
       }
     } catch {
       // Corrupt or inaccessible local storage must never block the public demo.
@@ -142,7 +147,7 @@ export default function SecurityExperience() {
           {shift.confirmedBy && <p>Confirmed by: {shift.confirmedBy}</p>}
         </div>}
         {context !== 'client' && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Staff contact: {guard?.phone || 'Not available'} · Sample directory</p>}
-        {context === 'client' && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">For assistance, contact your security control room: {currentSite.controlRoom}</p>}
+        {context === 'client' && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{guard?.workContact ? 'Approved guard work contact: ' + guard.workContact + ' · ' : ''}Security control room: {currentSite.controlRoom}</p>}
         {editable && <div className="mt-4">
           <label htmlFor={'assign-' + shift.id} className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Change assigned officer</label>
           <select id={'assign-' + shift.id} className={input} value={shift.guardId}
@@ -161,7 +166,7 @@ export default function SecurityExperience() {
     const next = NEXT[issue.status];
     return <Card key={issue.id}>
       <div className="flex items-start justify-between gap-3">
-        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{data.sites.find(s => s.id === issue.siteId)?.name} · {issue.origin === 'client' ? 'Client request' : 'Operations'}</p>
+        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{data.sites.find(s => s.id === issue.siteId)?.name} · {issue.origin === 'client' ? 'Client request' : 'Site incident'}</p>
           <h3 className="mt-1 font-bold text-slate-900 dark:text-white">{issue.title}</h3></div>
         <Pill status={issue.status} />
       </div>
@@ -179,6 +184,36 @@ export default function SecurityExperience() {
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>}
+    </Card>;
+  }
+
+  function incidentForm() {
+    return <Card className="mb-5">
+      <h3 className="font-bold">Log a security incident</h3>
+      <p className="mt-1 text-xs text-slate-500">Record a site incident from the office or supervisor's company device. It appears in the relevant client portal.</p>
+      <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={e => {
+        e.preventDefault();
+        try {
+          setData(logSiteIncident(data, incidentSiteId, incidentTitle, incidentDetail));
+          setIncidentTitle(''); setIncidentDetail('');
+          setMessage('Site incident logged and added to the client portal.');
+        } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not record the incident.'); }
+      }}>
+        <label className="block text-xs font-semibold">Property
+          <select className={input + ' mt-1'} value={incidentSiteId} onChange={e => setIncidentSiteId(e.target.value)}>
+            {data.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-xs font-semibold">Incident title
+          <input className={input + ' mt-1'} required minLength={5} maxLength={90} value={incidentTitle} placeholder="e.g. Main gate damaged"
+            onChange={e => setIncidentTitle(e.target.value)} />
+        </label>
+        <label className="block text-xs font-semibold md:col-span-2">Incident details
+          <textarea className={input + ' mt-1'} required minLength={10} maxLength={500} rows={2} value={incidentDetail}
+            placeholder="What happened and what action is needed?" onChange={e => setIncidentDetail(e.target.value)} />
+        </label>
+        <button className={btn + ' md:col-span-2'} type="submit"><MessageSquarePlus className="h-4 w-4" /> Record incident</button>
+      </form>
     </Card>;
   }
 
@@ -205,7 +240,7 @@ export default function SecurityExperience() {
             {(['client', 'operations', 'supervisor'] as Role[]).map(r => <button key={r} type="button" aria-pressed={role === r}
               className={'rounded-xl border p-3 text-left transition ' + (role === r ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-600 dark:bg-emerald-950/60 dark:text-white' : 'border-slate-200 text-slate-700 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-200')}
               onClick={() => changeRole(r)}>
-              <span className="block text-sm font-bold">{panes[r].label}</span><span className="mt-1 block text-xs opacity-75">{panes[r].description}</span>
+              <span className="block text-sm font-bold">{r === 'client' ? currentSite.client + ' · Property owner' : panes[r].label}</span><span className="mt-1 block text-xs opacity-75">{panes[r].description}</span>
             </button>)}
           </div>
         </div>
@@ -294,7 +329,8 @@ export default function SecurityExperience() {
           <div className="mt-7"><Heading title="Staff directory" detail="Contact numbers shown only in authorised staff-facing demo roles." />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.guards.map(g => <Card key={g.id}><p className="font-bold">{g.name}</p><p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Phone className="h-4 w-4" />{g.phone}</p><p className="mt-2 text-xs text-emerald-700">Active staff · Sample record</p></Card>)}</div></div>
         </div>}
-        {role === 'operations' && tab === 'issues' && <div><Heading title="Client requests & incidents" detail="See customer-reported concerns and log a response that the property owner can follow." />
+        {role === 'operations' && tab === 'issues' && <div><Heading title="Client requests & incidents" detail="Record site incidents and address customer concerns. Changes become visible to the affected property owner." />
+          {incidentForm()}
           <div className="grid gap-3 lg:grid-cols-2">{data.issues.map(i => issueCard(i, true))}</div></div>}
         {role === 'operations' && tab === 'reports' && <div>
           <Heading title="Publish client service reports" detail="Generate a snapshot with confirmed, telephone-reported and unresolved statuses kept separate." />
@@ -307,7 +343,8 @@ export default function SecurityExperience() {
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"><WifiOff className="h-5 w-5 shrink-0" /> A supervisor's visual confirmation is distinct from office-reported attendance. No actual device location is collected in this demo.</div>
           <div className="grid gap-3 md:grid-cols-2">{todays.map(s => shiftCard(s, 'supervisor'))}</div>
         </div>}
-        {role === 'supervisor' && tab === 'issues' && <div><Heading title="Respond to client concerns" detail="Acknowledge, record what was done, and resolve the issue. Every change appears in the client portal." />
+        {role === 'supervisor' && tab === 'issues' && <div><Heading title="Respond to client concerns" detail="Log site incidents, acknowledge client concerns, and record the response through resolution." />
+          {incidentForm()}
           <div className="grid gap-3 md:grid-cols-2">{data.issues.map(i => issueCard(i, true))}</div></div>}
 
         <div className="mt-10 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-6 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
