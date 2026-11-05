@@ -47,7 +47,7 @@ export async function GET(request: Request, { params }: Params) {
                 notes, next_action, next_action_at::text AS next_action_at,
                 NULL::text AS next_action_time, NULL::text AS next_action_timezone,
                 NULL::uuid AS contact_id, NULL::text AS contact_name_snapshot,
-                NULL::text AS channel,
+                NULL::text AS channel, NULL::text AS next_action_type,
                 created_at
          FROM public.crm_lead_updates
          WHERE lead_id = $1
@@ -58,7 +58,7 @@ export async function GET(request: Request, { params }: Params) {
                 contact_name_snapshot::text,
                 CASE WHEN event_type='outreach' THEN
                   COALESCE(channel, CASE WHEN outcome='email_sent' THEN 'email' ELSE 'call' END)
-                ELSE NULL END::text AS channel,
+                ELSE NULL END::text AS channel, next_action_type::text AS next_action_type,
                 created_at
          FROM public.crm_lead_events
          WHERE lead_id = $1
@@ -67,7 +67,7 @@ export async function GET(request: Request, { params }: Params) {
                 'Follow-up updated'::text, NULL::text,
                 next_action, next_action_at::text, next_action_time::text,
                 next_action_timezone, contact_id, contact_name_snapshot::text,
-                NULL::text AS channel, created_at
+                NULL::text AS channel, next_action_type::text AS next_action_type, created_at
          FROM public.crm_followup_changes
          WHERE lead_id = $1
        ) AS timeline ORDER BY created_at DESC LIMIT 50`,
@@ -217,12 +217,12 @@ export async function PATCH(request: Request, { params }: Params) {
       `INSERT INTO public.crm_lead_events
          (lead_id, event_type, outcome, notes, next_action, next_action_at,
           next_action_time, next_action_timezone, next_action_due_at,
-          contact_id, contact_name_snapshot, channel, called_phone)
+          contact_id, contact_name_snapshot, channel, called_phone, next_action_type)
          VALUES ($1,'outreach',$2,$3,$4,$5::date,$6::time,$7,
-           ${followupDueAtSQL(5, 6, 7)},$8::uuid,$9,$10,$11)
+           ${followupDueAtSQL(5, 6, 7)},$8::uuid,$9,$10,$11,$12)
       `,
       [id, outcome, note, action, date, time, timezone,
-        callContact.id, callContact.name, channel, calledPhone],
+        callContact.id, callContact.name, channel, calledPhone, parsedType.value],
     );
     if (finishDueCall) {
       await client.query(

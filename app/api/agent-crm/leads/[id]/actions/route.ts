@@ -100,12 +100,12 @@ export async function POST(request: Request, { params }: Params) {
       `INSERT INTO public.crm_lead_events
          (lead_id, event_type, action, notes, next_action, next_action_at,
         next_action_time, next_action_timezone, next_action_due_at, contact_id,
-        contact_name_snapshot)
+        contact_name_snapshot, next_action_type)
        VALUES ($1,'action_completed', $2, $3, $4, $5::date,
-         $6::time, $7, ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9)`,
+         $6::time, $7, ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10)`,
       [id, lead.next_action, notes.trim() || null, action,
         schedule.next_action_at, schedule.next_action_time, schedule.next_action_timezone,
-        completedContact.id, completedContact.name],
+        completedContact.id, completedContact.name, parsedType.value],
     );
     await client.query(
       `UPDATE public.crm_leads

@@ -89,13 +89,13 @@ export async function PATCH(request: Request, { params }: Params) {
       `INSERT INTO public.crm_followup_changes
        (lead_id, previous_action, previous_date, previous_time,
         previous_timezone, next_action, next_action_at, next_action_time,
-        next_action_timezone, next_action_due_at, contact_id, contact_name_snapshot)
+        next_action_timezone, next_action_due_at, contact_id, contact_name_snapshot, next_action_type)
        VALUES ($1,$2,$3::date,$4::time,$5,$6,$7::date,$8::time,$9,
-         ${followupDueAtSQL(7, 8, 9)},$10::uuid,$11)`,
+         ${followupDueAtSQL(7, 8, 9)},$10::uuid,$11,$12)`,
       [id, current.next_action, current.next_action_at,
         current.next_action_time, current.next_action_timezone,
         action, schedule.next_action_at, schedule.next_action_time,
-        schedule.next_action_timezone, target.id, target.name],
+        schedule.next_action_timezone, target.id, target.name, parsedType.value],
     );
     await client.query(
       `UPDATE public.crm_leads

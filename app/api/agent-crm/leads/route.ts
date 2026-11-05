@@ -331,14 +331,14 @@ export async function POST(request: Request) {
         `INSERT INTO public.crm_lead_events
           (lead_id, event_type, outcome, notes, next_action, next_action_at,
            next_action_time, next_action_timezone, next_action_due_at,
-           contact_id, contact_name_snapshot, channel)
+           contact_id, contact_name_snapshot, channel, next_action_type)
           VALUES ($1,'outreach', $2, $3, $4, $5::date, $6::time, $7,
-            ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10)`,
+            ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10, $11)`,
         [id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
           primaryContactId, primaryContactId
             ? (identity.identity.contact_name || values.phone || values.email || values.contact_role || 'Contact')
-            : null, channel],
+            : null, channel, parsedType.value],
       );
     }
     const read = await client.query<Lead>(

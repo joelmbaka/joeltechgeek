@@ -892,6 +892,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                       Next action: {h.next_action}
                     </p>
                   )}
+                  {h.next_action_type && <p className="mt-1 text-xs text-slate-500">Action type: {label(h.next_action_type)}</p>}
                   {h.next_action_at && (
                     <p className="mt-1 text-sky-800 dark:text-sky-300">
                       Reminder due: {followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone)}

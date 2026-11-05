@@ -538,6 +538,7 @@ export default function LeadScreen() {
           {event.outcome ? <Text style={styles.subtitle}>Outcome: {outcomeLabel(event.outcome)}</Text> : null}
           {event.action ? <Text style={styles.subtitle}>Action: {event.action}</Text> : null}
           {event.next_action ? <Text style={styles.subtitle}>Next action: {event.next_action}</Text> : null}
+          {event.next_action_type ? <Text style={styles.subtitle}>Action type: {event.next_action_type}</Text> : null}
           {event.next_action_at ? <Text style={styles.subtitle}>
             Reminder due: {formatFollowupDue(event)}
           </Text> : null}

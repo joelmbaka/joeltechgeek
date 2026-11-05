@@ -157,6 +157,7 @@ export type LeadUpdate = {
   next_action_at: string | null;
   next_action_time: string | null;
   next_action_timezone: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   contact_id: string | null;
   contact_name_snapshot: string | null;
   created_at: string;
