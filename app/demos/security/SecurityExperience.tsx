@@ -10,7 +10,7 @@ import {
 import styles from './SecurityExperience.module.css';
 import SecurityRosterDetail from './SecurityRosterDetail';
 import {
-  STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant,
+  STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant, shiftWindow,
   HISTORY_DAYS, PLANNING_DAYS, fillRollingWindow,
   seedDemo, valid, timelineForDay, siteIssues, siteReports, shiftOnDay,
   assignShift, addShift, confirmAttendance, completeShift, addSite, addStaff,
@@ -268,7 +268,7 @@ export default function SecurityExperience() {
       <div className="flex items-start justify-between gap-2">
         <div><h3 className="text-sm font-extrabold text-[#204534]">{officer?.name}</h3>
           <p className="mt-1 text-[11px] text-[#678274]">{data.sites.find(s=>s.id===shift.siteId)?.name}</p>
-          <p className="mt-1 flex items-center gap-1 text-[11px] text-[#678274]"><Clock3 className="h-3 w-3"/>{formatClock(shift.startAt)} – {formatClock(shift.endAt)}{dayOfInstant(shift.startAt)!==dayOfInstant(shift.endAt)?' (+1 day)':''}</p></div>
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-[#678274]"><Clock3 className="h-3 w-3"/>{shiftWindow(shift)}</p></div>
         <Status value={shift.attendance}/>
       </div>
       {(shift.arrivalAt||shift.method) && <p className="mt-2 rounded-xl bg-[#f2f8f4] px-3 py-2 text-[11px] leading-5 text-[#52766a]">Arrival: {shift.arrivalAt?formatClock(shift.arrivalAt):'Not recorded'} · {shift.method || 'Not verified'}</p>}
