@@ -123,25 +123,6 @@ export default function LeadScreen() {
       setEditingIdentity(false);
       reload();
       if (user) void reconcileReminders(user).catch(() => {});
-      if (advance && kind === 'call') {
-        try {
-          const params = new URLSearchParams({
-            view: view || 'for_you', industry: industry || 'all',
-            tz: timezone, limit: '25', offset: '0',
-          });
-          const next = await apiFetch<LeadList>('/api/agent-crm/leads?' + params);
-          const candidate = next.leads.find((item) => item.id !== id);
-          if (candidate) {
-            router.replace({ pathname: '/leads/[id]',
-              params: { id: candidate.id, view: view || 'for_you', industry: industry || 'all' } });
-          } else {
-            router.replace('/');
-          }
-        } catch {
-          // Activity already saved; never make navigation failure look like a failed save.
-          router.replace('/');
-        }
-      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update lead details.');
     } finally { setSaving(false); }
@@ -267,9 +248,51 @@ export default function LeadScreen() {
       setFollowupContactChoice(null);
       reload();
       if (user) void reconcileReminders(user).catch(() => {});
+      if (advance && kind === 'call') {
+        try {
+          const params = new URLSearchParams({
+            view: view || 'for_you', industry: industry || 'all',
+            tz: timezone, limit: '25', offset: '0',
+          });
+          const next = await apiFetch<LeadList>('/api/agent-crm/leads?' + params);
+          const candidate = next.leads.find((item) => item.id !== id);
+          if (candidate) {
+            router.replace({ pathname: '/leads/[id]',
+              params: { id: candidate.id, view: view || 'for_you', industry: industry || 'all' } });
+          } else {
+            router.replace('/');
+          }
+        } catch {
+          // Activity already saved; never make navigation failure look like a failed save.
+          router.replace('/');
+        }
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not save update.');
     } finally { setSaving(false); }
+  };
+
+  const confirmCallSave = (advance: boolean) => {
+    if (!canSaveCall) return;
+    if (optOut) {
+      showDialog({
+        title: 'Mark as Do Not Contact?',
+        message: 'This lead will be excluded from future outreach and reminders. History remains visible.',
+        cancelLabel: 'Keep active', confirmLabel: 'Mark Do Not Contact',
+        onConfirm: () => void save('call', advance),
+      });
+    } else if (['lost','won'].includes(stageOverride || suggested) &&
+               (stageOverride || suggested) !== lead?.stage) {
+      showDialog({
+        title: 'Confirm lead stage',
+        message: 'Recording this result will mark the lead ' +
+          (stageOverride || suggested).replaceAll('_',' ') + '. Continue?',
+        cancelLabel: 'Cancel', confirmLabel: 'Save activity',
+        onConfirm: () => void save('call', advance),
+      });
+    } else {
+      void save('call', advance);
+    }
   };
 
   const updateClassification = async (status: 'competitor' | 'new') => {
@@ -420,28 +443,8 @@ export default function LeadScreen() {
               {optOut ? '☑' : '□'} Mark Do Not Contact
             </Text>
           </Pressable>
-          <Button disabled={!canSaveCall} onPress={() => {
-            if (optOut) {
-              showDialog({
-                title: 'Mark as Do Not Contact?',
-                message: 'This lead will be excluded from future outreach and follow-up actions. You can still view its history.',
-                cancelLabel: 'Keep active',
-                confirmLabel: 'Mark Do Not Contact',
-                onConfirm: () => void save('call'),
-              });
-            } else if (['lost','won'].includes(stageOverride || suggested) &&
-                (stageOverride || suggested) !== lead.stage) {
-              showDialog({
-                title: 'Confirm lead stage',
-                message: 'Recording this result will mark the whole lead ' +
-                  (stageOverride || suggested).replaceAll('_',' ') + '. Continue?',
-                cancelLabel: 'Cancel',
-                confirmLabel: 'Save activity',
-                onConfirm: () => void save('call'),
-              });
-            } else void save('call');
-          }}>{saving ? 'Saving…' : 'Save & Stay'}</Button>
-          <Button secondary disabled={!canSaveCall} onPress={() => void save('call', true)}>
+          <Button disabled={!canSaveCall} onPress={() => confirmCallSave(false)}>{saving ? 'Saving…' : 'Save & Stay'}</Button>
+          <Button secondary disabled={!canSaveCall} onPress={() => confirmCallSave(true)}>
             {saving ? 'Saving…' : 'Save & Next'}
           </Button>
         </View>
