@@ -23,7 +23,15 @@ const str=(v,name,min=3,max=140)=>{const s=String(v??"").trim();if(s.length<min|
 const int=(v,name,min=0,max=10000000)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isSafeInteger(n)||n<min||n>max)throw new Error(name+" must be a whole number between "+min+" and "+max+".");return n;};
 const num=(v,name,min,max)=>{if(v==null||String(v).trim()==="")throw new Error(name+" is required.");const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)throw new Error(name+" must be between "+min+" and "+max+".");return Math.round(n*10)/10;};
 const add=(d,title,detail,loadId)=>d.activity.unshift({id:"ACT-"+(d.activity.length+1),at:now(),title,detail,loadId});
-const active=(d,driverId=d.driver.id)=>d.loads.find(l=>l.driver?.id===driverId&&["Assigned","In transit","Delivered"].includes(l.status));
+const unfinishedLoads=(d,driverId)=>d.loads.filter(l=>l.driver?.id===driverId&&["Assigned","In transit","Delivered"].includes(l.status));
+const active=(d,driverId=d.driver.id)=>unfinishedLoads(d,driverId)[0];
+function assignmentAvailability(d,driverId){
+ const unfinished=unfinishedLoads(d,driverId);
+ if(unfinished.length>=2)return {allowed:false,reason:"Driver already has two unfinished consignments. Complete one before assigning another."};
+ if(unfinished.length===1&&unfinished[0].status!=="Delivered")
+  return {allowed:false,reason:"The current consignment must reach Delivered before a second can be assigned."};
+ return {allowed:true,reason:null};
+}
 const pairedTruck=(d,driverId)=>d.fleet.find(t=>t.driverId===driverId)||null;
 function fields(d,v,original){
  const from=loc(v.originId),to=loc(v.destinationId);
@@ -66,7 +74,8 @@ function assign(d,id,driverId){
  if(!load||load.status!=="Open")throw new Error("Only open loads can be assigned.");
  const driver=d.drivers.find(x=>x.id===driverId);
  if(!driver)throw new Error("Choose a driver.");
- if(active(d,driver.id))throw new Error("This driver already has an assigned or active consignment. Complete it before assigning another.");
+ const availability=assignmentAvailability(d,driver.id);
+ if(!availability.allowed)throw new Error(availability.reason);
  const truck=pairedTruck(d,driver.id);
  if(truck&&load.weightTons>truck.capacityTons)throw new Error("This load exceeds the driver's assigned truck capacity.");
  load.driver={id:driver.id,name:driver.name};load.truck=null;load.status="Assigned";load.updatedAt=now();
@@ -154,7 +163,7 @@ const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,nam
  return load;
 };
 function seed(){
- return {version:5,nextId:3100,
+ return {version:6,nextId:3100,
   driver:{...DRIVERS[0]},
   drivers:DRIVERS.map(x=>({...x})),
   fleet:TRUCKS.map(x=>({...x})),
@@ -180,9 +189,9 @@ function metrics(d){
   owed:d.loads.filter(l=>l.status==="Complete"&&l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0)};
 }
 function validate(d){
- return !!d&&d.version===4&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&Array.isArray(d.fleet)&&Array.isArray(d.drivers)&&!!d.driver&&
+ return !!d&&d.version===6&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&Array.isArray(d.fleet)&&Array.isArray(d.drivers)&&!!d.driver&&
    typeof d.driver.id==="string"&&Number.isSafeInteger(d.nextId)&&
    d.loads.every(l=>!!l&&typeof l.id==="string"&&STATUSES.includes(l.status)&&!!l.evidence&&!!l.payment);
 }
-return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,pairedTruck,post,edit,remove,assign,pair,progress,pay};
+return {PORTS,CONSIGNEES,STATUSES,LABELS,seed,metrics,validate,loc,find,active,assignmentAvailability,pairedTruck,post,edit,remove,assign,pair,progress,pay};
 })();
