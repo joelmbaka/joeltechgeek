@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowLeft, ArrowRight, BellRing, Building2, CalendarCheck2, ClipboardList,
-  Clock3, FileText, MessageSquareMore, ShieldCheck, Smartphone, Users, WifiOff
+  Clock3, FileText, MessageSquareMore, ShieldCheck, Smartphone
 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -13,33 +13,28 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/demos/security',
     title: 'Security Operations & Client Visibility | Interactive Demo',
-    description: 'One connected example for the security company, supervisor and property owner. Schedules, attendance, reports, and client issues.',
+    description: 'Two connected views for the security manager and property owner. Schedules, attendance, reports, and client issues.',
   },
 };
 
 const views = [
   {
     name: 'Property owner · Alex', Icon: Building2,
-    heading: 'Know who is protecting your property.',
-    details: 'See the assigned guards, today and tomorrow\'s duty rosters, attendance confirmation, published site reports and updates on concerns you raise.',
+    heading: 'A clear daily record of your security service.',
+    details: 'Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, and read published daily, weekly or monthly reports.',
   },
   {
-    name: 'Operations manager · Grace', Icon: ClipboardList,
-    heading: 'Stay ahead of coverage gaps.',
-    details: 'Manage clients, sites, staff assignments, shift changes, office attendance reports and the client issue queue from one dashboard.',
-  },
-  {
-    name: 'Field supervisor · Beatrice', Icon: Users,
-    heading: 'Confirm what is actually happening on-site.',
-    details: 'Confirm attendance from a supervisor view, record departures and respond to client concerns across assigned sites.',
+    name: 'Security manager · Grace', Icon: ClipboardList,
+    heading: 'Coverage, clients and responses in one workspace.',
+    details: 'Manage client properties, staff assignments, overnight shifts, site visits, attendance updates, issue resolutions and published service reports.',
   },
 ];
 
 const capabilities = [
-  { title: 'Duty schedules', desc: 'Who is assigned today and tomorrow, and who will cover a shift?', Icon: CalendarCheck2 },
+  { title: 'Duty schedules', desc: 'Browse any date, view overlapping night shifts and see who covered each post.', Icon: CalendarCheck2 },
   { title: 'Attendance clarity', desc: 'Separate scheduled, office-reported and supervisor-confirmed presence.', Icon: Clock3 },
   { title: 'Client issue tracking', desc: 'Allow property owners to raise concerns and follow the response to resolution.', Icon: MessageSquareMore },
-  { title: 'Reports & updates', desc: 'Publish site coverage summaries and relevant activity to each client portal.', Icon: FileText },
+  { title: 'Reports & updates', desc: 'Publish dated daily, weekly and monthly reports to the relevant client.', Icon: FileText },
 ];
 
 export default function SecurityDemoPage() {
@@ -84,9 +79,9 @@ export default function SecurityDemoPage() {
       </div>
 
       <section className="mt-16" aria-labelledby="views-title">
-        <h2 id="views-title" className="text-2xl font-bold text-gray-900 dark:text-white">Three connected perspectives</h2>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Switch roles in the interactive demo. A schedule change, attendance confirmation or client issue becomes visible to the people who need to act on it.</p>
-        <div className="mt-6 grid gap-5 md:grid-cols-3">
+        <h2 id="views-title" className="text-2xl font-bold text-gray-900 dark:text-white">Two connected perspectives</h2>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Switch between the property owner and security manager. A roster change, site visit, issue update or report appears in the relevant client history.</p>
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
           {views.map(({ name, Icon, heading, details }) => (
             <article key={name} className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
               <Icon className="h-8 w-8 text-palm-green" />
@@ -110,18 +105,18 @@ export default function SecurityDemoPage() {
       </section>
 
       <section className="mt-14 grid gap-6 rounded-3xl bg-gray-50 p-7 dark:bg-gray-900/70 sm:p-9 lg:grid-cols-[auto_1fr]">
-        <WifiOff className="h-9 w-9 text-palm-green" />
+        <Clock3 className="h-9 w-9 text-palm-green" />
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Multiple ways to confirm attendance.</h2>
           <p className="mt-3 leading-8 text-gray-600 dark:text-gray-300">
-            Site staff can use guard check-ins where available, while office teams record telephone-reported arrivals and supervisors confirm attendance. The client sees which confirmation method was used. SMS, offline and guard-app integrations remain production options—not live features of this demo.
+            Site staff can use guard check-ins where available, while office teams record telephone-reported arrivals and supervisors confirm attendance. The client sees how attendance was recorded. SMS, offline and guard-app integrations remain production options—not live features of this demo.
           </p>
         </div>
       </section>
 
       <div className="mt-12 flex flex-wrap items-center gap-4">
         <Link href="/demos/security/experience" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90">
-          Try the three-role demo <ArrowRight className="h-5 w-5" />
+          Try the two-role demo <ArrowRight className="h-5 w-5" />
         </Link>
         <Link href="/demos" className="inline-flex min-h-12 items-center gap-2 font-semibold text-palm-green hover:underline"><ArrowLeft className="h-4 w-4" /> All demos</Link>
       </div>
