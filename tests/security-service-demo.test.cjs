@@ -61,7 +61,7 @@ test('manager can schedule a night shift but overlapping staff assignments are r
   assert.equal(m.dayOfInstant(shift.endAt),'2026-11-06');
   assert.equal(m.shiftOnDay(shift,'2026-11-06'),true);
   assert.equal(data.shifts.length+1,added.shifts.length);
-  assert.throws(()=>m.assignShift(data,'s-night','kevin'),/overlapping shift/);
+  assert.throws(()=>m.assignShift(data,'s-day','peter'),/overlapping shift/);
   const changed = m.assignShift(data,'s-night','daniel');
   assert.equal(find(changed.shifts,'s-night').staffId,'daniel');
 });
