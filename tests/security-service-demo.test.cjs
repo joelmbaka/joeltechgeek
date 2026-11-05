@@ -102,11 +102,20 @@ test('client-facing guard contact is optional and distinct from internal staff p
   assert.equal(brian.workContact, undefined);
 });
 
-test('new experience is role-based and explains that no guard smartphone is needed', () => {
+test('security service demo uses the mobile phone shell and dropdown role selector', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.tsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.module.css'), 'utf8');
   const landing = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/page.tsx'), 'utf8');
-  for (const value of ['operations', 'supervisor', 'client', 'Raise an issue', 'Confirm arrival on site', 'Publish', 'Reset sample']) assert.ok(source.includes(value));
-  assert.match(landing, /No guard smartphone required/);
-  assert.match(source, /browser-only demonstration/);
+  for (const value of ['operations', 'supervisor', 'client', 'Raise an issue', 'Confirm arrival on site', 'Publish', 'Reset demo data']) {
+    assert.ok(source.includes(value), 'Missing expected interaction: ' + value);
+  }
+  assert.match(source, /<select id="security-role-select"/);
+  assert.match(source, /<nav className=\{styles\.tabBar\}/);
+  assert.match(source, /className=\{styles\.phone\}/);
+  assert.match(styles, /height: 100dvh/);
+  assert.match(styles, /max-width: 600px/);
+  assert.match(landing, /Multiple ways to confirm attendance/);
+  assert.doesNotMatch(landing + source, /No guard smartphone required|Guards do not need smartphones/i);
+  assert.match(source, /browser-only demo/);
   assert.doesNotMatch(source, /navigator\.geolocation|getUserMedia\(/);
 });
