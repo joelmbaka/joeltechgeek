@@ -1,0 +1,91 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const modulePromise = import(pathToFileURL(path.join(__dirname, '../mobile-app/src/lib/reminder-content.ts')).href);
+const reminder = (patch = {}) => ({
+  id: '11111111-1111-4111-8111-111111111111',
+  company_name: 'BlazeShield', lead_contact_name: 'Primary person',
+  selected_contact_name: 'Daniel', next_action: 'Follow up on mobile app requirements',
+  next_action_due_at: '2026-11-06T06:00:00.000Z',
+  next_action_timezone: 'Africa/Nairobi', ...patch,
+});
+
+test('notification names selected contact, company, task and due time', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  const result = buildReminderPreview(reminder());
+  assert.equal(result.title, 'BlazeShield · Daniel');
+  assert.match(result.body, /Follow up on mobile app requirements/);
+  assert.match(result.body, /9:00 AM/);
+});
+test('company follow-up does not accidentally display the primary contact', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  assert.equal(buildReminderPreview(reminder({ selected_contact_name: null })).title, 'BlazeShield');
+});
+test('individual lead uses contact name when company is absent', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  assert.equal(buildReminderPreview(reminder({ company_name: '', selected_contact_name: null, lead_contact_name: 'Daniel' })).title, 'Daniel');
+});
+test('long, multiline actions are shortened without leaking history', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  const result = buildReminderPreview(reminder({
+    next_action: '  Check\n the demo  ' + 'and requirements '.repeat(25),
+  }));
+  assert.doesNotMatch(result.body, /\n/);
+  assert.match(result.body, /…/);
+  assert.ok(result.body.length < 170);
+});
+test('blank task has useful fallback', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  assert.match(buildReminderPreview(reminder({ next_action: null })).body, /^Follow-up due/);
+});
+test('time zone conversion handles daylight saving', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  const summer = buildReminderPreview(reminder({
+    next_action_due_at: '2026-07-01T13:00:00.000Z', next_action_timezone: 'America/New_York',
+  }));
+  const winter = buildReminderPreview(reminder({
+    next_action_due_at: '2026-12-01T14:00:00.000Z', next_action_timezone: 'America/New_York',
+  }));
+  assert.match(summer.body, /9:00 AM/);
+  assert.match(winter.body, /9:00 AM/);
+});
+test('edited task and contact invalidate old scheduled notification even if due is unchanged', async () => {
+  const { buildReminderPreview, isCurrentScheduledReminder, REMINDER_PREVIEW_VERSION } = await modulePromise;
+  const initial = buildReminderPreview(reminder());
+  const record = {content:{title: initial.title, body:initial.body, data:{
+    crm_user_id:'owner-uuid',lead_id:reminder().id,
+    due:initial.dueAtMs,reminder_preview_version: REMINDER_PREVIEW_VERSION,
+  }}};
+  assert.equal(isCurrentScheduledReminder(record,'owner-uuid',reminder().id,initial),true);
+  const updatedTask = buildReminderPreview(reminder({next_action:'Send updated proposal'}));
+  assert.equal(isCurrentScheduledReminder(record,'owner-uuid',reminder().id,updatedTask),false);
+  const updatedContact = buildReminderPreview(reminder({selected_contact_name:'Grace'}));
+  assert.equal(isCurrentScheduledReminder(record,'owner-uuid',reminder().id,updatedContact),false);
+  assert.equal(isCurrentScheduledReminder(record,'other-user',reminder().id,initial),false);
+});
+test('legacy generic notifications get replaced with contextual messages', async () => {
+  const { buildReminderPreview, isCurrentScheduledReminder } = await modulePromise;
+  const preview = buildReminderPreview(reminder());
+  const old = {content:{title:'CRM follow-up',body:'A scheduled follow-up is due. Open the CRM to review it.',data:{
+    crm_agent_id:'owner-uuid',lead_id:reminder().id,due:preview.dueAtMs,
+  }}};
+  assert.equal(isCurrentScheduledReminder(old,'owner-uuid',reminder().id,preview),false);
+});
+test('API scopes to user, joins selected contact by lead, and excludes private fields', () => {
+  const feed = fs.readFileSync(path.join(__dirname,'../app/api/agent-crm/followups/upcoming/route.ts'),'utf8');
+  assert.match(feed,/requireCrmUser\(request\)/);
+  assert.match(feed,/l\.user_id = \$1/);
+  assert.match(feed,/selected\.lead_id = l\.id/);
+  assert.match(feed,/selected\.name AS selected_contact_name/);
+  assert.doesNotMatch(feed,/SELECT\s+l\.\*|SELECT\s+\*/i);
+  assert.match(feed,/Cache-Control': 'private, no-store'/);
+});
+test('notification tap retains owner-scoped lead deep link and reconciliation removes duplicates', () => {
+  const scheduler=fs.readFileSync(path.join(__dirname,'../mobile-app/src/lib/notifications.ts'),'utf8');
+  assert.match(scheduler,/lead_id: leadId/);
+  assert.match(scheduler,/kept\.has\(leadId\)/);
+  assert.match(scheduler,/cancelScheduledNotificationAsync/);
+  assert.match(scheduler,/enqueueNotificationWork/);
+});

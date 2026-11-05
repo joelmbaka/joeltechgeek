@@ -132,3 +132,22 @@ populated. Check `sales_agent_applications.google_picture_url` in production
 Neon, then verify the header and Profile photo. An OAuth sign-in succeeded does
 not prove Google returned a profile picture. The initials fallback remains
 available for users without a Google profile photo.
+
+## Informative follow-up notifications
+
+The authenticated reminder feed includes only the lead/company name, the explicitly
+selected follow-up contact's name (if any), the next action, due timestamp and IANA
+time zone. The Android notification previews **company · selected contact** and a
+short action with local due time. No phone numbers, full notes or history appear.
+A company-level follow-up never claims to be addressed to its primary contact.
+
+On login, foreground, or saving a follow-up, Android reconciles pending alarms.
+A changed action/contact updates the notification even if the due time is unchanged;
+old generic previews and duplicates are replaced. Tapping still opens Lead Details.
+Existing delivered notifications cannot be edited retroactively, and changes made
+on the web while the phone remains backgrounded require the next app reconciliation
+because these are local notifications rather than server-pushed messages.
+
+Test on the isolated Play Review account by scheduling an upcoming follow-up,
+then changing its action/contact without changing the date and inspecting the next
+scheduled Android notification.
