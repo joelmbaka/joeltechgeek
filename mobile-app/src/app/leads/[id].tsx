@@ -12,12 +12,17 @@ import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
 import { formatFollowupDue } from '@/lib/followup-display';
-import type { Lead, LeadContact, LeadDetails, LeadEvent } from '@/lib/types';
+import type { Lead, LeadContact, LeadDetails, LeadEvent, LeadList } from '@/lib/types';
 import { LeadContacts } from '@/components/LeadContacts';
 import { OUTCOMES_BY_CHANNEL, outcomeLabel, suggestedStage, STAGE_OPTIONS, activityChannelLabel } from '@/lib/types';
 import type { ActivityChannel } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
+const ACTION_OPTIONS = [
+  {value:'call',label:'Call'}, {value:'email',label:'Email'},
+  {value:'whatsapp',label:'WhatsApp'}, {value:'meeting',label:'Meeting'},
+  {value:'other',label:'Other'},
+];
 // This is an administrative classification, not a call outcome sent to the outreach API.
 const channelOptions = [
   {value:'call',label:'Call'}, {value:'email',label:'Email'},
@@ -29,7 +34,7 @@ export default function LeadScreen() {
   const theme = useTheme();
   const showDialog = useAppDialog();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, view, industry } = useLocalSearchParams<{ id: string; view?: string; industry?: string }>();
   const { user } = useAuth();
   const [lead, setLead] = useState<Lead | null>(null);
   const [history, setHistory] = useState<LeadEvent[]>([]);
@@ -49,6 +54,11 @@ export default function LeadScreen() {
   const [nextAction, setNextAction] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [actionType, setActionType] = useState('call');
+  const [editingContext, setEditingContext] = useState(false);
+  const [briefDraft, setBriefDraft] = useState('');
+  const [detailsDraft, setDetailsDraft] = useState('');
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
   const [optOut, setOptOut] = useState(false);
   const dirty = useRef(false);
@@ -76,6 +86,7 @@ export default function LeadScreen() {
           setNextAction('');
           setDate('');
           setTime('');
+          setActionType('call');
           setNotes('');
           setCompletionNotes('');
           setOptOut(false);
@@ -112,9 +123,51 @@ export default function LeadScreen() {
       setEditingIdentity(false);
       reload();
       if (user) void reconcileReminders(user).catch(() => {});
+      if (advance && kind === 'call') {
+        try {
+          const params = new URLSearchParams({
+            view: view || 'for_you', industry: industry || 'all',
+            tz: timezone, limit: '25', offset: '0',
+          });
+          const next = await apiFetch<LeadList>('/api/agent-crm/leads?' + params);
+          const candidate = next.leads.find((item) => item.id !== id);
+          if (candidate) {
+            router.replace({ pathname: '/leads/[id]',
+              params: { id: candidate.id, view: view || 'for_you', industry: industry || 'all' } });
+          } else {
+            router.replace('/');
+          }
+        } catch {
+          // Activity already saved; never make navigation failure look like a failed save.
+          router.replace('/');
+        }
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update lead details.');
     } finally { setSaving(false); }
+  };
+
+  const beginContextEdit = () => {
+    if (!lead) return;
+    setBriefDraft(lead.lead_brief || '');
+    setDetailsDraft(lead.important_details || '');
+    setEditingContext(true);
+  };
+  const saveContext = async () => {
+    if (!lead || !id || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await apiFetch<{ok:true;lead:Lead}>(
+        '/api/agent-crm/leads/' + encodeURIComponent(id) + '/brief',
+        {method:'PATCH',body:JSON.stringify({
+          lead_brief:briefDraft.trim(),important_details:detailsDraft.trim(),
+        })});
+      setLead(result.lead);
+      setEditingContext(false);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update lead context.');
+    } finally {setSaving(false);}
   };
 
   const primaryContactId = contacts.find((c) => c.is_primary)?.id || contacts[0]?.id || '';
@@ -143,6 +196,7 @@ export default function LeadScreen() {
 
   const schedule = () => ({
     next_action: nextAction.trim(),
+    next_action_type: actionType,
     next_action_at: date.trim() || null,
     next_action_time: time.trim() || null,
     next_action_timezone: timezone,
@@ -159,7 +213,7 @@ export default function LeadScreen() {
   const canSaveCall = !saving && !!outcome && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canSaveFollowup = !saving && !!nextAction.trim() && !!date && !!lead && !lead.do_not_contact && lead.stage !== 'competitor';
   const canComplete = !saving && !!lead?.next_action && !!completionNotes.trim() && !lead?.do_not_contact && lead?.stage !== 'competitor';
-  const save = async (kind: 'call' | 'followup' | 'complete') => {
+  const save = async (kind: 'call' | 'followup' | 'complete', advance = false) => {
     if (!lead || !id) return;
     if (kind === 'call' && !canSaveCall) return;
     if (kind === 'followup' && !canSaveFollowup) return;
@@ -188,6 +242,7 @@ export default function LeadScreen() {
         ? { outcome, channel, notes, contact_id: callContactId || null,
           ...(stageOverride ? {stage:stageOverride} : {}),
           next_action: lead.next_action || '',
+          next_action_type: lead.next_action_type || null,
           next_action_at: lead.next_action_at || null,
           next_action_time: lead.next_action_time?.slice(0, 5) || null,
           next_action_timezone: lead.next_action_timezone || timezone,
@@ -206,6 +261,7 @@ export default function LeadScreen() {
       setNextAction('');
       setDate('');
       setTime('');
+      setActionType('call');
       setCompletionNotes('');
       setCallContactChoice(null);
       setFollowupContactChoice(null);
@@ -243,6 +299,27 @@ export default function LeadScreen() {
     {lead ? <>
       <Text style={styles.title}>{lead.company_name || lead.contact_name || 'Unnamed lead'}</Text>
       <Text style={styles.subtitle}>{lead.industry ? lead.industry + ' · ' : ''}{lead.stage.replace(/_/g, ' ')}</Text>
+      <View style={styles.card}>
+        <Text style={styles.label}>Lead brief</Text>
+        <Text style={styles.value}>{lead.lead_brief || lead.problem_summary || 'No brief yet'}</Text>
+        {!editingContext ? <Button secondary onPress={beginContextEdit}>Edit lead context</Button>
+          : <>
+            <Field label="Lead brief (220 characters)" value={briefDraft}
+              onChangeText={setBriefDraft} multiline/>
+            <Field label="Important details" value={detailsDraft}
+              onChangeText={setDetailsDraft} multiline/>
+            <Button disabled={saving || briefDraft.length > 220 || detailsDraft.length > 5000}
+              onPress={() => void saveContext()}>{saving ? 'Saving…' : 'Save context'}</Button>
+            <Button secondary disabled={saving} onPress={() => setEditingContext(false)}>Cancel</Button>
+          </>}
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.label}>Last interaction</Text>
+        <Text style={styles.value}>{lead.last_outcome
+          ? activityChannelLabel(lead.last_activity_channel, lead.last_outcome) +
+            ' · ' + outcomeLabel(lead.last_outcome)
+          : 'Not contacted'}</Text>
+      </View>
       {!editingIdentity ? <Pressable accessibilityRole="button" onPress={beginIdentityEdit}
         style={{ paddingVertical: 10, alignSelf: 'flex-start' }}>
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>Edit lead details</Text>
@@ -262,13 +339,8 @@ export default function LeadScreen() {
           </View>
         </View>
       </View>}
-      <LeadContacts lead={lead} contacts={contacts} onRefresh={() => {
-        reload();
-        if (user) void reconcileReminders(user).catch(() => {});
-      }}/>
+
       <View style={styles.card}>
-        <Text style={styles.label}>Last {activityChannelLabel(lead.last_activity_channel, lead.last_outcome)} result</Text>
-        <Text style={styles.value}>{outcomeLabel(lead.last_outcome)}</Text>
         <Text style={styles.label}>Next action</Text>
         <Text style={styles.value}>{lead.next_action || 'No action scheduled'}</Text>
         {lead.next_action && contacts.length > 1 ? <Text style={styles.subtitle}>
@@ -278,7 +350,9 @@ export default function LeadScreen() {
         {lead.next_action_at ? <Text style={styles.subtitle}>
           Reminder due: {formatFollowupDue(lead)}
         </Text> : null}
-        {lead.last_notes ? <Text style={styles.subtitle}>Notes: {lead.last_notes}</Text> : null}
+        {lead.next_action_type ? <Text style={styles.subtitle}>
+          Action type: {lead.next_action_type}
+        </Text> : null}
       </View>
       {lead.stage === 'competitor' ? <View style={styles.card}>
         <Text style={[styles.title, { fontSize: 18 }]}>Competitor — outreach paused</Text>
@@ -366,13 +440,18 @@ export default function LeadScreen() {
                 onConfirm: () => void save('call'),
               });
             } else void save('call');
-          }}>{saving ? 'Saving…' : 'Save activity'}</Button>
+          }}>{saving ? 'Saving…' : 'Save & Stay'}</Button>
+          <Button secondary disabled={!canSaveCall} onPress={() => void save('call', true)}>
+            {saving ? 'Saving…' : 'Save & Next'}
+          </Button>
         </View>
         <View style={styles.card}>
           <Text style={[styles.title, { fontSize: 19 }]}>Follow-up</Text>
           {contacts.length > 1 ? <SelectSheet title="Contact (optional)" value={followupContactId}
             options={contactOptions} onChange={(value) => edit(() => setFollowupContactChoice(value))}
             disabled={saving} searchable/> : null}
+          <SelectSheet title="Action type" value={actionType} options={ACTION_OPTIONS}
+            onChange={setActionType} disabled={saving}/>
           <Field label="Next action" value={nextAction}
             onChangeText={(value) => edit(() => setNextAction(value))}
             placeholder="e.g. Call decision maker"/>
@@ -395,9 +474,23 @@ export default function LeadScreen() {
           </> : null}
         </View>
       </> : <Text style={styles.subtitle}>{lead.stage === 'competitor' ? 'Competitor: no sales outreach.' : 'This lead is marked Do Not Contact.'}</Text>}
-      <Text style={[styles.title, { fontSize: 20 }]}>Activity history</Text>
-      {history.length === 0 ? <Text style={styles.subtitle}>No activity recorded.</Text> :
-        history.map((event) => <View key={event.id} style={styles.card}>
+      <LeadContacts lead={lead} contacts={contacts} onRefresh={() => {
+        reload();
+        if (user) void reconcileReminders(user).catch(() => {});
+      }}/>
+      {lead.important_details ? <View style={styles.card}>
+        <Text style={styles.label}>Important details</Text>
+        <Text style={styles.value}>{lead.important_details}</Text>
+      </View> : null}
+      <Pressable accessibilityRole="button" onPress={() => setHistoryExpanded((v) => !v)}
+        style={styles.card}>
+        <Text style={styles.value}>
+          Activity history ({history.length}) {historyExpanded ? '▴' : '▾'}
+        </Text>
+      </Pressable>
+      {historyExpanded && (history.length === 0
+        ? <Text style={styles.subtitle}>No activity recorded.</Text>
+        : history.map((event) => <View key={event.id} style={styles.card}>
           <Text style={styles.value}>{event.event_type === 'outreach'
             ? (event.channel ? activityChannelLabel(event.channel, event.outcome) + ' activity' : 'Outreach')
             : event.event_type.replace(/_/g,' ')}</Text>
@@ -412,7 +505,7 @@ export default function LeadScreen() {
             Reminder due: {formatFollowupDue(event)}
           </Text> : null}
           {event.notes ? <Text style={styles.subtitle}>{event.notes}</Text> : null}
-        </View>)}
+        </View>))}
       <Button secondary onPress={() => router.back()}>Back to leads</Button>
     </> : null}
   </Page>;
