@@ -138,7 +138,7 @@ export function AddLeadModal({
           next_action_at: form.next_action_at || null,
           next_action_time: form.next_action_time || null,
           next_action_timezone: form.next_action_at
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi'
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC'
             : null,
         }),
       });

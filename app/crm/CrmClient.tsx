@@ -61,7 +61,7 @@ function dateLabel(str: string | null | undefined) {
 function timeLabel(str: string) {
   const date = new Date(str);
   return Number.isNaN(date.valueOf()) ? str : date.toLocaleString('en-KE', {
-    timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short',
+    timeZone: browserTimezone(), day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   });
 }
@@ -74,7 +74,7 @@ function isDue(lead: Lead) {
   if (lead.do_not_contact || ['won', 'lost', 'competitor'].includes(lead.stage) || !lead.next_action_at)
     return false;
   if (lead.next_action_due_at) return Date.parse(lead.next_action_due_at) <= Date.now();
-  const zone = lead.next_action_timezone || 'Africa/Nairobi';
+  const zone = lead.next_action_timezone || 'Etc/UTC';
   try {
     return lead.next_action_at <= todayInZone(zone);
   } catch { return lead.next_action_at <= today(); }
@@ -89,7 +89,7 @@ function followupLabel(date: string | null | undefined, time?: string | null, zo
   return dateLabel(date) + ' at ' + clock + (zone ? ' (' + zone + ')' : '');
 }
 function browserTimezone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 }
 function isInterested(lead: Lead) {
   return ['interested','meeting','proposal','negotiation'].includes(lead.stage);

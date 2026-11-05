@@ -16,7 +16,7 @@ import { LeadContacts } from '@/components/LeadContacts';
 import { OUTCOMES_BY_CHANNEL, outcomeLabel, suggestedStage, STAGE_OPTIONS, activityChannelLabel } from '@/lib/types';
 import type { ActivityChannel } from '@/lib/types';
 
-const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 // This is an administrative classification, not a call outcome sent to the outreach API.
 const channelOptions = [
   {value:'call',label:'Call'}, {value:'email',label:'Email'},
