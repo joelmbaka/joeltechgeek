@@ -1,400 +1,480 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode, type FormEvent } from 'react';
+import {
+  ArrowLeft, Bell, Building2, CalendarDays, Camera, Check, CheckCircle2,
+  ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, Clock3, FileImage,
+  FileText, House, Info, MapPin, MessageSquare, Plus, RotateCcw, Send,
+  ShieldCheck, Users, X
+} from 'lucide-react';
 import styles from './SecurityExperience.module.css';
 import {
-  AlertCircle, ArrowRight, Bell, CalendarDays, CheckCircle2, ClipboardList,
-  Clock3, FileText, House, Info, MapPin, MessageSquarePlus, Phone,
-  RotateCcw, Send, ShieldCheck, WifiOff
-} from 'lucide-react';
-import {
-  STORAGE_KEY, seedDemo, assignGuard, markArrival, recordDeparture,
-  raiseIssue, logSiteIncident, progressIssue, publishReport,
-  type Attendance, type Day, type DemoData, type Issue, type IssueStatus, type Role, type Shift
+  STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant,
+  seedDemo, valid, timelineForDay, siteIssues, siteReports, shiftOnDay,
+  assignShift, addShift, confirmAttendance, completeShift, addSite, addStaff,
+  addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
+  type State, type Role, type Shift, type Issue, type IssueStatus, type Asset,
+  type ReportPeriod
 } from './security-demo-model';
 
-const panes: Record<Role, { label: string; description: string; tabs: { id: string; name: string }[] }> = {
-  operations: {
-    label: 'Grace · Operations', description: 'Staffing, coverage and client service',
-    tabs: [{ id: 'overview', name: 'Dashboard' }, { id: 'shifts', name: 'Deployments' }, { id: 'issues', name: 'Client issues' }, { id: 'reports', name: 'Reports' }],
-  },
-  supervisor: {
-    label: 'Beatrice · Supervisor', description: 'Confirm attendance and resolve issues',
-    tabs: [{ id: 'overview', name: 'Site checks' }, { id: 'issues', name: 'Issue responses' }],
-  },
-  client: {
-    label: 'Alex · Property owner', description: 'Coverage, schedules and service updates',
-    tabs: [{ id: 'overview', name: 'My property' }, { id: 'roster', name: 'Duty schedule' }, { id: 'issues', name: 'Raise an issue' }, { id: 'reports', name: 'Reports & updates' }],
-  },
-};
+const panel = 'rounded-2xl border border-[#dfe9e4] bg-white p-4 shadow-sm';
+const field = 'mt-1.5 w-full min-w-0 rounded-xl border border-[#cfdfd6] bg-white px-3 py-2.5 text-xs text-[#244238] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100';
+const primary = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#059669] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#047857] disabled:cursor-not-allowed disabled:opacity-40';
+const secondary = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#c6ded2] bg-white px-3 py-2.5 text-xs font-semibold text-[#08694e] hover:bg-emerald-50 disabled:opacity-40';
+const textMuted = 'text-xs leading-5 text-[#678278]';
 
-const STATUS: Record<Attendance, { name: string; className: string }> = {
-  scheduled: { name: 'Scheduled', className: 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200' },
-  unconfirmed: { name: 'Not confirmed', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200' },
-  reported: { name: 'Reported · unverified', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200' },
-  confirmed: { name: 'Supervisor confirmed', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200' },
-  completed: { name: 'Shift completed', className: 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-200' },
+const issueLabels: Record<IssueStatus, string> = {
+  open: 'Open', acknowledged: 'Acknowledged', responding: 'In progress', resolved: 'Resolved',
 };
-const ISSUE_STATUS: Record<IssueStatus, { name: string; className: string }> = {
-  open: { name: 'Open', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200' },
-  acknowledged: { name: 'Acknowledged', className: 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200' },
-  responding: { name: 'In progress', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' },
-  resolved: { name: 'Resolved', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200' },
-};
-const NEXT: Record<IssueStatus, IssueStatus | null> = {
-  open: 'acknowledged', acknowledged: 'responding', responding: 'resolved', resolved: null,
-};
-function TabIcon({ id }: { id: string }) {
-  const props = { className: 'h-5 w-5', 'aria-hidden': true as const };
-  if (id === 'overview') return <House {...props} />;
-  if (id === 'shifts' || id === 'roster') return <CalendarDays {...props} />;
-  if (id === 'issues') return <MessageSquarePlus {...props} />;
-  if (id === 'reports') return <FileText {...props} />;
-  return <ClipboardList {...props} />;
+function Card({children, className = ''}: {children: ReactNode; className?: string}) {
+  return <section className={panel + ' ' + className}>{children}</section>;
 }
-const btn = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40';
-const outline = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-600 hover:text-emerald-700 dark:border-slate-700 dark:text-slate-200';
-const input = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-slate-700 dark:bg-slate-950 dark:text-white';
-const panel = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900';
-
-function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={panel + ' ' + className}>{children}</div>;
+function Status({value}: {value: string}) {
+  const good = ['confirmed', 'completed', 'resolved'].includes(value);
+  const caution = ['open', 'unconfirmed'].includes(value);
+  const cls = good ? 'bg-emerald-100 text-emerald-800' : caution ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800';
+  const names: Record<string, string> = {
+    scheduled:'Scheduled', unconfirmed:'Unconfirmed', reported:'Reported · unverified',
+    confirmed:'Confirmed', completed:'Completed', open:'Open', acknowledged:'Acknowledged',
+    responding:'In progress', resolved:'Resolved',
+  };
+  return <span className={'inline-flex shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ' + cls}>{names[value] || value}</span>;
 }
-function Pill({ status }: { status: Attendance | IssueStatus }) {
-  const cfg = status in STATUS ? STATUS[status as Attendance] : ISSUE_STATUS[status as IssueStatus];
-  return <span className={'rounded-full px-2.5 py-1 text-xs font-semibold ' + cfg.className}>{cfg.name}</span>;
+function SectionTitle({title, note, action}: {title: string; note?: string; action?: ReactNode}) {
+  return <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="min-w-0"><h2 className="text-[17px] font-extrabold tracking-tight text-[#203b33]">{title}</h2>
+      {note && <p className={'mt-1 ' + textMuted}>{note}</p>}</div>{action}
+  </div>;
 }
-function Heading({ title, detail }: { title: string; detail?: string }) {
-  return <div className="mb-5"><h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">{title}</h2>{detail && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{detail}</p>}</div>;
+function DateNavigator({date, onChange}: {date: string; onChange: (value: string) => void}) {
+  return <div className={panel + ' mb-4'}>
+    <p className="mb-2 text-[10px] font-extrabold uppercase tracking-widest text-[#729486]">Selected date · Nairobi time</p>
+    <div className="flex items-center gap-2">
+      <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#d4e3da] bg-[#f6faf7]" onClick={() => onChange(addDays(date,-1))} aria-label="Previous day"><ChevronLeft className="h-5 w-5"/></button>
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">Choose roster date</span>
+        <input aria-label="Choose roster date" type="date" value={date} className="w-full min-w-0 rounded-xl border border-[#d4e3da] bg-white px-2 py-2.5 text-center text-xs font-bold text-[#1a4b3e] outline-none focus:border-emerald-600" onChange={e=>{if(e.target.value)onChange(e.target.value);}} />
+      </label>
+      <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#d4e3da] bg-[#f6faf7]" onClick={() => onChange(addDays(date,1))} aria-label="Next day"><ChevronRight className="h-5 w-5"/></button>
+    </div>
+    <p className="mt-2 text-center text-xs font-semibold text-[#55756a]">{formatDay(date)}</p>
+  </div>;
 }
-function Metric({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
-  return <Card><p className="text-sm text-slate-500 dark:text-slate-400">{label}</p><p className="mt-2 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{value}</p>{hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}</Card>;
+function Assets({assets}: {assets: Asset[]}) {
+  return assets.length ? <div className="mt-3 flex flex-wrap gap-2">
+    {assets.map(a => <div key={a.id} className="flex items-center gap-2 rounded-xl border border-[#d8e5de] bg-[#f4faf6] px-2.5 py-2 text-[10px] font-semibold text-[#456e5d]">
+      {a.kind === 'image' ? <FileImage className="h-4 w-4 text-emerald-700"/> : <FileText className="h-4 w-4 text-emerald-700"/>}
+      <span className="max-w-[170px] break-words">{a.name}</span>
+    </div>)}
+  </div> : null;
 }
 
 export default function SecurityExperience() {
-  const [data, setData] = useState<DemoData>(seedDemo);
-  const [hydrated, setHydrated] = useState(false);
-  const [role, setRole] = useState<Role>('client');
-  const screenRef = useRef<HTMLElement>(null);
-  const [tab, setTab] = useState('overview');
-  const [siteId, setSiteId] = useState('greenview');
-  const [day, setDay] = useState<Day>('today');
-  const [message, setMessage] = useState('');
-  const [issueTitle, setIssueTitle] = useState('');
-  const [issueDetail, setIssueDetail] = useState('');
-  const [incidentSiteId, setIncidentSiteId] = useState('greenview');
-  const [incidentTitle, setIncidentTitle] = useState('');
-  const [incidentDetail, setIncidentDetail] = useState('');
-  const [responseNotes, setResponseNotes] = useState<Record<string, string>>({});
+  const [data, setData] = useState<State>(seedDemo);
+  const [hydrated,setHydrated] = useState(false);
+  const [role,setRole] = useState<Role>('client');
+  const [tab,setTab] = useState('roster');
+  const [siteId,setSiteId] = useState('greenview');
+  const [date,setDate] = useState(kenyaToday);
+  const [notice,setNotice] = useState('');
+  const [activeIssueId,setActiveIssueId] = useState<string | null>(null);
+  const [serviceMode,setServiceMode] = useState<'issues'|'reports'>('issues');
+  const [issueTitle,setIssueTitle] = useState('');
+  const [issueText,setIssueText] = useState('');
+  const [reply,setReply] = useState('');
+  const [newSiteName,setNewSiteName] = useState('');
+  const [newSiteArea,setNewSiteArea] = useState('');
+  const [newClientName,setNewClientName] = useState('');
+  const [newSiteContact,setNewSiteContact] = useState('');
+  const [newStaffName,setNewStaffName] = useState('');
+  const [newStaffPhone,setNewStaffPhone] = useState('');
+  const [newShiftSite,setNewShiftSite] = useState('greenview');
+  const [newShiftStaff,setNewShiftStaff] = useState('daniel');
+  const [newShiftStart,setNewShiftStart] = useState('06:00');
+  const [newShiftEnd,setNewShiftEnd] = useState('18:00');
+  const [visitSite,setVisitSite] = useState('greenview');
+  const [visitNote,setVisitNote] = useState('');
+  const [visitPhoto,setVisitPhoto] = useState(false);
+  const [reportSite,setReportSite] = useState('greenview');
+  const [reportPeriod,setReportPeriod] = useState<ReportPeriod>('daily');
+  const scrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed: unknown = JSON.parse(stored);
-        if (parsed && typeof parsed === 'object' && 'version' in parsed &&
-            parsed.version === 2 && 'shifts' in parsed && Array.isArray(parsed.shifts) &&
-            'issues' in parsed && Array.isArray(parsed.issues) &&
-            'activity' in parsed && Array.isArray(parsed.activity) &&
-            'sites' in parsed && Array.isArray(parsed.sites) && parsed.sites.length > 0 &&
-            'guards' in parsed && Array.isArray(parsed.guards) &&
-            'reports' in parsed && Array.isArray(parsed.reports)) setData(parsed as DemoData);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const stored: unknown = JSON.parse(raw);
+        if (valid(stored)) { setData(stored); setDate(stored.anchorDate); }
       }
-    } catch {
-      // Corrupt or inaccessible local storage must never block the public demo.
-    }
+    } catch { /* unavailable or corrupt browser storage: use sample state */ }
     setHydrated(true);
   }, []);
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* Browser storage is optional. */ }
-  }, [data, hydrated]);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* optional local storage */ }
+  }, [data,hydrated]);
 
   const currentSite = data.sites.find(s => s.id === siteId) || data.sites[0];
-  const todays = data.shifts.filter(s => s.day === 'today');
-  const pending = todays.filter(s => s.status === 'unconfirmed' || s.status === 'reported');
-  const unresolved = data.issues.filter(i => i.status !== 'resolved');
-  const forClient = useMemo(() => ({
-    today: data.shifts.filter(s => s.siteId === siteId && s.day === 'today'),
-    tomorrow: data.shifts.filter(s => s.siteId === siteId && s.day === 'tomorrow'),
-    issues: data.issues.filter(i => i.siteId === siteId && i.visibleToClient),
-    reports: data.reports.filter(r => r.siteId === siteId),
-    updates: data.activity.filter(a => a.siteId === siteId && a.audience === 'client'),
-  }), [data, siteId]);
+  const issue = activeIssueId ? data.issues.find(i=>i.id === activeIssueId) : undefined;
+  const roster = data.shifts.filter(s => s.siteId === siteId && shiftOnDay(s,date));
+  const timeline = timelineForDay(data,date,siteId);
+  const issues = siteIssues(data,siteId);
+  const reports = siteReports(data,siteId);
+  const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
+  const tabs = role === 'client'
+    ? [{id:'roster',name:'Roster', Icon: CalendarDays},{id:'issues',name:'Issues', Icon: MessageSquare},{id:'reports',name:'Reports', Icon:FileText}]
+    : [{id:'overview',name:'Overview', Icon:House},{id:'roster',name:'Roster', Icon:CalendarDays},{id:'sites',name:'Sites', Icon:Building2},{id:'service',name:'Service', Icon:ClipboardCheck}];
 
-  function perform(action: (before: DemoData) => DemoData, success: string) {
-    try { setData(action(data)); setMessage(success); } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not complete that action.');
-    }
+  function perform(operation: (state: State)=>State, message: string) {
+    try { const next = operation(data); setData(next); setNotice(message); }
+    catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to update sample data.'); }
   }
-  function changeRole(next: Role) { setRole(next); setTab('overview'); setMessage(''); if (screenRef.current) screenRef.current.scrollTop = 0; }
-  function changeTab(next: string) { setTab(next); setMessage(''); if (screenRef.current) screenRef.current.scrollTop = 0; }
+  function switchRole(next: Role) {
+    setRole(next); setTab(next==='client'?'roster':'overview');setActiveIssueId(null);setNotice('');
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function moveTab(next: string) {
+    setTab(next);setActiveIssueId(null);setNotice('');
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function openIssue(id: string) {
+    setActiveIssueId(id);setReply('');
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
   function reset() {
-    if (window.confirm('Reset all fictional shift, report, and issue data?')) {
-      setData(seedDemo()); setRole('client'); setTab('overview'); setSiteId('greenview'); setMessage('Demo reset to its original sample data.');
-    }
+    if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
+    const next = seedDemo();setData(next);setDate(next.anchorDate);setSiteId('greenview');
+    setRole('client');setTab('roster');setActiveIssueId(null);setNotice('Sample data restored.');
   }
-  function guardFor(shift: Shift) { return data.guards.find(g => g.id === shift.guardId); }
-  function siteFor(shift: Shift) { return data.sites.find(s => s.id === shift.siteId); }
-
-  function shiftCard(shift: Shift, context: 'client' | 'operations' | 'supervisor') {
-    const guard = guardFor(shift);
-    const editable = context === 'operations' && ['scheduled', 'unconfirmed'].includes(shift.status);
-    const officeCanReport = context === 'operations' && shift.day === 'today' && ['scheduled', 'unconfirmed'].includes(shift.status);
-    const supervisorCanConfirm = context === 'supervisor' && shift.day === 'today' && ['scheduled', 'unconfirmed', 'reported'].includes(shift.status);
-    const supervisorCanDepart = context === 'supervisor' && shift.status === 'confirmed';
-    return (
-      <Card key={shift.id}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            {context !== 'client' && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{siteFor(shift)?.name}</p>}
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">{guard?.name || 'Unassigned guard'}</h3>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400"><Clock3 className="h-4 w-4" /> {shift.starts}–{shift.ends} · {shift.day === 'today' ? 'Today' : 'Tomorrow'}</p>
-          </div>
-          <Pill status={shift.status} />
-        </div>
-        {(shift.arrival || shift.departure || shift.source) && <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs leading-6 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
-          {shift.arrival && <p>Arrival: {shift.arrival}{shift.departure ? ' · Departure: ' + shift.departure : ''}</p>}
-          {shift.source && <p>Method: {shift.source}</p>}
-          {shift.confirmedBy && <p>Confirmed by: {shift.confirmedBy}</p>}
-        </div>}
-        {context !== 'client' && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Staff contact: {guard?.phone || 'Not available'} · Sample directory</p>}
-        {context === 'client' && <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">{guard?.workContact ? 'Approved guard work contact: ' + guard.workContact + ' · ' : ''}Security control room: {currentSite.controlRoom}</p>}
-        {editable && <div className="mt-4">
-          <label htmlFor={'assign-' + shift.id} className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Change assigned officer</label>
-          <select id={'assign-' + shift.id} className={input} value={shift.guardId}
-            onChange={e => perform(d => assignGuard(d, shift.id, e.target.value), 'Duty roster updated. Client view reflects this change.')}>
-            {data.guards.filter(g => g.active).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </div>}
-        {officeCanReport && <button className={outline + ' mt-3 w-full'} onClick={() => perform(d => markArrival(d, shift.id, 'office'), 'Office report recorded as unverified, not a confirmed check-in.')}>Record telephone-reported arrival</button>}
-        {supervisorCanConfirm && <button className={btn + ' mt-3 w-full'} onClick={() => perform(d => markArrival(d, shift.id, 'supervisor'), 'Attendance confirmed by supervisor; client view updated.')}><CheckCircle2 className="h-4 w-4" /> Confirm arrival on site</button>}
-        {supervisorCanDepart && <button className={outline + ' mt-3 w-full'} onClick={() => perform(d => recordDeparture(d, shift.id), 'Supervisor-confirmed departure recorded.')}><Clock3 className="h-4 w-4" /> Record shift departure</button>}
+  function submitIssue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const next = addIssue(data,siteId,issueTitle,issueText,role);
+      setData(next);setIssueTitle('');setIssueText('');setNotice('Issue recorded. Open its details to track progress.');
+      openIssue(next.issues[0].id);
+    } catch(error) {setNotice(error instanceof Error ? error.message : 'Unable to submit issue.');}
+  }
+  function showIssue(item: Issue) {
+    return <button type="button" key={item.id} className="block w-full rounded-2xl border border-[#dfe9e4] bg-white p-4 text-left shadow-sm hover:border-emerald-300" onClick={()=>openIssue(item.id)}>
+      <div className="flex items-center justify-between gap-2"><span className="text-[10px] font-bold uppercase tracking-wide text-[#608678]">#{item.id.slice(-8)}</span><Status value={item.status}/></div>
+      <h3 className="mt-2 text-sm font-extrabold text-[#284337]">{item.title}</h3>
+      <p className={'mt-1 '+textMuted}>{role==='manager' ? (data.sites.find(s=>s.id===item.siteId)?.name+' · ') : ''}{formatDay(dayOfInstant(item.openedAt))}</p>
+      <div className="mt-2 flex items-center justify-between text-[11px] text-[#52816b]"><span>{item.history.length} progress updates · {item.assets.length} attachments</span><ChevronRight className="h-4 w-4"/></div>
+    </button>;
+  }
+  function issueDetails(item: Issue) {
+    return <div className="space-y-4">
+      <button type="button" className="inline-flex items-center gap-2 text-xs font-bold text-emerald-700" onClick={()=>setActiveIssueId(null)}><ArrowLeft className="h-4 w-4"/> All issues</button>
+      <Card>
+        <div className="flex items-center justify-between gap-2"><p className="text-[10px] font-bold uppercase tracking-wide text-[#739184]">Issue #{item.id.slice(-8)}</p><Status value={item.status}/></div>
+        <h2 className="mt-3 text-lg font-extrabold text-[#1d4436]">{item.title}</h2>
+        <p className={'mt-1 '+textMuted}>{formatDay(dayOfInstant(item.openedAt))} · {formatClock(item.openedAt)}</p>
+        <p className="mt-3 text-xs leading-6 text-[#49675b]">{item.description}</p>
       </Card>
-    );
-  }
-
-  function issueCard(issue: Issue, canAdvance: boolean) {
-    const next = NEXT[issue.status];
-    return <Card key={issue.id}>
-      <div className="flex items-start justify-between gap-3">
-        <div><p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">{data.sites.find(s => s.id === issue.siteId)?.name} · {issue.origin === 'client' ? 'Client request' : 'Site incident'}</p>
-          <h3 className="mt-1 font-bold text-slate-900 dark:text-white">{issue.title}</h3></div>
-        <Pill status={issue.status} />
-      </div>
-      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{issue.detail}</p>
-      {issue.response && <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"><span className="font-semibold">Latest response: </span>{issue.response}</div>}
-      {canAdvance && next && <div className="mt-4 space-y-2">
-        {next !== 'acknowledged' && <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">
-          Response / resolution note
-          <textarea rows={2} value={responseNotes[issue.id] || ''} className={input + ' mt-1'} placeholder="Describe action taken (minimum 8 characters)"
-            onChange={e => setResponseNotes(n => ({ ...n, [issue.id]: e.target.value }))} />
+      <Card><SectionTitle title="Resolution progress" note="Updates from the security company appear here."/>
+        <ol className="space-y-0">
+          {item.history.map((step,index)=><li key={index} className="relative border-l-2 border-[#b7dfc8] pb-5 pl-4 last:border-transparent last:pb-0">
+            <span className="absolute -left-[6px] top-0 grid h-2.5 w-2.5 rounded-full bg-[#059669]"/>
+            <div className="flex items-center justify-between gap-2"><p className="text-xs font-bold text-[#235d46]">{issueLabels[step.status]}</p><span className="text-[10px] text-[#82978c]">{formatClock(step.at)}</span></div>
+            <p className="mt-1 text-[11px] font-medium text-[#617e70]">{step.by} · {formatDay(dayOfInstant(step.at))}</p>
+            <p className="mt-1 text-xs leading-5 text-[#485f54]">{step.note}</p>
+          </li>)}
+        </ol>
+      </Card>
+      <Card><SectionTitle title="Media & documents" note="Illustrative attachments associated with this issue."/>
+        {item.assets.length ? <Assets assets={item.assets}/> : <p className={textMuted}>No media or documents attached yet.</p>}
+        {role==='manager' && <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" className={secondary} onClick={()=>perform(d=>addSampleEvidence(d,item.id,'image'),'Sample photo attached to issue.')}><Camera className="h-4 w-4"/> Add sample photo</button>
+          <button type="button" className={secondary} onClick={()=>perform(d=>addSampleEvidence(d,item.id,'document'),'Sample document attached to issue.')}><FileText className="h-4 w-4"/> Add sample document</button>
+        </div>}
+      </Card>
+      {role==='manager' && item.status !== 'resolved' && <Card>
+        <SectionTitle title="Update resolution" note="Changes are immediately reflected in the client view."/>
+        {item.status!=='open' && <label className="block text-xs font-bold text-[#325d48]">Response or action taken
+          <textarea className={field} rows={3} value={reply} onChange={e=>setReply(e.target.value)} placeholder="Describe what you did (at least 8 characters)"/>
         </label>}
-        <button className={btn + ' w-full'} onClick={() => perform(d => progressIssue(d, issue.id, next, responseNotes[issue.id] || ''),
-          'Issue updated. The client can now see the new status.')}>
-          {next === 'acknowledged' ? 'Acknowledge client issue' : next === 'responding' ? 'Record supervisor response' : 'Resolve issue'}
-          <ArrowRight className="h-4 w-4" />
-        </button>
+        <button type="button" className={primary+' mt-3 w-full'} onClick={()=>{
+          try {setData(advanceIssue(data,item.id,reply));setReply('');setNotice('Issue progress updated for the client.');}
+          catch(error){setNotice(error instanceof Error?error.message:'Unable to update issue.');}
+        }}>{item.status==='open'?'Acknowledge issue':item.status==='acknowledged'?'Start response':'Mark resolved'} <ChevronRight className="h-4 w-4"/></button>
+      </Card>}
+    </div>;
+  }
+  function rosterTimeline() {
+    return <div>
+      <SectionTitle title="Daily activity" note="One date at a time · Shifts, observations and site events in time order"/>
+      {timeline.length===0 ? <Card><p className={textMuted}>No shifts or site events recorded for this date. Select another day to browse the history.</p></Card> :
+      <div className="space-y-3">
+        {timeline.map(row=><Card key={row.id}>
+          <div className="flex items-start gap-3">
+            <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-[#edf7f1] py-2 text-[11px] font-extrabold text-[#087c59]">
+              <Clock3 className="mb-1 h-4 w-4"/>{formatClock(row.at)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-extrabold uppercase tracking-wide text-[#709585]">{row.kind==='shift'?'Duty shift':'Site activity'}</p>
+              <h3 className="mt-1 text-xs font-extrabold text-[#1d4034]">{row.title}</h3>
+              <p className="mt-1 text-[11px] leading-5 text-[#567065]">{row.detail}</p>
+              {row.shift && <div className="mt-2 flex flex-wrap items-center gap-2"><Status value={row.shift.attendance}/>{row.shift.method && <span className="text-[10px] text-[#739085]">{row.shift.method}</span>}</div>}
+              {row.assets.length>0 && <Assets assets={row.assets}/>}
+              {row.issueId && <button type="button" className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#008765]" onClick={()=>{setTab('issues');openIssue(row.issueId!);}}>Open linked issue <ChevronRight className="h-3 w-3"/></button>}
+            </div>
+          </div>
+        </Card>)}
       </div>}
+    </div>;
+  }
+  function managerShiftCard(shift: Shift) {
+    const officer = data.staff.find(s=>s.id===shift.staffId);
+    return <Card key={shift.id}>
+      <div className="flex items-start justify-between gap-2">
+        <div><h3 className="text-sm font-extrabold text-[#204534]">{officer?.name}</h3>
+          <p className="mt-1 text-[11px] text-[#678274]">{data.sites.find(s=>s.id===shift.siteId)?.name}</p>
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-[#678274]"><Clock3 className="h-3 w-3"/>{formatClock(shift.startAt)} – {formatClock(shift.endAt)}{dayOfInstant(shift.startAt)!==dayOfInstant(shift.endAt)?' (+1 day)':''}</p></div>
+        <Status value={shift.attendance}/>
+      </div>
+      {(shift.arrivalAt||shift.method) && <p className="mt-2 rounded-xl bg-[#f2f8f4] px-3 py-2 text-[11px] leading-5 text-[#52766a]">Arrival: {shift.arrivalAt?formatClock(shift.arrivalAt):'Not recorded'} · {shift.method || 'Not verified'}</p>}
+      {['scheduled','unconfirmed'].includes(shift.attendance) && <label className="mt-3 block text-[11px] font-bold text-[#486b5c]">Reassign officer
+        <select className={field} value={shift.staffId} onChange={e=>perform(d=>assignShift(d,shift.id,e.target.value),'Duty roster updated.')}>
+          {data.staff.filter(s=>s.active).map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
+        </select>
+      </label>}
+      {['scheduled','unconfirmed','reported'].includes(shift.attendance) && <div className="mt-3 flex flex-wrap gap-2">
+        {shift.attendance!=='reported' && <button type="button" className={secondary+' flex-1'} onClick={()=>perform(d=>confirmAttendance(d,shift.id,'office'),'Telephone-reported arrival saved as unverified.')}>Office report</button>}
+        <button type="button" className={primary+' flex-1'} onClick={()=>perform(d=>confirmAttendance(d,shift.id,'supervisor'),'Supervisor confirmation recorded.')}><CheckCircle2 className="h-3.5 w-3.5"/> Confirm on site</button>
+      </div>}
+      {shift.attendance==='confirmed' && <button type="button" className={secondary+' mt-3 w-full'} onClick={()=>perform(d=>completeShift(d,shift.id),'Shift departure recorded.')}><Check className="h-4 w-4"/> Record departure</button>}
     </Card>;
   }
+  function reportList(recs: typeof reports) {
+    return recs.length ? <div className="space-y-3">{recs.map(rep=><Card key={rep.id}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
+        <span className="text-[10px] text-[#7c9489]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
+      </div>
+      <h3 className="mt-3 text-sm font-extrabold text-[#264637]">{rep.title}</h3>
+      {role==='manager' && <p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>}
+      <p className="mt-1 text-[11px] text-[#779186]">Covered: {formatDay(rep.periodFrom)}{rep.periodFrom!==rep.periodTo?' to '+formatDay(rep.periodTo):''}</p>
+      <p className="mt-3 text-xs leading-6 text-[#4c695a]">{rep.summary}</p>
+    </Card>)}</div> : <Card><p className={textMuted}>No published reports yet.</p></Card>;
+  }
 
-  function incidentForm() {
-    return <Card className="mb-5">
-      <h3 className="font-bold">Log a security incident</h3>
-      <p className="mt-1 text-xs text-slate-500">Record a site incident from the office or supervisor&apos;s company device. It appears in the relevant client portal.</p>
-      <form className="mt-4 grid gap-3" onSubmit={e => {
+  const clientRoster = <div className="space-y-4">
+    <div><p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700">My property</p>
+      <h1 className="mt-1 text-xl font-extrabold text-[#214935]">{currentSite.name}</h1>
+      <p className="mt-1 flex items-center gap-1 text-[11px] text-[#718d7e]"><MapPin className="h-3.5 w-3.5"/>{currentSite.area}</p></div>
+    <label className="block text-[11px] font-semibold text-[#749084]">Sample property
+      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);}}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+    </label>
+    <DateNavigator date={date} onChange={setDate}/>
+    {rosterTimeline()}
+    <p className="px-1 text-[11px] text-[#849b8e]">For assistance, contact the security control room: {currentSite.contact}.</p>
+  </div>;
+  const clientIssues = issue ? issueDetails(issue) : <div className="space-y-4">
+    <SectionTitle title="Site issues" note="Current concerns and resolved history, with full progress and evidence."/>
+    <div className="space-y-3">{issues.filter(i=>i.status!=='resolved').map(showIssue)}</div>
+    <SectionTitle title="Resolved issues"/>
+    <div className="space-y-3">{issues.filter(i=>i.status==='resolved').map(showIssue)}</div>
+    <Card>
+      <SectionTitle title="Raise a concern" note="Report an issue directly to the security company."/>
+      <form className="space-y-3" onSubmit={submitIssue}>
+        <label className="block text-xs font-bold text-[#436651]">Title<input required minLength={5} maxLength={100} className={field} value={issueTitle} onChange={e=>setIssueTitle(e.target.value)} placeholder="e.g. Gate left unsecured"/></label>
+        <label className="block text-xs font-bold text-[#436651]">Description<textarea required minLength={10} maxLength={600} className={field} rows={3} value={issueText} onChange={e=>setIssueText(e.target.value)} placeholder="What happened and where?"/></label>
+        <button className={primary+' w-full'} type="submit"><Send className="h-4 w-4"/> Submit issue</button>
+      </form>
+    </Card>
+  </div>;
+  const clientReports = <div><SectionTitle title="Site reports" note="Daily, weekly and monthly reports published by your security company."/>
+    {reportList(reports)}</div>;
+  const unresolved = data.issues.filter(i=>i.status!=='resolved');
+  const unconfirmed = data.shifts.filter(s=>shiftOnDay(s,kenyaToday()) && ['reported','unconfirmed'].includes(s.attendance));
+  const managerOverview = <div className="space-y-4">
+    <div><p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700">Security management</p>
+      <h1 className="mt-1 text-xl font-extrabold text-[#214935]">Today's operations</h1>
+      <p className={textMuted}>Site coverage, staff and client service in one place.</p></div>
+    <div className="grid grid-cols-2 gap-2">
+      {[['Active sites',data.sites.length],['Staff',data.staff.length],['Attendance exceptions',unconfirmed.length],['Open issues',unresolved.length]].map(([label,value])=>
+        <Card key={label}><p className="text-[11px] font-semibold text-[#728f80]">{label}</p><p className="mt-2 text-2xl font-extrabold text-[#0f7051]">{value}</p></Card>)}
+    </div>
+    <SectionTitle title="Needs attention"/>
+    <div className="space-y-3">
+      {unconfirmed.slice(0,3).map(s=><Card key={s.id}>
+        <div className="flex items-start justify-between gap-2">
+          <div><h3 className="text-xs font-bold text-[#264c37]">{data.sites.find(site=>site.id===s.siteId)?.name}</h3>
+            <p className="mt-1 text-[11px] text-[#789486]">{data.staff.find(person=>person.id===s.staffId)?.name} · Attendance follow-up</p></div>
+          <Status value={s.attendance}/>
+        </div>
+        <button type="button" className="mt-2 text-[11px] font-bold text-emerald-700" onClick={()=>{setTab('roster');setDate(dayOfInstant(s.startAt));}}>Review roster →</button>
+      </Card>)}
+      {unresolved.slice(0,3).map(i=><Card key={i.id}>
+        <p className="text-xs font-bold text-[#264c37]">{i.title}</p><p className={'mt-1 '+textMuted}>{data.sites.find(site=>site.id===i.siteId)?.name}</p>
+        <div className="mt-2 flex items-center justify-between"><Status value={i.status}/><button className="text-[11px] font-bold text-emerald-700" onClick={()=>{setTab('service');setServiceMode('issues');openIssue(i.id);}}>View issue →</button></div>
+      </Card>)}
+    </div>
+    <Card>
+      <SectionTitle title="Quick actions"/>
+      <div className="grid grid-cols-2 gap-2">
+        <button className={secondary} onClick={()=>moveTab('roster')}><CalendarDays className="h-4 w-4"/> Duty roster</button>
+        <button className={secondary} onClick={()=>moveTab('sites')}><Building2 className="h-4 w-4"/> Visit a site</button>
+        <button className={secondary} onClick={()=>{moveTab('service');setServiceMode('issues');}}><MessageSquare className="h-4 w-4"/> Resolve issue</button>
+        <button className={secondary} onClick={()=>{moveTab('service');setServiceMode('reports');}}><FileText className="h-4 w-4"/> Publish report</button>
+      </div>
+    </Card>
+  </div>;
+  const managerRoster = <div className="space-y-4">
+    <SectionTitle title="Duty roster" note="Manage assignments, record attendance and review previous shifts."/>
+    <DateNavigator date={date} onChange={setDate}/>
+    <label className="block text-[11px] font-bold text-[#5c806d]">Property
+      <select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+    </label>
+    <SectionTitle title="Shifts on selected day"/>
+    <div className="space-y-3">{roster.length?roster.map(managerShiftCard):<Card><p className={textMuted}>No shifts recorded for this property on the selected day.</p></Card>}</div>
+    <details className={panel}>
+      <summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Schedule a shift</summary>
+      <form className="mt-4 space-y-3" onSubmit={e=>{
         e.preventDefault();
-        try {
-          setData(logSiteIncident(data, incidentSiteId, incidentTitle, incidentDetail));
-          setIncidentTitle(''); setIncidentDetail('');
-          setMessage('Site incident logged and added to the client portal.');
-        } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not record the incident.'); }
+        perform(d=>addShift(d,newShiftSite,newShiftStaff,date,newShiftStart,newShiftEnd),'Shift scheduled. Overnight shifts appear on both days.');
       }}>
-        <label className="block text-xs font-semibold">Property
-          <select className={input + ' mt-1'} value={incidentSiteId} onChange={e => setIncidentSiteId(e.target.value)}>
-            {data.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        <label className="block text-xs font-bold">Property<select className={field} value={newShiftSite} onChange={e=>setNewShiftSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label className="block text-xs font-bold">Assigned officer<select className={field} value={newShiftStaff} onChange={e=>setNewShiftStaff(e.target.value)}>{data.staff.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block text-xs font-bold">Start time<input type="time" required className={field} value={newShiftStart} onChange={e=>setNewShiftStart(e.target.value)}/></label>
+          <label className="block text-xs font-bold">End time<input type="time" required className={field} value={newShiftEnd} onChange={e=>setNewShiftEnd(e.target.value)}/></label>
+        </div>
+        <p className={textMuted}>Shifts ending before their start time continue into the next calendar day.</p>
+        <button type="submit" className={primary+' w-full'}><Plus className="h-4 w-4"/> Add shift</button>
+      </form>
+    </details>
+    <SectionTitle title="Chronological site record"/>
+    {rosterTimeline()}
+  </div>;
+  const managerSites = <div className="space-y-4">
+    <SectionTitle title="Clients & sites" note="Maintain assigned properties and make site visit records."/>
+    <div className="space-y-3">{data.sites.map(site=><Card key={site.id}>
+      <p className="text-sm font-extrabold text-[#24523b]">{site.name}</p>
+      <p className={'mt-1 '+textMuted}><MapPin className="mr-1 inline h-3.5 w-3.5"/>{site.area}</p>
+      <p className="mt-2 text-[11px] font-semibold text-[#668a77]">Client: {site.client}</p>
+      <p className="mt-1 text-[11px] text-[#779387]">{data.shifts.filter(s=>s.siteId===site.id).length} scheduled/historical assignments</p>
+    </Card>)}</div>
+    <details className={panel}><summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Add client & property</summary>
+      <form className="mt-4 space-y-3" onSubmit={e=>{e.preventDefault();try{
+        setData(addSite(data,newSiteName,newSiteArea,newClientName,newSiteContact));
+        setNewSiteName('');setNewSiteArea('');setNewClientName('');setNewSiteContact('');setNotice('Client site added.');
+      }catch(error){setNotice(error instanceof Error?error.message:'Unable to create client site.');}}}>
+        {[['Client name',newClientName,setNewClientName],['Property / site name',newSiteName,setNewSiteName],['Location',newSiteArea,setNewSiteArea],['Control room contact',newSiteContact,setNewSiteContact]].map(([label,val,change])=>
+          <label key={label as string} className="block text-xs font-bold">{label as string}<input className={field} required={label!=='Control room contact'} value={val as string} onChange={e=>(change as (x:string)=>void)(e.target.value)}/></label>)}
+        <button className={primary+' w-full'} type="submit">Add client site</button>
+      </form>
+    </details>
+    <details className={panel}><summary className="cursor-pointer text-xs font-extrabold text-[#0b7854]">+ Add staff member</summary>
+      <form className="mt-4 space-y-3" onSubmit={e=>{e.preventDefault();try{
+        setData(addStaff(data,newStaffName,newStaffPhone));setNewStaffName('');setNewStaffPhone('');setNotice('Staff member added.');
+      }catch(error){setNotice(error instanceof Error?error.message:'Unable to add officer.');}}}>
+        <label className="block text-xs font-bold">Officer name<input required className={field} value={newStaffName} onChange={e=>setNewStaffName(e.target.value)}/></label>
+        <label className="block text-xs font-bold">Contact<input className={field} value={newStaffPhone} onChange={e=>setNewStaffPhone(e.target.value)} placeholder="Work contact / phone"/></label>
+        <button type="submit" className={primary+' w-full'}>Add staff member</button>
+      </form>
+    </details>
+    <Card>
+      <SectionTitle title="Record a site visit" note="Visit details and sample photos appear in that client's daily timeline."/>
+      <form className="space-y-3" onSubmit={e=>{e.preventDefault();try{
+        setData(logVisit(data,visitSite,visitNote,visitPhoto));setVisitNote('');setVisitPhoto(false);setNotice('Site visit recorded in the client timeline.');
+      }catch(error){setNotice(error instanceof Error?error.message:'Unable to record visit.');}}}>
+        <label className="block text-xs font-bold">Site<select className={field} value={visitSite} onChange={e=>setVisitSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label className="block text-xs font-bold">Visit notes<textarea required minLength={10} className={field} rows={3} value={visitNote} onChange={e=>setVisitNote(e.target.value)} placeholder="What was checked and observed?"/></label>
+        <label className="flex items-center gap-2 text-xs text-[#456d5a]"><input type="checkbox" checked={visitPhoto} onChange={e=>setVisitPhoto(e.target.checked)}/> Include an illustrative sample photo</label>
+        <button className={primary+' w-full'} type="submit"><ClipboardCheck className="h-4 w-4"/> Save site visit</button>
+      </form>
+    </Card>
+    <SectionTitle title="Staff directory"/>
+    <div className="space-y-2">{data.staff.map(s=><div key={s.id} className="flex items-center justify-between rounded-xl border border-[#e0eae3] bg-white px-3 py-3 text-xs">
+      <span className="font-bold text-[#2c4d3d]">{s.name}</span><span className="text-[#7b9186]">{s.phone}</span>
+    </div>)}</div>
+  </div>;
+  const managerService = <div className="space-y-4">
+    <SectionTitle title="Client service" note="Respond to concerns and publish service reports."/>
+    <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#e9f3ec] p-1">
+      {(['issues','reports'] as const).map(value=><button key={value} type="button" onClick={()=>{setServiceMode(value);setActiveIssueId(null);}}
+        className={'rounded-lg px-3 py-2.5 text-xs font-bold '+(serviceMode===value?'bg-white text-emerald-800 shadow-sm':'text-[#68867a]')}>{value==='issues'?'Issues':'Reports'}</button>)}
+    </div>
+    {serviceMode==='issues' ? (issue ? issueDetails(issue) : <div className="space-y-4">
+      <SectionTitle title="Active concerns"/>
+      <div className="space-y-3">{managerIssues.filter(i=>i.status!=='resolved').map(showIssue)}</div>
+      <SectionTitle title="Resolved history"/>
+      <div className="space-y-3">{managerIssues.filter(i=>i.status==='resolved').map(showIssue)}</div>
+      <Card>
+        <SectionTitle title="Record site incident"/>
+        <form className="space-y-3" onSubmit={e=>{e.preventDefault();try{
+          setData(addIssue(data,siteId,issueTitle,issueText,'manager'));setIssueTitle('');setIssueText('');setNotice('Site incident recorded.');
+        }catch(error){setNotice(error instanceof Error?error.message:'Unable to log incident.');}}}>
+          <label className="block text-xs font-bold">Site<select className={field} value={siteId} onChange={e=>setSiteId(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label className="block text-xs font-bold">Incident title<input required minLength={5} className={field} value={issueTitle} onChange={e=>setIssueTitle(e.target.value)}/></label>
+          <label className="block text-xs font-bold">Details<textarea required minLength={10} rows={3} className={field} value={issueText} onChange={e=>setIssueText(e.target.value)}/></label>
+          <button type="submit" className={primary+' w-full'}>Record incident</button>
+        </form>
+      </Card>
+    </div>) : <div className="space-y-4">
+      <Card><SectionTitle title="Publish report" note="Choose a property and reporting period."/>
+        <div className="space-y-3">
+          <label className="block text-xs font-bold">Site<select className={field} value={reportSite} onChange={e=>setReportSite(e.target.value)}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label className="block text-xs font-bold">Reporting period<select className={field} value={reportPeriod} onChange={e=>setReportPeriod(e.target.value as ReportPeriod)}>
+            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+          </select></label>
+          <button type="button" className={primary+' w-full'} onClick={()=>perform(d=>publishReport(d,reportSite,reportPeriod),'Report published to selected client.')}><FileText className="h-4 w-4"/> Publish report</button>
+        </div>
+      </Card>
+      <SectionTitle title="Published reports" note="Most recent first across all client sites."/>
+      {reportList([...data.reports].sort((a,b)=>Date.parse(b.publishedAt)-Date.parse(a.publishedAt)))}
+    </div>}
+  </div>;
+
+  return <div className={styles.stage}>
+    <aside className={styles.intro}>
+      <p className={styles.kicker}>JOELTECHGEEK · SECURITY DEMO</p>
+      <h1>Stay on top of every site.</h1>
+      <p>Explore shift coverage, daily site records, client concerns, evidence and service reporting in a connected mobile experience.</p>
+      <a href="/demos/security">← About this solution</a>
+    </aside>
+    <section className={styles.phone} aria-label="Security management mobile app demo">
+      <div className={styles.statusbar} aria-hidden="true"><span>9:41</span><span>●●● ◕ ▰</span></div>
+      <header className={styles.appHeader}>
+        <a href="/demos/security" className={styles.logo} aria-label="Back to security demo overview"><ShieldCheck className="h-6 w-6"/></a>
+        <div className={styles.brand}><strong>Security Operations</strong><span>CONNECTED SERVICE · DEMO</span></div>
+        <label className={styles.roleLabel} htmlFor="security-role-select">Switch role
+          <select id="security-role-select" className={styles.roleSelect} value={role} onChange={e=>switchRole(e.target.value as Role)}>
+            <option value="client">{currentSite.client.split(' ')[0]} · Client</option>
+            <option value="manager">Grace · Manager</option>
           </select>
         </label>
-        <label className="block text-xs font-semibold">Incident title
-          <input className={input + ' mt-1'} required minLength={5} maxLength={90} value={incidentTitle} placeholder="e.g. Main gate damaged"
-            onChange={e => setIncidentTitle(e.target.value)} />
-        </label>
-        <label className="block text-xs font-semibold ">Incident details
-          <textarea className={input + ' mt-1'} required minLength={10} maxLength={500} rows={2} value={incidentDetail}
-            placeholder="What happened and what action is needed?" onChange={e => setIncidentDetail(e.target.value)} />
-        </label>
-        <button className={btn + ' '} type="submit"><MessageSquarePlus className="h-4 w-4" /> Record incident</button>
-      </form>
-    </Card>;
-  }
-
-  return (
-    <div className={styles.stage}>
-      <aside className={styles.intro}>
-        <p className={styles.kicker}>JOELTECHGEEK · INTERACTIVE CONCEPT</p>
-        <h1>Every property covered. Every client informed.</h1>
-        <p>See how a security company manages duty schedules, confirms attendance and keeps property owners informed—through a connected mobile experience.</p>
-        <a href="/demos/security">← About this solution</a>
-      </aside>
-
-      <section className={styles.phone} aria-label="Interactive security operations mobile demo">
-        <div className={styles.statusbar} aria-hidden="true"><span>9:41</span><span>●●● ◕ ▰</span></div>
-        <header className={styles.appHeader}>
-          <a href="/demos/security" className={styles.logo} aria-label="Back to security demo overview"><ShieldCheck className="h-6 w-6" aria-hidden="true" /></a>
-          <div className={styles.brand}>
-            <strong>Security Operations</strong>
-            <span>CLIENT SERVICE · DEMO</span>
-          </div>
-          <label className={styles.roleLabel} htmlFor="security-role-select">
-            Switch role
-            <select id="security-role-select" className={styles.roleSelect} value={role}
-              onChange={e => changeRole(e.target.value as Role)}>
-              <option value="client">Alex · Client</option>
-              <option value="operations">Grace · Operations</option>
-              <option value="supervisor">Beatrice · Supervisor</option>
-            </select>
-          </label>
-        </header>
-        <main ref={screenRef} className={styles.screen} aria-label={panes[role].label + ' workspace'}>
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">{panes[role].label}</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{panes[role].description}</p>
-            </div>
-            <button type="button" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" onClick={reset} aria-label="Reset demo data"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
-          </div>
-          {message && <div role="status" className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-            <span className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0" />{message}</span>
-            <button type="button" aria-label="Dismiss message" onClick={() => setMessage('')}>×</button>
-          </div>}
-        {role === 'client' && <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div><p className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Client service portal</p>
-            <h2 className="mt-1 text-xl font-bold">{currentSite.name}</h2><p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500"><MapPin className="h-4 w-4" />{currentSite.area}</p></div>
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Preview a sample client site
-            <select className={input + ' mt-1'} value={siteId} onChange={e => setSiteId(e.target.value)}>
-              {data.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
+      </header>
+      <main ref={scrollRef} className={styles.screen} aria-label={role==='client'?'Client service app':'Security manager app'}>
+        {notice && <div role="status" className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-emerald-200 bg-[#e7f7ed] p-3 text-xs text-[#23664b]">
+          <span className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0"/>{notice}</span>
+          <button type="button" aria-label="Dismiss notice" onClick={()=>setNotice('')}><X className="h-4 w-4"/></button>
         </div>}
-
-        {role === 'client' && tab === 'overview' && <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Assigned today" value={forClient.today.length} hint="Scheduled duty slots" />
-            <Metric label="Supervisor confirmed" value={forClient.today.filter(s => ['confirmed', 'completed'].includes(s.status)).length} hint="Not the same as GPS tracking" />
-            <Metric label="Open site issues" value={forClient.issues.filter(i => i.status !== 'resolved').length} hint="Visible to your security company" />
-          </div>
-          <div><Heading title="Who's assigned today?" detail="See the roster, clock-in evidence source, and service contact in one place." />
-            <div className="grid gap-3">{forClient.today.map(s => shiftCard(s, 'client'))}</div></div>
-          <Card className="flex flex-wrap items-center justify-between gap-4">
-            <div><h3 className="font-bold">Need assistance at your property?</h3><p className="mt-1 text-sm text-slate-500">Send a concern directly to the security operations team and track its resolution.</p></div>
-            <button className={btn} onClick={() => changeTab('issues')}><MessageSquarePlus className="h-4 w-4" /> Raise an issue</button>
-          </Card>
-          <div><Heading title="Latest service updates" detail="Illustrative in-app updates, not real push notifications." />
-            <Card><div className="space-y-3">{forClient.updates.length ? forClient.updates.slice(0, 6).map(a => <div key={a.id} className="flex gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800"><Bell className="mt-1 h-4 w-4 shrink-0 text-emerald-600" /><div className="text-sm"><p>{a.message}</p><p className="mt-1 text-xs text-slate-400">{a.stamp}</p></div></div>) : <p className="text-sm text-slate-500">No service updates yet.</p>}</div></Card>
-          </div>
-        </div>}
-        {role === 'client' && tab === 'roster' && <div>
-          <Heading title="Duty schedule" detail="Today's coverage and tomorrow's assignments. Changes from Operations appear here instantly." />
-          <div className="mb-4 flex gap-2">{(['today', 'tomorrow'] as Day[]).map(d => <button key={d} onClick={() => setDay(d)} className={day === d ? btn : outline}>{d === 'today' ? 'Today' : 'Tomorrow'}</button>)}</div>
-          <div className="grid gap-3">{(day === 'today' ? forClient.today : forClient.tomorrow).map(s => shiftCard(s, 'client'))}</div>
-        </div>}
-        {role === 'client' && tab === 'issues' && <div className="grid gap-5">
-          <div><Heading title="Report a site concern" detail="Your issue reaches the security operations queue; follow each status as it changes." />
-            <Card><form className="space-y-4" onSubmit={e => {
-              e.preventDefault();
-              try { const next = raiseIssue(data, siteId, issueTitle, issueDetail); setData(next); setIssueTitle(''); setIssueDetail(''); setMessage('Issue sent to the sample operations queue. Switch to Operations to see it.'); }
-              catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to submit issue.'); }
-            }}>
-              <label className="block text-sm font-semibold">Concern title<input required minLength={5} maxLength={90} className={input + ' mt-1.5'} placeholder="e.g. Rear gate left unsecured" value={issueTitle} onChange={e => setIssueTitle(e.target.value)} /></label>
-              <label className="block text-sm font-semibold">What happened?<textarea required minLength={10} maxLength={500} rows={4} className={input + ' mt-1.5'} placeholder="Explain the concern and where it occurred" value={issueDetail} onChange={e => setIssueDetail(e.target.value)} /></label>
-              <button className={btn + ' w-full'} type="submit"><Send className="h-4 w-4" /> Submit client issue</button>
-            </form></Card></div>
-          <div><Heading title="Your reported issues" detail="Track acknowledgement, response and resolution." />
-            <div className="space-y-3">{forClient.issues.length ? forClient.issues.map(i => issueCard(i, false)) : <Card><p className="text-sm text-slate-500">No issues reported for this property.</p></Card>}</div></div>
-        </div>}
-        {role === 'client' && tab === 'reports' && <div className="grid gap-5">
-          <div><Heading title="Published site reports" detail="Only reports published for this property appear here." />
-            <div className="space-y-3">{forClient.reports.map(r => <Card key={r.id}><div className="flex items-center gap-2 font-semibold"><FileText className="h-5 w-5 text-emerald-700" />{r.title}</div><p className="mt-2 text-xs text-slate-500">{r.published}</p><p className="mt-3 text-sm leading-6">{r.summary}</p></Card>)}
-              {!forClient.reports.length && <Card><p className="text-sm text-slate-500">No reports published yet.</p></Card>}</div>
-          </div>
-          <div><Heading title="Notifications & service updates" detail="In-app history only. Real push and SMS alerts are not connected." />
-            <Card><div className="space-y-3">{forClient.updates.map(a => <div key={a.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800"><p className="text-sm">{a.message}</p><p className="mt-1 text-xs text-slate-500">{a.stamp}</p></div>)}</div></Card></div>
-        </div>}
-
-        {role === 'operations' && tab === 'overview' && <div className="space-y-6">
-          <Heading title="Operations control centre" detail="See exceptions first: unresolved client issues, unconfirmed arrivals, and upcoming coverage." />
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Client sites" value={data.sites.length} />
-            <Metric label="Today's shifts" value={todays.length} />
-            <Metric label="Attendance exceptions" value={pending.length} hint="Unconfirmed or unverified" />
-            <Metric label="Open client issues" value={unresolved.length} />
-          </div>
-          <div className="grid gap-5">
-            <div><Heading title="Attendance needs attention" detail="A reported arrival isn't automatically independently confirmed." />
-              <div className="space-y-3">{pending.map(s => shiftCard(s, 'operations'))}{!pending.length && <Card><p className="text-sm text-slate-500">No attendance exceptions in the sample roster.</p></Card>}</div>
-            </div>
-            <div><Heading title="Client requests awaiting resolution" />
-              <div className="space-y-3">{unresolved.slice(0, 4).map(i => issueCard(i, true))}{!unresolved.length && <Card><p className="text-sm text-slate-500">No unresolved requests.</p></Card>}</div>
-            </div>
-          </div>
-        </div>}
-        {role === 'operations' && tab === 'shifts' && <div>
-          <Heading title="Deployments & staff directory" detail="Plan tomorrow, replace an unstarted assignment, and record telephone-reported attendance without claiming GPS verification." />
-          <div className="mb-5 flex flex-wrap gap-2">{(['today', 'tomorrow'] as Day[]).map(d => <button key={d} onClick={() => setDay(d)} className={day === d ? btn : outline}>{d === 'today' ? "Today's shifts" : "Tomorrow's shifts"}</button>)}</div>
-          <div className="grid gap-3">{data.shifts.filter(s => s.day === day).map(s => shiftCard(s, 'operations'))}</div>
-          <div className="mt-7"><Heading title="Staff directory" detail="Contact numbers shown only in authorised staff-facing demo roles." />
-            <div className="grid gap-3">{data.guards.map(g => <Card key={g.id}><p className="font-bold">{g.name}</p><p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Phone className="h-4 w-4" />{g.phone}</p><p className="mt-2 text-xs text-emerald-700">Active staff · Sample record</p></Card>)}</div></div>
-        </div>}
-        {role === 'operations' && tab === 'issues' && <div><Heading title="Client requests & incidents" detail="Record site incidents and address customer concerns. Changes become visible to the affected property owner." />
-          {incidentForm()}
-          <div className="grid gap-3">{data.issues.map(i => issueCard(i, true))}</div></div>}
-        {role === 'operations' && tab === 'reports' && <div>
-          <Heading title="Publish client service reports" detail="Generate a snapshot with confirmed, telephone-reported and unresolved statuses kept separate." />
-          <div className="mb-5 flex flex-wrap gap-3">{data.sites.map(site => <button key={site.id} className={outline} onClick={() => perform(d => publishReport(d, site.id), 'Report published to ' + site.name + ' client portal.')}><FileText className="h-4 w-4" /> Publish: {site.name}</button>)}</div>
-          <div className="grid gap-3">{data.reports.map(r => <Card key={r.id}><p className="text-xs font-semibold uppercase text-emerald-700">{data.sites.find(s => s.id === r.siteId)?.name}</p><h3 className="mt-1 font-bold">{r.title}</h3><p className="mt-1 text-xs text-slate-500">{r.published}</p><p className="mt-3 text-sm">{r.summary}</p></Card>)}</div>
-        </div>}
-
-        {role === 'supervisor' && tab === 'overview' && <div>
-          <Heading title="Supervisor site checks" detail="Confirm site attendance from the supervisor workspace and distinguish it from an office-reported arrival." />
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"><WifiOff className="h-5 w-5 shrink-0" /> Supervisor confirmation and office attendance reports have distinct verification levels. This demo does not collect location.</div>
-          <div className="grid gap-3">{todays.map(s => shiftCard(s, 'supervisor'))}</div>
-        </div>}
-        {role === 'supervisor' && tab === 'issues' && <div><Heading title="Respond to client concerns" detail="Log site incidents, acknowledge client concerns, and record the response through resolution." />
-          {incidentForm()}
-          <div className="grid gap-3">{data.issues.map(i => issueCard(i, true))}</div></div>}
-
-
-        <div className="mt-6 flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 text-[10px] leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>Fictional, browser-only demo. Staff, attendance, incidents and client records are samples. No live devices, calls, messages, tracking or emergency services are connected.</p>
-        </div>
-        </main>
-        <nav className={styles.tabBar} aria-label="Mobile app navigation">
-          {panes[role].tabs.map(t => (
-            <button type="button" key={t.id}
-              className={styles.tab + ' ' + (tab === t.id ? styles.tabActive : '')}
-              aria-current={tab === t.id ? 'page' : undefined}
-              onClick={() => changeTab(t.id)}>
-              <TabIcon id={t.id} /><span>{t.name === 'My property' ? 'Home' : t.name === 'Duty schedule' ? 'Roster' : t.name === 'Raise an issue' ? 'Issues' : t.name === 'Reports & updates' ? 'Reports' : t.name === 'Issue responses' ? 'Issues' : t.name === 'Client issues' ? 'Issues' : t.name === 'Deployments' ? 'Shifts' : t.name === 'Site checks' ? 'Sites' : t.name}</span>
-            </button>
-          ))}
-        </nav>
-        <div className={styles.gesture} aria-hidden="true"><span /></div>
-      </section>
-
-      <aside className={styles.guide}>
-        <p className={styles.kicker}>EXPLORE THE JOURNEY</p>
-        <h2>Schedule. Confirm. Respond.</h2>
-        <ol>
-          <li>Choose Grace from the dropdown and update a duty roster.</li>
-          <li>Switch to Beatrice to confirm an arrival.</li>
-          <li>Switch to Alex to review attendance and raise a concern.</li>
-          <li>Resolve the issue, then publish a client report.</li>
-        </ol>
-        <button type="button" className={styles.reset} onClick={reset}><RotateCcw className="h-4 w-4" /> Reset demo data</button>
-        <small>All names, numbers and events are illustrative. Changes stay in this browser.</small>
-      </aside>
-    </div>
-  );
+        {role==='client' && tab==='roster' && clientRoster}
+        {role==='client' && tab==='issues' && clientIssues}
+        {role==='client' && tab==='reports' && clientReports}
+        {role==='manager' && tab==='overview' && managerOverview}
+        {role==='manager' && tab==='roster' && managerRoster}
+        {role==='manager' && tab==='sites' && managerSites}
+        {role==='manager' && tab==='service' && managerService}
+        <p className="mt-7 rounded-xl bg-[#e9f1eb] px-3 py-2 text-[10px] leading-5 text-[#6b8779]">Fictional demonstration · No live staff, GPS, calls, messages, evidence uploads or emergency dispatch. Sample attachments are illustrative.</p>
+      </main>
+      <nav className={styles.tabBar} aria-label="Mobile app navigation">
+        {tabs.map(({id,name,Icon})=><button key={id} type="button" className={styles.tab+' '+(tab===id?styles.tabActive:'')} aria-current={tab===id?'page':undefined}
+          onClick={()=>moveTab(id)}><Icon className="h-5 w-5"/><span>{name}</span></button>)}
+      </nav>
+      <div className={styles.gesture} aria-hidden="true"><span/></div>
+    </section>
+    <aside className={styles.guide}>
+      <p className={styles.kicker}>TRY THESE SCENARIOS</p>
+      <h2>One service. Two perspectives.</h2>
+      <ol><li>Browse the client roster by date and inspect a night shift spanning midnight.</li>
+        <li>Open an issue to review its history and sample evidence.</li>
+        <li>Switch to Grace to manage rosters, client sites and site visits.</li>
+        <li>Resolve an issue or publish a report, then return to the client.</li></ol>
+      <button type="button" className={styles.reset} onClick={reset}><RotateCcw className="h-4 w-4"/> Reset sample data</button>
+      <small>All details are fictional; changes remain in this browser.</small>
+    </aside>
+  </div>;
 }
