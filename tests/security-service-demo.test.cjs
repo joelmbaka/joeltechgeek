@@ -74,6 +74,34 @@ test('published client reports distinguish confirmed versus telephone-reported s
   assert.equal(next.activity[0].audience, 'client');
 });
 
+test('security office can log a site incident visible to its client only', () => {
+  const d = model.seedDemo();
+  const incident = model.logSiteIncident(d, 'westlands', 'Service entrance unsecured', 'The entrance gate lock needs immediate attention.');
+  assert.equal(incident.issues[0].origin, 'operations');
+  assert.equal(incident.issues[0].siteId, 'westlands');
+  assert.equal(incident.issues[0].visibleToClient, true);
+  assert.match(incident.activity[0].message, /Security incident logged/);
+  assert.equal(incident.issues.filter(i => i.siteId === 'greenview').length, 1);
+});
+
+test('night shifts use a suitable arrival and departure time in demo records', () => {
+  const d = model.seedDemo();
+  const confirmed = model.markArrival(d, 'shift-2', 'supervisor');
+  const shift = confirmed.shifts.find(s => s.id === 'shift-2');
+  assert.equal(shift.arrival, '18:04');
+  const departed = model.recordDeparture(confirmed, 'shift-2');
+  assert.equal(departed.shifts.find(s => s.id === 'shift-2').departure, '06:02');
+});
+
+test('client-facing guard contact is optional and distinct from internal staff phone', () => {
+  const d = model.seedDemo();
+  const kevin = d.guards.find(g => g.id === 'kevin');
+  const brian = d.guards.find(g => g.id === 'brian');
+  assert.ok(kevin.workContact);
+  assert.notEqual(kevin.workContact, kevin.phone);
+  assert.equal(brian.workContact, undefined);
+});
+
 test('new experience is role-based and explains that no guard smartphone is needed', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/SecurityExperience.tsx'), 'utf8');
   const landing = fs.readFileSync(path.join(__dirname, '..', 'app/demos/security/page.tsx'), 'utf8');
