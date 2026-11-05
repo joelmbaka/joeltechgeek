@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/demos/security',
     title: 'Security Operations & Client Visibility | Interactive Demo',
-    description: 'Two connected views for the security manager and property owner. Schedules, attendance, reports, and client issues.',
+    description: 'Two connected views for the security supervisor and property owner. Schedules, attendance, reports, and client issues.',
   },
 };
 
@@ -24,7 +24,7 @@ const views = [
     details: 'Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, and read published daily, weekly or monthly reports.',
   },
   {
-    name: 'Security manager · Grace', Icon: ClipboardList,
+    name: 'Security supervisor · Grace', Icon: ClipboardList,
     heading: 'Coverage, clients and responses in one workspace.',
     details: 'Manage client properties, staff assignments, overnight shifts, site visits, attendance updates, issue resolutions and published service reports.',
   },
@@ -32,9 +32,9 @@ const views = [
 
 const capabilities = [
   { title: 'Duty schedules', desc: 'Browse any date, view overlapping night shifts and see who covered each post.', Icon: CalendarCheck2 },
-  { title: 'Attendance clarity', desc: 'Separate scheduled, office-reported and supervisor-confirmed presence.', Icon: Clock3 },
+  { title: 'Attendance clarity', desc: 'Record whether the assigned officer is on site or not on site, with an auditable update history.', Icon: Clock3 },
   { title: 'Client issue tracking', desc: 'Allow property owners to raise concerns and follow the response to resolution.', Icon: MessageSquareMore },
-  { title: 'Reports & updates', desc: 'Publish dated daily, weekly and monthly reports to the relevant client.', Icon: FileText },
+  { title: 'Reports & updates', desc: 'Save a dated report for a selected property, attach evidence and make it available to the client.', Icon: FileText },
 ];
 
 export default function SecurityDemoPage() {
@@ -80,7 +80,7 @@ export default function SecurityDemoPage() {
 
       <section className="mt-16" aria-labelledby="views-title">
         <h2 id="views-title" className="text-2xl font-bold text-gray-900 dark:text-white">Two connected perspectives</h2>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Switch between the property owner and security manager. A roster change, site visit, issue update or report appears in the relevant client history.</p>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Switch between the property owner and security supervisor. Roster updates, property visits, issues and reports are visible to the relevant client.</p>
         <div className="mt-6 grid gap-5 md:grid-cols-2">
           {views.map(({ name, Icon, heading, details }) => (
             <article key={name} className="rounded-3xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900/60">
@@ -107,9 +107,9 @@ export default function SecurityDemoPage() {
       <section className="mt-14 grid gap-6 rounded-3xl bg-gray-50 p-7 dark:bg-gray-900/70 sm:p-9 lg:grid-cols-[auto_1fr]">
         <Clock3 className="h-9 w-9 text-palm-green" />
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Multiple ways to confirm attendance.</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Simple attendance checks, clear client updates.</h2>
           <p className="mt-3 leading-8 text-gray-600 dark:text-gray-300">
-            Site staff can use guard check-ins where available, while office teams record telephone-reported arrivals and supervisors confirm attendance. The client sees how attendance was recorded. SMS, offline and guard-app integrations remain production options—not live features of this demo.
+            The supervisor can review each site's assignments and mark whether an officer is on site. Client-visible records show the result, while site visits, issue responses and dated reports help the property owner follow the service received. Additional attendance capture methods can be integrated later.
           </p>
         </div>
       </section>
