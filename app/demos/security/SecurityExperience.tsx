@@ -190,7 +190,7 @@ export default function SecurityExperience() {
   function incidentForm() {
     return <Card className="mb-5">
       <h3 className="font-bold">Log a security incident</h3>
-      <p className="mt-1 text-xs text-slate-500">Record a site incident from the office or supervisor's company device. It appears in the relevant client portal.</p>
+      <p className="mt-1 text-xs text-slate-500">Record a site incident from the office or supervisor&apos;s company device. It appears in the relevant client portal.</p>
       <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={e => {
         e.preventDefault();
         try {
@@ -247,7 +247,7 @@ export default function SecurityExperience() {
         <aside className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
           <p className="text-sm font-bold text-emerald-950 dark:text-emerald-100">Try a complete security-service journey</p>
           <p className="mt-1 text-xs leading-6 text-emerald-900 dark:text-emerald-200">
-            1. In Operations, change a shift assignment. 2. In Supervisor, confirm the guard's arrival.
+            1. In Operations, change a shift assignment. 2. In Supervisor, confirm the guard&apos;s arrival.
             3. In Property owner, see the updated duty schedule and raise a site concern.
             4. Return to Operations or Supervisor to respond, then publish a report for the client.
           </p>
@@ -332,7 +332,7 @@ export default function SecurityExperience() {
         </div>}
         {role === 'operations' && tab === 'shifts' && <div>
           <Heading title="Deployments & staff directory" detail="Plan tomorrow, replace an unstarted assignment, and record telephone-reported attendance without claiming GPS verification." />
-          <div className="mb-5 flex flex-wrap gap-2">{(['today', 'tomorrow'] as Day[]).map(d => <button key={d} onClick={() => setDay(d)} className={day === d ? btn : outline}>{d === 'today' ? 'Today's shifts' : "Tomorrow's shifts"}</button>)}</div>
+          <div className="mb-5 flex flex-wrap gap-2">{(['today', 'tomorrow'] as Day[]).map(d => <button key={d} onClick={() => setDay(d)} className={day === d ? btn : outline}>{d === 'today' ? "Today's shifts" : "Tomorrow's shifts"}</button>)}</div>
           <div className="grid gap-3 md:grid-cols-2">{data.shifts.filter(s => s.day === day).map(s => shiftCard(s, 'operations'))}</div>
           <div className="mt-7"><Heading title="Staff directory" detail="Contact numbers shown only in authorised staff-facing demo roles." />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.guards.map(g => <Card key={g.id}><p className="font-bold">{g.name}</p><p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><Phone className="h-4 w-4" />{g.phone}</p><p className="mt-2 text-xs text-emerald-700">Active staff · Sample record</p></Card>)}</div></div>
@@ -348,7 +348,7 @@ export default function SecurityExperience() {
 
         {role === 'supervisor' && tab === 'overview' && <div>
           <Heading title="Supervisor site checks" detail="Confirm attendance using a shared company device. Guard smartphones and mobile data are not required." />
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"><WifiOff className="h-5 w-5 shrink-0" /> A supervisor's visual confirmation is distinct from office-reported attendance. No actual device location is collected in this demo.</div>
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"><WifiOff className="h-5 w-5 shrink-0" /> A supervisor&apos;s visual confirmation is distinct from office-reported attendance. No actual device location is collected in this demo.</div>
           <div className="grid gap-3 md:grid-cols-2">{todays.map(s => shiftCard(s, 'supervisor'))}</div>
         </div>}
         {role === 'supervisor' && tab === 'issues' && <div><Heading title="Respond to client concerns" detail="Log site incidents, acknowledge client concerns, and record the response through resolution." />

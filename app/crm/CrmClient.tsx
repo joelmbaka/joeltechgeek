@@ -256,7 +256,7 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
 
   const [editingFollowup, setEditingFollowup] = useState(false);
   const [followupAction, setFollowupAction] = useState(lead.next_action || '');
-  const [followupType, setFollowupType] = useState(lead.next_action_type || 'call');
+  const [followupType, setFollowupType] = useState<NonNullable<Lead['next_action_type']>>(lead.next_action_type || 'call');
   const [followupDate, setFollowupDate] = useState(lead.next_action_at || '');
   const [followupTime, setFollowupTime] = useState(lead.next_action_time?.slice(0, 5) || '');
   const [savingFollowup, setSavingFollowup] = useState(false);
@@ -581,7 +581,7 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
                 Add important fact
               </button>
             </div>
-            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>
+            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>}
             <button type="submit" disabled={savingContext}
               className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
               {savingContext ? 'Saving…' : 'Save context'}
@@ -675,7 +675,7 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
                   <label className="block text-sm font-semibold">
                     Action type
                     <select className={input} value={followupType}
-                      onChange={(e)=>setFollowupType(e.target.value)}>
+                      onChange={(e)=>setFollowupType(e.target.value as NonNullable<Lead['next_action_type']>)}>
                       {['call','email','whatsapp','meeting','other'].map((type)=>
                         <option key={type} value={type}>{label(type)}</option>)}
                     </select>
@@ -1167,13 +1167,12 @@ export function CrmClient() {
                     (workView === item.key ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300')}>
                     {item.key === 'all' && <BriefcaseBusiness className="h-[18px] w-[18px]" />}
                     {item.key === 'to_call' && <Phone className="h-[18px] w-[18px]" />}
-                    {item.key === 'due' && <CalendarDays className="h-[18px] w-[18px]" />}
-                    {item.key === 'interested' && <Check className="h-[18px] w-[18px]" />}
+                    {item.key === 'followups' && <CalendarDays className="h-[18px] w-[18px]" />}
                   </span>
                 </div>
                 <strong className="mt-3 block text-3xl font-bold leading-none tabular-nums tracking-tight text-[#0A2836] dark:text-white sm:text-[34px]">{item.value}</strong>
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  {item.key === 'all' ? 'Assigned prospects' : item.key === 'to_call' ? 'Ready for outreach' : item.key === 'due' ? 'Need your attention' : 'Positive conversations'}
+                  {item.key === 'all' ? 'Assigned prospects' : item.key === 'to_call' ? 'Ready for outreach' : item.key === 'followups' ? 'Need your attention' : 'Positive conversations'}
                 </p>
               </button>
             ))}
@@ -1275,7 +1274,7 @@ export function CrmClient() {
       )}
       {selected && <LeadDialog key={selected.id} lead={selected}
         industry={industry} onNext={setSelected}
-        onClose={() => setSelected(null)} onSaved={() => refresh(true)} />}
+        onClose={() => setSelected(null)} onSaved={async () => { refresh(true); }} />}
       {adding && (
         <AddLeadModal
           onClose={() => setAdding(false)}
