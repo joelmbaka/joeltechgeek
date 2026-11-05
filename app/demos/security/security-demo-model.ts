@@ -3,7 +3,7 @@ export type Attendance = 'scheduled' | 'unconfirmed' | 'reported' | 'confirmed' 
 export type IssueStatus = 'open' | 'acknowledged' | 'responding' | 'resolved';
 export type ReportPeriod = 'daily' | 'weekly' | 'monthly';
 export type AssetKind = 'image' | 'document';
-export type Staff = { id: string; name: string; phone: string; active: boolean };
+export type Staff = { id: string; name: string; phone: string; workContact?: string; active: boolean };
 export type Site = { id: string; name: string; area: string; client: string; contact: string };
 export type Shift = {
   id: string; siteId: string; staffId: string; startAt: string; endAt: string;
@@ -98,8 +98,8 @@ export function seedDemo(day: string = kenyaToday()): State {
       { id: 'westlands', name: 'Westlands Plaza', area: 'Westlands, Nairobi', client: 'Samira Hassan', contact: '07XX XXX 900' },
     ],
     staff: [
-      { id: 'kevin', name: 'Kevin Otieno', phone: '07XX XXX 201', active: true },
-      { id: 'brian', name: 'Brian Mwangi', phone: '07XX XXX 202', active: true },
+      { id: 'kevin', name: 'Kevin Otieno', phone: '07XX XXX 201', workContact: '07XX XXX 301', active: true },
+      { id: 'brian', name: 'Brian Mwangi', phone: '07XX XXX 202', workContact: '07XX XXX 302', active: true },
       { id: 'peter', name: 'Peter Kariuki', phone: '07XX XXX 203', active: true },
       { id: 'mary', name: 'Mary Achieng', phone: '07XX XXX 204', active: true },
       { id: 'daniel', name: 'Daniel Mwangi', phone: '07XX XXX 205', active: true },
