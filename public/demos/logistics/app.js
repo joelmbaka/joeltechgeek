@@ -121,20 +121,20 @@
   const l=core.find(data,assignmentFor);
   if(!l||l.status!=="Open")return "";
   const choices=data.drivers.map(x=>{
-   const truck=truckFor(x.id),overweight=truck&&l.weightTons>truck.capacityTons;
-   return '<option value="'+esc(x.id)+'" '+(overweight?"disabled":"")+'>'+
+   const truck=truckFor(x.id),overweight=truck&&l.weightTons>truck.capacityTons,busy=!!core.active(data,x.id);
+   return '<option value="'+esc(x.id)+'" '+(overweight||busy?"disabled":"")+'>'+
     esc(x.name+" · "+(truck?truck.truckPlate:"No truck paired yet")+
-       (overweight?" (truck capacity exceeded)":core.active(data,x.id)?" (active trip; load queued)":""))+'</option>';
+       (busy?" (Assigned through Delivered; unavailable)":overweight?" (truck capacity exceeded)":""))+'</option>';
   }).join("");
-  const available=data.drivers.some(x=>!truckFor(x.id)||l.weightTons<=truckFor(x.id).capacityTons);
+  const available=data.drivers.some(x=>!core.active(data,x.id)&&(!truckFor(x.id)||l.weightTons<=truckFor(x.id).capacityTons));
   return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="assignment-close" aria-label="Close assignment"></button>'+
    '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title">'+
    '<header class="cargo-modal-header"><h2 id="assignment-modal-title">Assign driver · '+esc(l.id)+'</h2>'+
    '<button type="button" class="cargo-modal-close" data-action="assignment-close" aria-label="Close assignment">×</button></header>'+
    '<div class="cargo-modal-body"><form id="assignment-form" class="form-view"><div class="form-fields">'+
    '<label>👤 Driver<select name="driverId" required>'+choices+'</select></label></div>'+
-   '<p class="hint">Assign to a driver, not a truck. Pair the driver’s truck in Fleet. Additional assigned loads can be queued, but only one trip may be active in transit.</p>'+
-   (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">No eligible driver for this load.</p>')+
+   '<p class="hint">Assign to a driver, not a truck. Pair the driver’s truck in Fleet. A driver can have only one consignment from Assigned through Delivered. Complete the current consignment before assigning another.</p>'+
+   (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">All drivers are already assigned or unavailable for this load.</p>')+
    '</form></div></section></div>';
  }
 
@@ -156,7 +156,7 @@
    '<div class="cargo-modal-body"><form id="pair-form" class="form-view"><p class="hint">'+esc(isTruck?truck.truckPlate:driver.name)+'</p>'+
    '<div class="form-fields"><label>'+(isTruck?"Driver":"Truck")+'<select name="pairId">'+
    '<option value="" '+(!current?"selected":"")+'>Unassigned</option>'+choices+'</select></label></div>'+
-   '<p class="hint">A driver is paired with at most one truck. Pairings cannot change during an active In Transit or Delivered trip.</p>'+
+   '<p class="hint">A driver is paired with at most one truck. Fleet pairings cannot change while a consignment is Assigned, In Transit or Delivered.</p>'+
    '<button class="button primary wide" type="submit">Save Fleet Assignment</button></form></div></section></div>';
  }
 
