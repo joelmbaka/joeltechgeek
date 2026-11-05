@@ -35,7 +35,7 @@ test('all six workflow views are implemented by both mobile and web',()=>{
   const api=read('lib/agent-crm/work-queue.ts');
   for(const v of ['for_you','to_call','followups','done_today','priority','all']){
     assert.match(m,new RegExp("value: '"+v+"'"));
-    assert.match(w,new RegExp("value=\\""+v+"\\""));
+    assert.ok(w.includes('value="' + v + '"'));
     assert.ok(api.includes("'"+v+"'"));
   }
   assert.match(m,/title="View"/);
