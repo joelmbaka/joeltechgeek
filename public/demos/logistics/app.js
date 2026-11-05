@@ -1,14 +1,16 @@
 (function cargoMobile(core){
  "use strict";
- const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v3";
+ const mount=document.getElementById("app"),KEY="joeltechgeek-cargo-mobile-v4";
  const esc=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
  const money=n=>"KSH "+Number(n||0).toLocaleString("en-KE");
  const place=id=>core.loc(id)?.name||"Unknown location";
  let data;try{data=JSON.parse(localStorage.getItem(KEY)||"null");}catch(ex){}
  if(!core.validate(data))data=core.seed();
- let role="dispatcher",driverId=data.driver.id,tab="board",screen=null,selected=null,mode="new",formOpen=false,drawer=false,search="",filter="Board",toast="",assignmentFor=null,proofFor=null;
+ let role="dispatcher",driverId=data.driver.id,tab="board",screen=null,selected=null,mode="new",formOpen=false,drawer=false,search="",filter="Board",toast="",assignmentFor=null,proofFor=null,pairFor=null;
  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(ex){toast="Browser storage unavailable."}};
- const currentDriver=()=>data.fleet.find(x=>x.id===driverId)||data.driver;
+ const currentDriver=()=>data.drivers.find(x=>x.id===driverId)||data.driver;
+ const truckFor=(id)=>core.pairedTruck(data,id);
+ const truckName=(id)=>data.fleet.find(x=>x.id===id)?.truckPlate||"Unassigned";
  const own=l=>l.driver?.id===driverId,active=()=>core.active(data,driverId);
  const btn=(label,command,id,cls="")=>'<button type="button" class="button '+cls+'" data-action="'+command+'" '+(id?'data-id="'+esc(id)+'"':"")+'>'+label+'</button>';
  const badge=st=>'<span class="badge badge-'+st.toLowerCase().replace(/\s/g,"-")+'">'+esc(st)+'</span>';
@@ -34,11 +36,11 @@
    '<div class="card-top"><div class="route-name">'+route(l)+'</div>'+badge(l.status)+'<span class="chev">›</span></div>'+
    '<div class="card-stats"><span>🚛 '+(l.containerFeet||40)+'ft</span><span>⚖ '+l.weightTons+' T</span><strong>💰 '+money(l.driverPay)+'</strong></div>'+
    '<div class="card-bottom"><span>🛣 Full trip: '+l.routeMiles+' mi · sample</span><span>🕒 '+esc(l.id)+'</span>'+
-   (l.driver?'<span class="driver-name">◉ '+esc(l.driver.truckPlate)+'</span>':"")+'</div></button>';
+   (l.driver?'<span class="driver-name">◉ '+esc(l.driver.name)+'</span>':"")+'</div></button>';
  };
  function board(){
   const items=list(),query=search.trim().toLowerCase();
-  const found=items.filter(l=>(l.id+" "+l.containerNo+" "+place(l.originId)+" "+place(l.destinationId)+" "+l.driver?.name+" "+l.driver?.truckPlate).toLowerCase().includes(query));
+  const found=items.filter(l=>(l.id+" "+l.containerNo+" "+place(l.originId)+" "+place(l.destinationId)+" "+l.driver?.name+" "+truckFor(l.driver?.id)?.truckPlate).toLowerCase().includes(query));
   return '<div class="board"><div class="board-head"><h1>'+({board:"Board",active:"Active",history:"History"}[tab])+'</h1>'+
    (tab==="board"&&role==="dispatcher"?btn("＋ New Load","new",null,"primary"):"")+'</div>'+
    '<div class="search-field"><span>⌕</span><input id="load-search" aria-label="Search loads" placeholder="Search pickup, destination, container, truck, or driver" value="'+esc(search)+'"/></div>'+
@@ -79,7 +81,7 @@
    row("⚖ Weight",l.weightTons+" tons")+row("🚚 Pickup point",place(l.originId))+row("📍 Destination",place(l.destinationId))+
    row("🏢 Consignee",l.consignee||core.CONSIGNEES[0])+row("↩ Empty return depot",place(l.returnId||"mombasa-port"))+
    row("💰 Pay",money(l.driverPay))+row("🛣 Full trip",l.routeMiles+" mi · sample"))+
-   (l.driver?group("Driver & Truck",row("Driver",l.driver.name)+row("Truck",l.driver.truckPlate)+
+   (l.driver?group("Driver & Truck",row("Assigned driver",l.driver.name)+row("Truck",truckName(l.truck?.id||truckFor(l.driver.id)?.id))+
     (l.truck?'<div class="tracking"><b>◉ Truck location (sample)</b><p>'+esc(l.truck.location)+'</p><strong>'+l.truck.miles.toLocaleString()+' miles tracked</strong></div>':"")):"")+
    actions(l)+(l.driver?docs(l):"")+activity(l)+
    (l.status==="Complete"&&role==="dispatcher"?group("Driver Payment",row("Payable",money(l.driverPay))+row("Status",l.payment.status)+
@@ -118,20 +120,21 @@
   if(!assignmentFor)return "";
   const l=core.find(data,assignmentFor);
   if(!l||l.status!=="Open")return "";
-  const choices=data.fleet.map(x=>{
-   const unavailable=!!core.active(data,x.id),overweight=l.weightTons>x.capacityTons;
-   return '<option value="'+esc(x.id)+'" '+(unavailable||overweight?"disabled":"")+'>'+
-    esc(x.truckPlate+" · "+x.name+" · "+x.capacityTons+" t"+(unavailable?" (busy)":overweight?" (capacity exceeded)":""))+'</option>';
+  const choices=data.drivers.map(x=>{
+   const truck=truckFor(x.id),overweight=truck&&l.weightTons>truck.capacityTons;
+   return '<option value="'+esc(x.id)+'" '+(overweight?"disabled":"")+'>'+
+    esc(x.name+" · "+(truck?truck.truckPlate:"No truck paired yet")+
+       (overweight?" (truck capacity exceeded)":core.active(data,x.id)?" (active trip; load queued)":""))+'</option>';
   }).join("");
-  const available=data.fleet.some(x=>!core.active(data,x.id)&&l.weightTons<=x.capacityTons);
+  const available=data.drivers.some(x=>!truckFor(x.id)||l.weightTons<=truckFor(x.id).capacityTons);
   return '<div class="cargo-modal-overlay"><button type="button" class="cargo-modal-backdrop" data-action="assignment-close" aria-label="Close assignment"></button>'+
    '<section class="cargo-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title">'+
-   '<header class="cargo-modal-header"><h2 id="assignment-modal-title">Assign truck · '+esc(l.id)+'</h2>'+
+   '<header class="cargo-modal-header"><h2 id="assignment-modal-title">Assign driver · '+esc(l.id)+'</h2>'+
    '<button type="button" class="cargo-modal-close" data-action="assignment-close" aria-label="Close assignment">×</button></header>'+
    '<div class="cargo-modal-body"><form id="assignment-form" class="form-view"><div class="form-fields">'+
-   '<label>🚚 Truck and driver<select name="driverId" required>'+choices+'</select></label></div>'+
-   '<p class="hint">Dispatcher chooses a truck. Driver receives the assigned load in their demo view; no booking is required.</p>'+
-   (available?'<button class="button primary wide" type="submit">Assign Load</button>':'<p class="hint warning">No available truck can carry this load.</p>')+
+   '<label>👤 Driver<select name="driverId" required>'+choices+'</select></label></div>'+
+   '<p class="hint">Assign to a driver, not a truck. Allocate the driver's truck in Fleet. Additional assigned loads can be queued, but only one trip may be active in transit.</p>'+
+   (available?'<button class="button primary wide" type="submit">Assign to Driver</button>':'<p class="hint warning">No eligible driver for this load.</p>')+
    '</form></div></section></div>';
  }
  function evidenceModal(){
@@ -174,32 +177,25 @@
   }finally{bitmap.close?.();}
  }
 
- const drivers=()=>data.fleet;
+ const drivers=()=>data.drivers;
  function fleetDirectory(){
-  const trucks=new Map();
-  function record(plate,driver,load){
-   if(!plate)return;
-   if(!trucks.has(plate))trucks.set(plate,{plate,driver,loads:[]});
-   const t=trucks.get(plate);
-   if(driver)t.driver=driver;
-   if(load)t.loads.push(load);
-  }
-  for(const x of data.fleet)record(x.truckPlate,x.name,null);
-  for(const l of data.loads)if(l.driver?.truckPlate)record(l.driver.truckPlate,l.driver.name,l);
-  const cards=Array.from(trucks.values()).map(t=>{
-   const current=t.loads.filter(l=>l.truck).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
-   const history=t.loads.filter(l=>l.status==="Complete").sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
-   return '<article class="fleet-truck"><div class="fleet-truck-head"><span class="truck-icon">🚚</span><div><b>'+esc(t.plate)+'</b><small>Container truck · demo fleet</small></div></div>'+
-    '<div class="fleet-facts">'+row("Assigned driver",t.driver)+
-    (data.fleet.some(x=>x.truckPlate===t.plate)?row("Capacity",data.fleet.find(x=>x.truckPlate===t.plate).capacityTons+" tonnes"):"")+
+  const cards=data.fleet.map(t=>{
+   const driver=data.drivers.find(d=>d.id===t.driverId);
+   const trips=data.loads.filter(l=>l.truck?.id===t.id).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+   const current=trips[0],ongoing=trips.find(l=>["In transit","Delivered"].includes(l.status));
+   const history=trips.filter(l=>l.status==="Complete");
+   return '<article class="fleet-truck"><div class="fleet-truck-head"><span class="truck-icon">🚚</span><div><b>'+esc(t.truckPlate)+'</b><small>'+esc(t.capacityTons)+' tonnes · demo fleet</small></div></div>'+
+    '<div class="fleet-facts">'+row("Assigned driver",driver?.name||"Unassigned")+
+    row("Active trip",ongoing?.id||"None")+
     row("Sample mileage",Number(current?.truck?.miles||0).toLocaleString()+" mi")+
     row("Last sample location",current?.truck?.location||"Not available")+'</div>'+
+    '<div class="action-stack">'+btn("Assign / Change Driver","pair-truck",t.id,"soft")+'</div>'+
     '<div class="fleet-history-heading">Load history <small>Completed only</small></div>'+
     (history.length?'<ul class="fleet-history">'+history.map(l=>'<li><strong>'+esc(l.id)+'</strong><span>'+esc(place(l.originId))+' → '+esc(place(l.destinationId))+'</span></li>').join("")+'</ul>':
      '<p class="fleet-no-history">No completed deliveries recorded yet.</p>')+'</article>';
   }).join("");
-  return '<div class="directory"><h1>Fleet</h1><p class="directory-description">Trucks, assigned drivers, vehicle details and completed-load history.</p>'+
-   (cards||blank("No trucks","No trucks are recorded in this demo."))+'</div>';
+  return '<div class="directory"><h1>Fleet</h1><p class="directory-description">Manage driver-to-truck pairings here. Consignments are assigned to drivers in the load board.</p>'+
+   (cards||blank("No trucks","No trucks in this demo."))+'</div>';
  }
  function financeDirectory(){
   const completed=data.loads.filter(l=>l.status==="Complete");
@@ -214,13 +210,14 @@
   if(screen==="fleet")return fleetDirectory();
   if(screen==="finance")return financeDirectory();
   if(screen==="drivers")return '<div class="directory"><h1>Drivers</h1>'+drivers().map(x=>
-   '<article class="directory-item"><span class="truck-icon">◉</span><div><b>'+esc(x.name)+'</b><small>'+esc(x.truckPlate)+'</small></div></article>').join("")+'</div>';
+   '<article class="directory-item"><span class="truck-icon">◉</span><div><b>'+esc(x.name)+'</b><small>'+esc(truckFor(x.id)?.truckPlate||"No assigned truck")+'</small></div>'+
+   btn("Assign / Change Truck","pair-driver",x.id,"soft")+'</article>').join("")+'</div>';
   if(screen==="locations")return '<div class="directory"><h1>Locations</h1>'+core.PORTS.map(p=>'<div class="directory-item"><span>📍</span><div><b>'+esc(p.name)+'</b><small>'+esc(p.region)+'</small></div></div>').join("")+'</div>';
   if(screen==="consignees")return '<div class="directory"><h1>Consignees</h1>'+core.CONSIGNEES.map(x=>'<div class="directory-item"><span>▣</span><div><b>'+esc(x)+'</b><small>Fictional consignee</small></div></div>').join("")+'</div>';
   return '<div class="directory"><h1>'+(screen==="profile"?"My Profile":"Settings")+'</h1>'+
    group("Demo Account",row("User",role==="dispatcher"?"Grace (Dispatcher)":currentDriver().name)+
     row("Mode","Fictional / local"))+
-   (screen==="profile"?group("Truck",row("Plate",currentDriver().truckPlate)+row("Capacity",currentDriver().capacityTons+" tons")):"")+
+   (screen==="profile"?group("Truck",row("Plate",truckFor(driverId)?.truckPlate||"Not paired")+row("Capacity",truckFor(driverId)?truckFor(driverId).capacityTons+" tons":"Not paired")):"")+
    group("Sample Workspace",'<p class="hint">Reset loads, assignments, mileage and browser-local evidence.</p>'+
     btn("Reset Demo Data","reset",null,"danger"))+'</div>';
  }
@@ -232,7 +229,7 @@
   return '<header class="app-header"><button type="button" aria-label="'+(nested?"Go back":"Open menu")+'" class="header-btn" data-action="'+(nested?"back":"menu")+'">'+(nested?"‹":"☰")+'</button>'+
    '<div class="header-heading"><b>'+esc(label)+'</b></div>'+
    (nested?'<span></span>':'<select id="demo-role" aria-label="Demo user"><option value="dispatcher" '+(role==="dispatcher"?"selected":"")+'>Grace (Dispatcher)</option>'+
-    data.fleet.map(x=>'<option value="driver:'+esc(x.id)+'" '+(role==="driver"&&driverId===x.id?"selected":"")+'>'+esc(x.name.split(" ")[0]+" (Driver)")+'</option>').join("")+'</select>')+'</header>';
+    data.drivers.map(x=>'<option value="driver:'+esc(x.id)+'" '+(role==="driver"&&driverId===x.id?"selected":"")+'>'+esc(x.name.split(" ")[0]+" (Driver)")+'</option>').join("")+'</select>')+'</header>';
  }
  function tabs(){
   if(screen)return "";
@@ -258,7 +255,7 @@ function render(){
    '<main class="app-content">'+(screen==="detail"?detail():screen?directory():board())+'</main>'+tabs()+
    '<div class="gesture"><span></span></div>'+(role==="dispatcher"?sideMenu():"")+'</div>'+
    '<aside class="scene-tools"><b>Demo controls</b><p>Select Grace or Kevin in the header.</p>'+btn("Reset sample data","reset",null,"soft")+'<small>Browser-only · Photo previews saved locally · No live GPS or payments</small></aside></div>'+
-   cargoFormModal()+assignmentModal()+evidenceModal()+
+   cargoFormModal()+assignmentModal()+pairingModal()+evidenceModal()+
    (toast?'<div class="toast" role="status">'+esc(toast)+btn("×","dismiss",null,"clear")+'</div>':"");
  if(keepScroll){const host=mount.querySelector?.(".app-content");if(host)host.scrollTop=previousScroll;}
  lastViewScrollKey=scrollKey;
@@ -307,7 +304,7 @@ function render(){
   if(form.id==="assignment-form"){
    event.preventDefault();if(role!=="dispatcher"||!assignmentFor)return;
    const id=assignmentFor,driver=String(new FormData(form).get("driverId")||"");
-   done(()=>{core.assign(data,id,driver);assignmentFor=null;},"Truck assigned to load.");return;
+   done(()=>{core.assign(data,id,driver);assignmentFor=null;},"Load assigned to driver.");return;
   }
   if(form.id==="evidence-form"){
    event.preventDefault();if(!proofFor)return;
