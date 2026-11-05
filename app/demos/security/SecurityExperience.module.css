@@ -32,7 +32,7 @@
   position: relative; display: flex; flex-direction: column;
   flex: none; width: min(430px, 100%); height: min(875px, calc(100dvh - 36px)); min-height: 590px;
   overflow: hidden; border: 8px solid #123731; border-radius: 38px;
-  background: #f5f8f6; color: #263b36;
+  background: #f5f8f6; color: #263b36; color-scheme: light;
   box-shadow: 0 30px 80px #133e3742;
 }
 .statusbar {
@@ -98,3 +98,8 @@
   .gesture { height: calc(17px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 @media (prefers-reduced-motion: reduce) { .stage * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* The interactive phone always uses one intentional light palette, regardless of the site theme. */
+.phone :is(input, textarea, select) { color-scheme: light; }
+.phone button { touch-action: manipulation; }
+.phone :is(h1, h2, h3, p) { overflow-wrap: break-word; }
