@@ -148,6 +148,36 @@ test('future shifts cannot be marked present before starting', () => {
   assert.throws(()=>m.confirmAttendance(future,'s-night','supervisor'),/future shift cannot be checked in/);
 });
 
+test('supervisor roster supports on-site and not-on-site checks without future check-ins', () => {
+  const data=m.seedDemo('2026-11-05');
+  const at=new Date('2026-11-05T14:00:00+03:00');
+  const absent=m.setShiftPresence(data,'s-westlands','not_on_site',at);
+  const unavailable=absent.shifts.find(s=>s.id==='s-westlands');
+  assert.equal(unavailable.attendance,'absent');
+  assert.match(absent.activity[0].title,/not on site/);
+  const present=m.setShiftPresence(absent,'s-westlands','on_site',at);
+  assert.equal(present.shifts.find(s=>s.id==='s-westlands').attendance,'confirmed');
+  assert.equal(present.shifts.find(s=>s.id==='s-westlands').method,'Supervisor on-site check');
+  assert.ok(present.activity.some(a=>a.type==='attendance' && a.siteId==='westlands'));
+  assert.throws(()=>m.setShiftPresence(data,'s-next','on_site',at),/future shift/);
+  assert.throws(()=>m.setShiftPresence(data,'s-prior','not_on_site',at),/Completed shifts/);
+});
+
+test('report enforces explicit site/date range, meaningful summary and safe attachments', () => {
+  const today=m.kenyaToday();
+  const from=m.addDays(today,-6);
+  const data=m.seedDemo(today);
+  assert.throws(()=>m.publishReport(data,'karen','weekly',today,from,'The site is secure.'),/valid From and To/);
+  assert.throws(()=>m.publishReport(data,'karen','weekly',from,m.addDays(today,1),'The site is secure.'),/future dates/);
+  assert.throws(()=>m.publishReport(data,'karen','weekly',from,today,'Short'),/meaningful report summary/);
+  assert.throws(()=>m.publishReport(data,'missing','weekly',from,today,'Completed site inspection.'),/valid site/);
+  const validPdf={id:'pdf',kind:'document',name:'Proof.pdf',mimeType:'application/pdf',dataUrl:'data:application/pdf;base64,AA=='};
+  const saved=m.publishReport(data,'karen','weekly',from,today,'Report for Karen with staff and coverage records.',[validPdf]);
+  assert.equal(saved.reports[0].assets[0].name,'Proof.pdf');
+  assert.equal(m.siteReports(saved,'greenview').length,m.siteReports(data,'greenview').length);
+  assert.equal(m.siteReports(saved,'karen')[0].siteId,'karen');
+});
+
 test('issues have stable IDs, chronological status history and sample attachments', () => {
   const data = m.seedDemo('2026-11-05');
   assert.deepEqual(m.siteIssues(data,'greenview').map(i=>i.id),['issue-gate','issue-light']);
@@ -173,10 +203,18 @@ test('client reports are sorted by publication and preserve reporting periods', 
   const data = m.seedDemo('2026-11-05');
   const dates = m.siteReports(data,'greenview').map(r=>Date.parse(r.publishedAt));
   assert.deepEqual(dates,[...dates].sort((a,b)=>b-a));
-  const next = m.publishReport(data,'karen','weekly');
+  const today = m.kenyaToday();
+  const from = m.addDays(today,-6);
+  const evidence = [{ id:'sample-report-doc', kind:'document', name:'Site review evidence', sample:true }];
+  const next = m.publishReport(data,'karen','weekly',from,today,'Completed security staff reviews at the assigned property.',evidence);
   const report = next.reports[0];
   assert.equal(report.siteId,'karen');
   assert.equal(report.period,'weekly');
+  assert.equal(report.periodFrom,from);
+  assert.equal(report.periodTo,today);
+  assert.equal(report.assets.length,1);
+  assert.equal(report.assets[0].name,'Site review evidence');
+  assert.equal(next.activity[0].siteId,'karen');
   assert.ok(report.periodFrom <= report.periodTo);
   assert.equal(m.siteReports(next,'greenview').length,m.siteReports(data,'greenview').length);
 });
@@ -213,6 +251,19 @@ test('mobile interface has two role options, client roster default, and consiste
   assert.match(ui,/<select id="security-role-select"/);
   assert.match(ui,/<option value="client"/);
   assert.match(ui,/<option value="manager"/);
+  assert.match(ui,/id:'roster',name:'Roster'/);
+  assert.match(ui,/id:'sites',name:'Sites'/);
+  assert.match(ui,/id:'issues',name:'Issues'/);
+  assert.match(ui,/id:'reports',name:'Reports'/);
+  assert.doesNotMatch(ui,/id:'overview',name:'Overview'/);
+  assert.doesNotMatch(ui,/id:'service',name:'Service'/);
+  assert.match(ui,/setShiftPresence/);
+  assert.match(ui,/selectedSite\.id,visitNote,visitPhoto/);
+  assert.match(ui,/title="Clients"/);
+  assert.match(ui,/title="Staff"/);
+  assert.match(ui,/type="file"/);
+  assert.match(ui,/reportFrom,reportTo,reportText,reportEvidence/);
+  assert.match(ui,/rep\.assets\|\|\[\]/);
   assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
   assert.match(ui,/type="date"/);
   const details=read('app/demos/security/SecurityRosterDetail.tsx');
