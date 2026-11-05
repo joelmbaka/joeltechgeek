@@ -7,7 +7,7 @@ import { Footer } from './Footer';
 
 export function SiteChrome({ children }: { children: ReactNode }) {
   const path = usePathname();
-  if (path === '/crm' || path.startsWith('/crm/')) {
+  if (path === '/crm' || path.startsWith('/crm/') || path === '/demos/security/experience' || path.startsWith('/demos/security/experience/')) {
     return <div className="min-h-screen">{children}</div>;
   }
   return (
