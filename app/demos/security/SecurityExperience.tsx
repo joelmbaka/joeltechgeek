@@ -220,7 +220,10 @@ export default function SecurityExperience() {
               <p className="text-[10px] font-extrabold uppercase tracking-wide text-[#709585]">{row.kind==='shift'?'Duty shift':'Site activity'}</p>
               <h3 className="mt-1 text-xs font-extrabold text-[#1d4034]">{row.title}</h3>
               <p className="mt-1 text-[11px] leading-5 text-[#567065]">{row.detail}</p>
-              {row.shift && <div className="mt-2 flex flex-wrap items-center gap-2"><Status value={row.shift.attendance}/>{row.shift.method && <span className="text-[10px] text-[#739085]">{row.shift.method}</span>}</div>}
+              {row.shift && <div className="mt-2 space-y-1">
+                <div className="flex flex-wrap items-center gap-2"><Status value={row.shift.attendance}/>{row.shift.method && <span className="text-[10px] text-[#739085]">{row.shift.method}</span>}</div>
+                <p className="text-[10px] text-[#738f7e]">Duty contact: {data.staff.find(p=>p.id===row.shift!.staffId)?.workContact || data.sites.find(s=>s.id===row.shift!.siteId)?.contact || 'Control room'}</p>
+              </div>}
               {row.assets.length>0 && <Assets assets={row.assets}/>}
               {row.issueId && <button type="button" className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#008765]" onClick={()=>{setTab('issues');openIssue(row.issueId!);}}>Open linked issue <ChevronRight className="h-3 w-3"/></button>}
             </div>
