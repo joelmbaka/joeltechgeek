@@ -243,7 +243,7 @@ export default function SecurityExperience() {
           className={panel+' block w-full text-left transition hover:border-[#a1d2b7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600'}>
           <div className="flex items-start gap-3">
             <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-[#edf7f1] py-2 text-[11px] font-extrabold text-[#087c59]">
-              <Clock3 className="mb-1 h-4 w-4"/>{formatClock(row.at)}
+              <Clock3 className="mb-1 h-4 w-4"/>{row.kind==='shift' ? 'Duty' : formatClock(row.at)}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-extrabold uppercase tracking-wide text-[#709585]">{row.kind==='shift'?'Duty shift':'Site activity'}</p>
