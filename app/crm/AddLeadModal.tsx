@@ -352,7 +352,7 @@ export function AddLeadModal({
                     }} />
                 </label>
                 <label className={labelClass + ' sm:col-span-2'}>
-                  Follow-up time <span className="font-normal text-slate-500">(optional; defaults to 9:00 AM local time)</span>
+                  Follow-up time <span className="font-normal text-slate-500">(optional)</span>
                   <input type="time" className={fieldClass} disabled={!form.next_action_at}
                     value={form.next_action_time}
                     onChange={(event) => change('next_action_time', event.target.value)} />

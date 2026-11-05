@@ -9,7 +9,7 @@ export type ReminderFeedItem = {
   next_action: string | null;
 };
 
-export const REMINDER_PREVIEW_VERSION = 2;
+export const REMINDER_PREVIEW_VERSION = 3;
 
 export type ReminderPreview = {
   title: string;
@@ -41,19 +41,9 @@ export function buildReminderPreview(reminder: ReminderFeedItem): ReminderPrevie
     : shorten(company || selected || fallback || 'CRM follow-up', 88);
 
   const action = shorten(clean(reminder.next_action) || 'Follow-up due', 125);
-  const options: Intl.DateTimeFormatOptions = {
-    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-  };
-  let clock: string;
-  try {
-    clock = new Intl.DateTimeFormat('en-US', {
-      ...options, ...(reminder.next_action_timezone ? { timeZone: reminder.next_action_timezone } : {}),
-    }).format(new Date(dueAtMs));
-  } catch {
-    // A corrupted or obsolete timezone should not stop all reminders.
-    clock = new Intl.DateTimeFormat('en-US', options).format(new Date(dueAtMs));
-  }
-  return { title, body: action + ' · ' + clock, dueAtMs };
+  // The notification intentionally shows only who and what. The scheduled
+  // timestamp is retained for Android scheduling and lead details, not text.
+  return { title, body: action, dueAtMs };
 }
 
 /** Detects edits to contact or task, even when the due time hasn't changed. */

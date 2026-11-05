@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/AuthProvider';
 import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
+import { formatFollowupDue } from '@/lib/followup-display';
 import type { Lead, LeadContact, LeadDetails, LeadEvent } from '@/lib/types';
 import { LeadContacts } from '@/components/LeadContacts';
 import { OUTCOMES_BY_CHANNEL, outcomeLabel, suggestedStage, STAGE_OPTIONS, activityChannelLabel } from '@/lib/types';
@@ -275,8 +276,7 @@ export default function LeadScreen() {
             (lead.next_action_contact_id ? 'Former contact' : 'Company / unspecified')}
         </Text> : null}
         {lead.next_action_at ? <Text style={styles.subtitle}>
-          {lead.next_action_at}
-          {lead.next_action_time ? ' at ' + lead.next_action_time.slice(0, 5) : ' (date only)'}
+          Reminder due: {formatFollowupDue(lead)}
         </Text> : null}
         {lead.last_notes ? <Text style={styles.subtitle}>Notes: {lead.last_notes}</Text> : null}
       </View>
@@ -383,9 +383,6 @@ export default function LeadScreen() {
               disabled={!date}
               onChange={(value) => edit(() => setTime(value))}/>
           </View>
-          <Text style={styles.subtitle}>
-            Leave time blank for a 9:00 AM reminder in your local time zone. For today after 9:00 AM, the reminder will be 10 minutes from now.
-          </Text>
           <Button disabled={!canSaveFollowup} onPress={() => void save('followup')}>
             Save follow-up
           </Button>
@@ -404,12 +401,16 @@ export default function LeadScreen() {
           <Text style={styles.value}>{event.event_type === 'outreach'
             ? (event.channel ? activityChannelLabel(event.channel, event.outcome) + ' activity' : 'Outreach')
             : event.event_type.replace(/_/g,' ')}</Text>
-          <Text style={styles.subtitle}>{new Date(event.created_at).toLocaleString()}</Text>
+          <Text style={styles.subtitle}>Recorded: {new Date(event.created_at).toLocaleString()}</Text>
           {event.contact_name_snapshot ? <Text style={styles.subtitle}>
             Contact: {event.contact_name_snapshot}
           </Text> : null}
           {event.outcome ? <Text style={styles.subtitle}>Outcome: {outcomeLabel(event.outcome)}</Text> : null}
           {event.action ? <Text style={styles.subtitle}>Action: {event.action}</Text> : null}
+          {event.next_action ? <Text style={styles.subtitle}>Next action: {event.next_action}</Text> : null}
+          {event.next_action_at ? <Text style={styles.subtitle}>
+            Reminder due: {formatFollowupDue(event)}
+          </Text> : null}
           {event.notes ? <Text style={styles.subtitle}>{event.notes}</Text> : null}
         </View>)}
       <Button secondary onPress={() => router.back()}>Back to leads</Button>

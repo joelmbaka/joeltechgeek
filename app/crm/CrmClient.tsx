@@ -523,7 +523,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   )}
                   <p className="mt-2 flex items-center gap-1.5 text-sm text-sky-900 dark:text-sky-200">
                     <CalendarDays className="h-4 w-4 shrink-0" />
-                    {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
+                    Reminder due: {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
                   </p>
                 </div>
                 <button type="button" onClick={() => {
@@ -554,12 +554,11 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         onChange={(e) => { setFollowupDate(e.target.value); if (!e.target.value) setFollowupTime(''); }} />
                     </label>
                     <label className="block text-sm font-semibold">
-                      Time (optional · 9:00 AM default)
+                      Time (optional)
                       <input type="time" className={input} disabled={!followupDate}
                         value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
                     </label>
                   </div>
-                  {followupDate && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}. Without a time, reminders default to 9:00 AM (or 10 minutes from now if today&apos;s 9:00 AM has passed).</p>}
                   {followupError && <p role="alert" className="text-sm text-rose-700">{followupError}</p>}
                   <button type="submit" disabled={savingFollowup || Boolean(followupDate && !followupAction.trim())}
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
@@ -601,7 +600,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                             }} />
                         </label>
                         <label className="block text-sm font-semibold">
-                          Time (optional · 9:00 AM default)
+                          Time (optional)
                           <input type="time" className={input} disabled={!completedNextDate}
                             value={completedNextTime} onChange={(e) => setCompletedNextTime(e.target.value)} />
                         </label>
@@ -689,7 +688,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                           }))} />
                       </label>
                       <label className="block text-sm font-semibold">
-                        Time (optional · 9:00 AM default)
+                        Time (optional)
                         <input type="time" className={input}
                           disabled={form.do_not_contact || !form.next_action_at}
                           value={form.next_action_time}
@@ -755,14 +754,18 @@ function LeadDialog({ lead, onClose, onSaved }: {
                           ? 'Follow-up changed'
                           : h.outcome ? (h.channel ? label(h.channel) + ' · ' : '') + callOutcomeLabel(h.outcome) : 'Outreach'}
                     </strong>
-                    <span className="text-slate-500">{timeLabel(h.created_at)}</span>
+                    <span className="text-slate-500">Recorded: {timeLabel(h.created_at)}</span>
                   </div>
                   {h.contact_name_snapshot && <p className="mt-1 text-xs text-slate-500">Contact: {h.contact_name_snapshot}</p>}
                   {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
                   {h.next_action && (
                     <p className="mt-2 text-slate-600 dark:text-slate-300">
-                      Next: {h.next_action}
-                      {h.next_action_at ? ' · ' + followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone) : ''}
+                      Next action: {h.next_action}
+                    </p>
+                  )}
+                  {h.next_action_at && (
+                    <p className="mt-1 text-sky-800 dark:text-sky-300">
+                      Reminder due: {followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone)}
                     </p>
                   )}
                 </div>

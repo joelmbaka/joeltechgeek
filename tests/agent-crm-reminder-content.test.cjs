@@ -17,7 +17,7 @@ test('notification names selected contact, company, task and due time', async ()
   const result = buildReminderPreview(reminder());
   assert.equal(result.title, 'BlazeShield · Daniel');
   assert.match(result.body, /Follow up on mobile app requirements/);
-  assert.match(result.body, /9:00 AM/);
+  assert.equal(result.body, 'Follow up on mobile app requirements');
 });
 test('company follow-up does not accidentally display the primary contact', async () => {
   const { buildReminderPreview } = await modulePromise;
@@ -48,8 +48,9 @@ test('time zone conversion handles daylight saving', async () => {
   const winter = buildReminderPreview(reminder({
     next_action_due_at: '2026-12-01T14:00:00.000Z', next_action_timezone: 'America/New_York',
   }));
-  assert.match(summer.body, /9:00 AM/);
-  assert.match(winter.body, /9:00 AM/);
+  assert.equal(summer.body, winter.body);
+  assert.equal(summer.body, 'Follow up on mobile app requirements');
+  assert.notEqual(summer.dueAtMs, winter.dueAtMs);
 });
 test('edited task and contact invalidate old scheduled notification even if due is unchanged', async () => {
   const { buildReminderPreview, isCurrentScheduledReminder, REMINDER_PREVIEW_VERSION } = await modulePromise;
@@ -106,4 +107,43 @@ test('Android may serialize notification data numbers as strings', async () => {
     },
   }};
   assert.equal(isCurrentScheduledReminder(existing,'owner-uuid',reminder().id,preview),true);
+});
+
+test('notification text omits both scheduled time and time zone', async () => {
+  const { buildReminderPreview } = await modulePromise;
+  const value = buildReminderPreview(reminder());
+  assert.equal(value.title, 'BlazeShield · Daniel');
+  assert.equal(value.body, 'Follow up on mobile app requirements');
+  assert.doesNotMatch(value.body, /AM|PM|GMT|UTC|Africa\/Nairobi/);
+});
+
+test('follow-up display distinguishes a due time from the saved timestamp', async () => {
+  const { pathToFileURL } = require('node:url');
+  const format = await import(pathToFileURL(path.join(__dirname,'../mobile-app/src/lib/followup-display.ts')).href);
+  const due = format.formatFollowupDue({
+    next_action_at: '2026-11-05',
+    next_action_time: '10:50:00',
+    next_action_timezone: 'Africa/Nairobi',
+    next_action_due_at: '2026-11-05T07:50:00.000Z',
+  });
+  assert.match(due, /Nov 5, 2026/);
+  assert.match(due, /10:50 AM/);
+  const historical = format.formatFollowupDue({
+    next_action_at: '2026-11-05',
+    next_action_time: '10:50:00',
+    next_action_timezone: 'Africa/Nairobi',
+  });
+  assert.match(historical, /10:50 AM/);
+  const legacy = format.formatFollowupDue({
+    next_action_at: '2026-11-05', next_action_time: null,
+  });
+  assert.match(legacy, /time not recorded/);
+});
+
+test('Android history labels recorded and reminder due separately', () => {
+  const screen = fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'), 'utf8');
+  assert.match(screen, /Recorded: \{new Date\(event\.created_at\)/);
+  assert.match(screen, /Reminder due: \{formatFollowupDue\(event\)\}/);
+  assert.match(screen, /Reminder due: \{formatFollowupDue\(lead\)\}/);
+  assert.doesNotMatch(screen, /Leave time blank for a 9:00 AM reminder/);
 });
