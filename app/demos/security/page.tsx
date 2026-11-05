@@ -7,7 +7,7 @@ import {
 
 export const metadata: Metadata = {
   title: 'Security Operations & Client Portal Software Demo | JoelTechGeek Systems',
-  description: 'Explore a security management concept for duty rosters, staff attendance, site coverage, property owner reports and incident resolution—without depending on guard smartphones.',
+  description: 'Explore a mobile-first security management concept for duty rosters, staff attendance, site coverage, property owner reports and incident resolution.' ,
   alternates: { canonical: '/demos/security' },
   openGraph: {
     type: 'website',
@@ -31,7 +31,7 @@ const views = [
   {
     name: 'Field supervisor · Beatrice', Icon: Users,
     heading: 'Confirm what is actually happening on-site.',
-    details: 'Verify guard presence using a company device, record departures and respond to client concerns, even if guards do not own smartphones.',
+    details: 'Confirm attendance from a supervisor view, record departures and respond to client concerns across assigned sites.',
   },
 ];
 
@@ -54,7 +54,7 @@ export default function SecurityDemoPage() {
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Private security · Connected service demo</p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Every property covered. Every client informed.</h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-            Manage guard deployments, shift schedules, attendance and client concerns in one system—and give property owners a clear view of the service they receive. No guard smartphone required.
+            Manage guard deployments, shift schedules, attendance and client concerns in one system—and give property owners a clear view of the service they receive.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/demos/security/experience" className="inline-flex min-h-12 items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90">
@@ -112,9 +112,9 @@ export default function SecurityDemoPage() {
       <section className="mt-14 grid gap-6 rounded-3xl bg-gray-50 p-7 dark:bg-gray-900/70 sm:p-9 lg:grid-cols-[auto_1fr]">
         <WifiOff className="h-9 w-9 text-palm-green" />
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Guards do not need smartphones to participate.</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Multiple ways to confirm attendance.</h2>
           <p className="mt-3 leading-8 text-gray-600 dark:text-gray-300">
-            Office staff can record a telephone-reported arrival, while a supervisor with a shared company device can confirm the guard in person. Those two confirmation levels stay distinct for the client. Optional SMS, offline and guard-app integrations are possibilities for a production system—not live features of this demo.
+            Site staff can use guard check-ins where available, while office teams record telephone-reported arrivals and supervisors confirm attendance. The client sees which confirmation method was used. SMS, offline and guard-app integrations remain production options—not live features of this demo.
           </p>
         </div>
       </section>
