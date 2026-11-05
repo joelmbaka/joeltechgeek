@@ -220,6 +220,9 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [companyName, setCompanyName] = useState(lead.company_name);
   const [contextBrief, setContextBrief] = useState(lead.lead_brief || '');
   const [contextDetails, setContextDetails] = useState(lead.important_details || '');
+  const [contextFacts, setContextFacts] = useState(lead.lead_facts || []);
+  const [newFactLabel, setNewFactLabel] = useState('');
+  const [newFactValue, setNewFactValue] = useState('');
   const [editingContext, setEditingContext] = useState(false);
   const [savingContext, setSavingContext] = useState(false);
   const [contextError, setContextError] = useState('');
@@ -336,6 +339,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     try {
       await api('/api/agent-crm/leads/'+lead.id+'/brief','PATCH',{
         lead_brief:contextBrief.trim(),important_details:contextDetails.trim(),
+        lead_facts:contextFacts,
       });
       setEditingContext(false);
       await onSaved();
@@ -497,6 +501,11 @@ function LeadDialog({ lead, onClose, onSaved }: {
           <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">
             {contextBrief || lead.problem_summary || 'No lead brief yet'}
           </p>
+          {contextFacts.length > 0 ? <ul className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+            {contextFacts.map((fact,index)=><li key={index}>
+              <strong>{fact.label}:</strong> {fact.value}
+            </li>)}
+          </ul> : null}
           {contextDetails ? <p className="mt-2 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
             <strong>Important details:</strong> {contextDetails}
           </p> : null}
@@ -514,7 +523,38 @@ function LeadDialog({ lead, onClose, onSaved }: {
               <textarea className={input} rows={4} maxLength={5000} value={contextDetails}
                 onChange={(e)=>setContextDetails(e.target.value)} />
             </label>
-            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold">Key facts</p>
+              {contextFacts.map((fact,index)=><div key={index}
+                className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700">
+                <span className="min-w-0"><strong>{fact.label}:</strong> {fact.value}</span>
+                <button type="button" onClick={()=>setContextFacts((current)=>
+                  current.filter((_,i)=>i!==index))}
+                  className="shrink-0 font-semibold text-rose-700">Remove</button>
+              </div>)}
+              <label className="block text-xs font-semibold">Fact label
+                <input className={input} maxLength={80} value={newFactLabel}
+                  placeholder="e.g. Current system"
+                  onChange={(e)=>setNewFactLabel(e.target.value)}/>
+              </label>
+              <label className="block text-xs font-semibold">Fact value
+                <input className={input} maxLength={300} value={newFactValue}
+                  placeholder="e.g. Google Sheets"
+                  onChange={(e)=>setNewFactValue(e.target.value)}/>
+              </label>
+              <button type="button" disabled={contextFacts.length>=12 || !newFactLabel.trim() ||
+                !newFactValue.trim() ||
+                contextFacts.some((f)=>f.label.toLowerCase()===newFactLabel.trim().toLowerCase())}
+                onClick={()=>{
+                  setContextFacts((current)=>[...current,{
+                    label:newFactLabel.trim(),value:newFactValue.trim(),
+                  }]);setNewFactLabel('');setNewFactValue('');
+                }}
+                className="rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">
+                Add important fact
+              </button>
+            </div>
+            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>
             <button type="submit" disabled={savingContext}
               className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
               {savingContext ? 'Saving…' : 'Save context'}
