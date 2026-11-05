@@ -27,7 +27,8 @@
     "test:crm-phase5": "node --test tests/agent-crm-phase5-user-identity.test.cjs",
     "test:crm-reminder-defaults": "node --experimental-strip-types --test tests/agent-crm-reminder-defaults.test.cjs",
     "test:crm-reminder-content": "node --experimental-strip-types --test tests/agent-crm-reminder-content.test.cjs",
-    "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs"
+    "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs",
+    "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
