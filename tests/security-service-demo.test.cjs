@@ -119,6 +119,13 @@ test('client reports are sorted by publication and preserve reporting periods', 
   assert.equal(m.siteReports(next,'greenview').length,m.siteReports(data,'greenview').length);
 });
 
+test('client sees an approved duty contact separate from the staff directory number', () => {
+  const d = m.seedDemo('2026-11-05');
+  const officer = d.staff.find(s=>s.id==='kevin');
+  assert.ok(officer.workContact);
+  assert.notEqual(officer.workContact,officer.phone);
+});
+
 test('manager can add a client site, officer and a visit with illustrative evidence', () => {
   const data = m.seedDemo('2026-11-05');
   const withSite = m.addSite(data,'Sunrise Court','Mombasa Road','Jane Njeri','07XX XXX 123');
