@@ -61,12 +61,18 @@ function DateNavigator({date, onChange}: {date: string; onChange: (value: string
   </div>;
 }
 function Assets({assets}: {assets: Asset[]}) {
-  return assets.length ? <div className="mt-3 flex flex-wrap gap-2">
-    {assets.map(a => <div key={a.id} className="flex items-center gap-2 rounded-xl border border-[#d8e5de] bg-[#f4faf6] px-2.5 py-2 text-[10px] font-semibold text-[#456e5d]">
-      {a.kind === 'image' ? <FileImage className="h-4 w-4 text-emerald-700"/> : <FileText className="h-4 w-4 text-emerald-700"/>}
-      <span className="max-w-[170px] break-words">{a.name}</span>
+  if (!assets.length) return null;
+  return <div className="mt-3 grid grid-cols-2 gap-2" aria-label="Sample media and attachments">
+    {assets.map(a => <div key={a.id} className="min-w-0 overflow-hidden rounded-xl border border-[#d8e5de] bg-[#f6faf7]">
+      {a.kind === 'image' ? <div className="flex h-16 items-center justify-center bg-gradient-to-br from-[#dcebe3] via-[#ebf3eb] to-[#bed5c9]">
+        <div className="rounded-xl border border-[#b8d4c4] bg-white/65 p-2"><Camera className="h-5 w-5 text-[#457963]"/></div>
+      </div> : <div className="flex h-16 items-center justify-center bg-[#e8f1eb]">
+        <FileText className="h-7 w-7 text-[#397e5d]"/>
+      </div>}
+      <p className="min-h-10 break-words px-2 py-2 text-[10px] font-semibold leading-4 text-[#476c5a]">{a.name}</p>
+      <p className="px-2 pb-2 text-[9px] font-bold uppercase tracking-wide text-[#86a096]">{a.kind==='image'?'Sample image':'Sample document'}</p>
     </div>)}
-  </div> : null;
+  </div>;
 }
 
 export default function SecurityExperience() {
