@@ -33,11 +33,28 @@ test('overnight shift appears on both days but not after ending', () => {
   assert.equal(m.shiftOnDay(shift, '2026-11-05'), true);
   assert.equal(m.shiftOnDay(shift, '2026-11-06'), true);
   assert.equal(m.shiftOnDay(shift, '2026-11-07'), false);
-  assert.match(m.shiftWindow(shift, '2026-11-05'), /18:00.*00:00/);
-  assert.match(m.shiftWindow(shift, '2026-11-06'), /00:00.*06:00/);
+  const fullPeriod = 'Thu 5 Nov, 6:00 PM – Fri 6 Nov, 6:00 AM';
+  assert.equal(m.shiftWindow(shift), fullPeriod);
+  const firstDay = m.timelineForDay(data, '2026-11-05', 'greenview');
   const next = m.timelineForDay(data, '2026-11-06', 'greenview');
+  assert.ok(firstDay.some(row => row.shift?.id === 's-night'));
   assert.ok(next.some(row => row.shift?.id === 's-night'));
-  assert.ok(next.some(row => row.detail.includes('Continued from previous day')));
+  assert.ok(firstDay.some(row => row.shift?.id === 's-night' && row.detail.includes(fullPeriod)));
+  assert.ok(next.some(row => row.shift?.id === 's-night' && row.detail.includes(fullPeriod)));
+  assert.ok(next.every(row => !row.detail.includes('Continued from previous day')));
+  assert.ok(firstDay.every(row => !row.detail.includes('Continues next day')));
+});
+
+test('same-day shifts display actual dated start and end, and New Year rollover shows both years', () => {
+  const data = m.seedDemo('2026-11-05');
+  const daytime = find(data.shifts, 's-day');
+  assert.equal(m.shiftWindow(daytime), 'Thu 5 Nov, 6:00 AM – Thu 5 Nov, 6:00 PM');
+  const crossing = {
+    ...daytime,
+    startAt: '2026-12-31T22:30:00+03:00',
+    endAt: '2027-01-01T02:45:00+03:00',
+  };
+  assert.equal(m.shiftWindow(crossing), 'Thu 31 Dec 2026, 10:30 PM – Fri 1 Jan 2027, 2:45 AM');
 });
 
 test('client roster is a chronological daily history including evidence and property isolation', () => {
@@ -199,6 +216,10 @@ test('mobile interface has two role options, client roster default, and consiste
   assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
   assert.match(ui,/type="date"/);
   const details=read('app/demos/security/SecurityRosterDetail.tsx');
+  assert.match(ui,/shiftWindow\(shift\)/);
+  assert.match(details,/Duty period:/);
+  assert.match(details,/shiftWindow\(shift\)/);
+
   assert.match(ui,/fillRollingWindow/);
   assert.match(ui,/openTimeline/);
   assert.match(details,/Record ID:/);
