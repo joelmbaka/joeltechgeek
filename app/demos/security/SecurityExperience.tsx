@@ -257,9 +257,12 @@ export default function SecurityExperience() {
           </label>
         </header>
         <main ref={screenRef} className={styles.screen} aria-label={panes[role].label + ' workspace'}>
-          <div className="mb-4">
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">{panes[role].label}</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{panes[role].description}</p>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">{panes[role].label}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{panes[role].description}</p>
+            </div>
+            <button type="button" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" onClick={reset} aria-label="Reset demo data"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
           </div>
           {message && <div role="status" className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
             <span className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0" />{message}</span>
@@ -285,7 +288,7 @@ export default function SecurityExperience() {
             <div className="grid gap-3">{forClient.today.map(s => shiftCard(s, 'client'))}</div></div>
           <Card className="flex flex-wrap items-center justify-between gap-4">
             <div><h3 className="font-bold">Need assistance at your property?</h3><p className="mt-1 text-sm text-slate-500">Send a concern directly to the security operations team and track its resolution.</p></div>
-            <button className={btn} onClick={() => setTab('issues')}><MessageSquarePlus className="h-4 w-4" /> Raise an issue</button>
+            <button className={btn} onClick={() => changeTab('issues')}><MessageSquarePlus className="h-4 w-4" /> Raise an issue</button>
           </Card>
           <div><Heading title="Latest service updates" detail="Illustrative in-app updates, not real push notifications." />
             <Card><div className="space-y-3">{forClient.updates.length ? forClient.updates.slice(0, 6).map(a => <div key={a.id} className="flex gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0 dark:border-slate-800"><Bell className="mt-1 h-4 w-4 shrink-0 text-emerald-600" /><div className="text-sm"><p>{a.message}</p><p className="mt-1 text-xs text-slate-400">{a.stamp}</p></div></div>) : <p className="text-sm text-slate-500">No service updates yet.</p>}</div></Card>
@@ -353,7 +356,7 @@ export default function SecurityExperience() {
         </div>}
 
         {role === 'supervisor' && tab === 'overview' && <div>
-          <Heading title="Supervisor site checks" detail="Confirm attendance using a shared company device. Guard smartphones and mobile data are not required." />
+          <Heading title="Supervisor site checks" detail="Confirm site attendance from the supervisor workspace and distinguish it from an office-reported arrival." />
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100"><WifiOff className="h-5 w-5 shrink-0" /> Supervisor confirmation and office attendance reports have distinct verification levels. This demo does not collect location.</div>
           <div className="grid gap-3">{todays.map(s => shiftCard(s, 'supervisor'))}</div>
         </div>}
