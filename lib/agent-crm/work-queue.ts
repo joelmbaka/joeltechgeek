@@ -64,7 +64,7 @@ export function workQueueSQL(): string {
     "AND regexp_replace(COALESCE(w.last_called_phone,''),'[^0-9]','','g')<>regexp_replace(COALESCE(w.callable_phone,''),'[^0-9]','','g') THEN true",
     "WHEN w.last_call_outcome IN "+BAD+" AND w.last_called_phone IS NOT NULL AND length(regexp_replace(COALESCE(w.callable_phone,''),'[^0-9]','','g'))>=7",
     "AND regexp_replace(COALESCE(w.last_called_phone,''),'[^0-9]','','g')<>regexp_replace(COALESCE(w.callable_phone,''),'[^0-9]','','g') THEN true",
-    'WHEN w.last_call_outcome IN '+FAIL
+    'WHEN w.last_call_outcome IN '+FAIL,
     'AND w.failed_call_streak BETWEEN 1 AND 4 AND (now() AT TIME ZONE $2)::date >= (w.last_call_at AT TIME ZONE $2)::date + CASE WHEN w.failed_call_streak<=2 THEN 1 ELSE 3 END',
     'THEN true ELSE false END call_eligible,',
     'CASE WHEN w.last_call_at IS NOT NULL AND w.last_call_outcome IN '+FAIL+' AND w.failed_call_streak BETWEEN 1 AND 4',
