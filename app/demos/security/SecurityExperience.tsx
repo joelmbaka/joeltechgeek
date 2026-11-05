@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef, type ReactNode, type FormEvent } from 'react';
+import { useEffect, useState, useRef, type ReactNode, type FormEvent, type ChangeEvent } from 'react';
 import {
-  ArrowLeft, Bell, Building2, CalendarDays, Camera, Check, CheckCircle2,
-  ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, Clock3, FileImage,
-  FileText, House, Info, MapPin, MessageSquare, Plus, RotateCcw, Send,
+  ArrowLeft, Building2, CalendarDays, Camera, Check, ChevronLeft, ChevronRight,
+  Clock3, FileText, Info, MapPin, MessageSquare, Plus, RotateCcw, Send,
   ShieldCheck, Users, X
 } from 'lucide-react';
 import styles from './SecurityExperience.module.css';
@@ -13,7 +12,7 @@ import {
   STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant, shiftWindow,
   HISTORY_DAYS, PLANNING_DAYS, fillRollingWindow,
   seedDemo, valid, timelineForDay, siteIssues, siteReports, shiftOnDay,
-  assignShift, addShift, confirmAttendance, completeShift, addSite, addStaff,
+  assignShift, addShift, setShiftPresence, addSite, addStaff,
   addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
   type State, type Role, type Shift, type Issue, type IssueStatus, type Asset,
   type ReportPeriod
@@ -33,11 +32,11 @@ function Card({children, className = ''}: {children: ReactNode; className?: stri
 }
 function Status({value}: {value: string}) {
   const good = ['confirmed', 'completed', 'resolved'].includes(value);
-  const caution = ['open', 'unconfirmed'].includes(value);
-  const cls = good ? 'bg-emerald-100 text-emerald-800' : caution ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800';
+  const caution = ['open', 'unconfirmed', 'absent'].includes(value);
+  const cls = good ? 'bg-emerald-100 text-emerald-800' : value === 'absent' ? 'bg-rose-100 text-rose-800' : caution ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800';
   const names: Record<string, string> = {
     scheduled:'Scheduled', unconfirmed:'Unconfirmed', reported:'Reported · unverified',
-    confirmed:'Confirmed', completed:'Completed', open:'Open', acknowledged:'Acknowledged',
+    confirmed:'On site', absent:'Not on site', completed:'Completed', open:'Open', acknowledged:'Acknowledged',
     responding:'In progress', resolved:'Resolved',
   };
   return <span className={'inline-flex shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ' + cls}>{names[value] || value}</span>;
@@ -87,7 +86,13 @@ export default function SecurityExperience() {
   const [notice,setNotice] = useState('');
   const [activeIssueId,setActiveIssueId] = useState<string | null>(null);
   const [activeTimelineId,setActiveTimelineId] = useState<string | null>(null);
-  const [serviceMode,setServiceMode] = useState<'issues'|'reports'>('issues');
+  const [selectedSiteId,setSelectedSiteId] = useState<string | null>(null);
+  const [selectedClient,setSelectedClient] = useState<string | null>(null);
+  const [showAddSite,setShowAddSite] = useState(false);
+  const [showAddStaff,setShowAddStaff] = useState(false);
+  const [showShiftForm,setShowShiftForm] = useState(false);
+  const [showIncidentForm,setShowIncidentForm] = useState(false);
+  const [showReportForm,setShowReportForm] = useState(false);
   const [issueTitle,setIssueTitle] = useState('');
   const [issueText,setIssueText] = useState('');
   const [reply,setReply] = useState('');
@@ -101,11 +106,14 @@ export default function SecurityExperience() {
   const [newShiftStaff,setNewShiftStaff] = useState('daniel');
   const [newShiftStart,setNewShiftStart] = useState('06:00');
   const [newShiftEnd,setNewShiftEnd] = useState('18:00');
-  const [visitSite,setVisitSite] = useState('greenview');
   const [visitNote,setVisitNote] = useState('');
   const [visitPhoto,setVisitPhoto] = useState(false);
   const [reportSite,setReportSite] = useState('greenview');
   const [reportPeriod,setReportPeriod] = useState<ReportPeriod>('daily');
+  const [reportFrom,setReportFrom] = useState(kenyaToday);
+  const [reportTo,setReportTo] = useState(kenyaToday);
+  const [reportText,setReportText] = useState('');
+  const [reportEvidence,setReportEvidence] = useState<Asset[]>([]);
   const scrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -139,18 +147,18 @@ export default function SecurityExperience() {
   const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
   const tabs = role === 'client'
     ? [{id:'roster',name:'Roster', Icon: CalendarDays},{id:'issues',name:'Issues', Icon: MessageSquare},{id:'reports',name:'Reports', Icon:FileText}]
-    : [{id:'overview',name:'Overview', Icon:House},{id:'roster',name:'Roster', Icon:CalendarDays},{id:'sites',name:'Sites', Icon:Building2},{id:'service',name:'Service', Icon:ClipboardCheck}];
+    : [{id:'roster',name:'Roster', Icon:CalendarDays},{id:'sites',name:'Sites', Icon:Building2},{id:'issues',name:'Issues', Icon:MessageSquare},{id:'reports',name:'Reports', Icon:FileText}];
 
   function perform(operation: (state: State)=>State, message: string) {
     try { const next = operation(data); setData(next); setNotice(message); }
     catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to update sample data.'); }
   }
   function switchRole(next: Role) {
-    setRole(next); setTab(next==='client'?'roster':'overview');setActiveIssueId(null);setActiveTimelineId(null);setNotice('');
+    setRole(next); setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function moveTab(next: string) {
-    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setNotice('');
+    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function openTimeline(id: string) {
@@ -163,8 +171,7 @@ export default function SecurityExperience() {
   }
   function viewTimelineIssue(id: string) {
     setActiveTimelineId(null);
-    setTab(role==='client'?'issues':'service');
-    if(role==='manager')setServiceMode('issues');
+    setTab('issues');
     openIssue(id);
   }
   function openIssue(id: string) {
@@ -174,7 +181,7 @@ export default function SecurityExperience() {
   function reset() {
     if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
     const next = fillRollingWindow(seedDemo());setData(next);setDate(next.anchorDate);setSiteId('greenview');
-    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setNotice('Sample data restored.');
+    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setReportEvidence([]);setNotice('Sample data restored.');
   }
   function submitIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -485,7 +492,7 @@ export default function SecurityExperience() {
         <label className={styles.roleLabel} htmlFor="security-role-select">Switch role
           <select id="security-role-select" className={styles.roleSelect} value={role} onChange={e=>switchRole(e.target.value as Role)}>
             <option value="client">{currentSite.client.split(' ')[0]} · Client</option>
-            <option value="manager">Grace · Manager</option>
+            <option value="manager">Grace · Supervisor</option>
           </select>
         </label>
       </header>
