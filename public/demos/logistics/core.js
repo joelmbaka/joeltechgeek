@@ -139,13 +139,15 @@ const DRIVERS=[
  {id:"DRV-DEMO-001",name:"Kevin Mwangi (fictional)"},
  {id:"DRV-DEMO-002",name:"Amina Wanjiku (fictional)"},
  {id:"DRV-DEMO-003",name:"Peter Otieno (fictional)"},
- {id:"DRV-DEMO-004",name:"David Kamau (fictional)"}
+ {id:"DRV-DEMO-004",name:"David Kamau (fictional)"},
+ {id:"DRV-DEMO-005",name:"Mercy Njeri (fictional)"}
 ];
 const TRUCKS=[
  {id:"TRK-DEMO-001",truckPlate:"KDA 384P · DEMO",capacityTons:28,driverId:"DRV-DEMO-001"},
  {id:"TRK-DEMO-002",truckPlate:"KDU 537R · DEMO",capacityTons:24,driverId:"DRV-DEMO-002"},
  {id:"TRK-DEMO-003",truckPlate:"KBA 241L · DEMO",capacityTons:26,driverId:"DRV-DEMO-003"},
- {id:"TRK-DEMO-004",truckPlate:"KCA 619M · DEMO",capacityTons:28,driverId:"DRV-DEMO-004"}
+ {id:"TRK-DEMO-004",truckPlate:"KCA 619M · DEMO",capacityTons:28,driverId:"DRV-DEMO-004"},
+ {id:"TRK-DEMO-005",truckPlate:"KDE 452T · DEMO",capacityTons:26,driverId:"DRV-DEMO-005"}
 ];
 const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,name,payment="Unpaid")=>{
  const assignedDriver=DRIVERS.find(x=>x.name===name)||null;
@@ -163,7 +165,7 @@ const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,nam
  return load;
 };
 function seed(){
- return {version:6,nextId:3100,
+ return {version:7,nextId:3100,
   driver:{...DRIVERS[0]},
   drivers:DRIVERS.map(x=>({...x})),
   fleet:TRUCKS.map(x=>({...x})),
@@ -171,15 +173,15 @@ function seed(){
    sample("LD-3088","mombasa-port","nairobi-icd","Open",280000,22,305,null,0,"",null),
    sample("LD-3089","mombasa-port","nakuru","Open",310000,21,360,null,0,"",null),
    sample("LD-3090","mombasa-cfs","eldoret","Open",340000,24,430,null,0,"",null),
-   sample("LD-3087","mombasa-port","kisumu","Open",330000,20,465,null,0,"",null),
+   sample("LD-3087","mombasa-port","kisumu","Delivered",330000,20,465,"KCA 619M",465,"Kisumu ICD","David Kamau (fictional)"),
    sample("LD-3086","mombasa-port","nairobi-icd","Assigned",280000,19,305,"KDA 384P",0,"Mombasa Port","Kevin Mwangi (fictional)"),
-   sample("LD-3085","mombasa-port","athi-river","Open",275000,20,291,null,0,"",null),
+   sample("LD-3085","mombasa-port","athi-river","Assigned",275000,20,291,"KCA 619M",0,"Mombasa Port","David Kamau (fictional)"),
    sample("LD-3084","mombasa-port","nairobi-icd","In transit",295000,22,305,"KDU 537R",128,"Voi · A109","Amina Wanjiku (fictional)"),
    sample("LD-3083","mombasa-port","nakuru","Delivered",310000,21,360,"KBA 241L",360,"Nakuru ICD","Peter Otieno (fictional)"),
    sample("LD-3082","mombasa-port","nairobi-icd","Complete",280000,20,305,"KDA 384P",610,"Mombasa Port","Kevin Mwangi (fictional)"),
    sample("LD-3081","mombasa-port","eldoret","Complete",340000,23,430,"KDU 537R",860,"Mombasa Port","Amina Wanjiku (fictional)","Paid")
   ],
-  activity:[{id:"ACT-1",at:now(),title:"Fleet workspace ready",detail:"Illustrative cargo movements loaded.",loadId:null}]
+  activity:[{id:"ACT-1",at:now(),title:"Assignment scenarios restored",detail:"Kevin: Assigned; Amina: In Transit; Peter: Delivered; David: Delivered + Assigned; Mercy: available.",loadId:null}]
  };
 }
 function metrics(d){
@@ -189,7 +191,7 @@ function metrics(d){
   owed:d.loads.filter(l=>l.status==="Complete"&&l.payment.status==="Unpaid").reduce((n,l)=>n+l.driverPay,0)};
 }
 function validate(d){
- return !!d&&d.version===6&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&Array.isArray(d.fleet)&&Array.isArray(d.drivers)&&!!d.driver&&
+ return !!d&&d.version===7&&Array.isArray(d.loads)&&Array.isArray(d.activity)&&Array.isArray(d.fleet)&&Array.isArray(d.drivers)&&!!d.driver&&
    typeof d.driver.id==="string"&&Number.isSafeInteger(d.nextId)&&
    d.loads.every(l=>!!l&&typeof l.id==="string"&&STATUSES.includes(l.status)&&!!l.evidence&&!!l.payment);
 }
