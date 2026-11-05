@@ -63,15 +63,16 @@ function DateNavigator({date, onChange}: {date: string; onChange: (value: string
 }
 function Assets({assets}: {assets: Asset[]}) {
   if (!assets.length) return null;
-  return <div className="mt-3 grid grid-cols-2 gap-2" aria-label="Sample media and attachments">
-    {assets.map(a => <div key={a.id} className="min-w-0 overflow-hidden rounded-xl border border-[#d8e5de] bg-[#f6faf7]">
-      {a.kind === 'image' ? <div className="flex h-16 items-center justify-center bg-gradient-to-br from-[#dcebe3] via-[#ebf3eb] to-[#bed5c9]">
-        <div className="rounded-xl border border-[#b8d4c4] bg-white/65 p-2"><Camera className="h-5 w-5 text-[#457963]"/></div>
-      </div> : <div className="flex h-16 items-center justify-center bg-[#e8f1eb]">
-        <FileText className="h-7 w-7 text-[#397e5d]"/>
-      </div>}
-      <p className="min-h-10 break-words px-2 py-2 text-[10px] font-semibold leading-4 text-[#476c5a]">{a.name}</p>
-      <p className="px-2 pb-2 text-[9px] font-bold uppercase tracking-wide text-[#86a096]">{a.kind==='image'?'Sample image':'Sample document'}</p>
+  return <div className="mt-3 grid grid-cols-2 gap-2" aria-label="Attached evidence">
+    {assets.map(a=><div key={a.id} className="min-w-0 overflow-hidden rounded-xl border border-[#d8e5de] bg-[#f6faf7]">
+      {a.kind==='image' && a.dataUrl ? <img src={a.dataUrl} alt={a.name} className="h-24 w-full object-cover"/> :
+        <div className="flex h-16 items-center justify-center bg-[#e6f2e9]">
+          {a.kind==='image'?<Camera className="h-6 w-6 text-emerald-700"/>:<FileText className="h-6 w-6 text-emerald-700"/>}
+        </div>}
+      <div className="p-2"><p className="break-words text-[10px] font-semibold leading-4 text-[#476c5a]">{a.name}</p>
+        {a.dataUrl ? <a href={a.dataUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[11px] font-bold text-emerald-700">View attachment</a> :
+          <p className="mt-1 text-[9px] uppercase text-[#86a096]">Illustrative {a.kind}</p>}
+      </div>
     </div>)}
   </div>;
 }
@@ -270,38 +271,74 @@ export default function SecurityExperience() {
     </div>;
   }
   function managerShiftCard(shift: Shift) {
-    const officer = data.staff.find(s=>s.id===shift.staffId);
+    const officer=data.staff.find(s=>s.id===shift.staffId);
+    const started=Date.parse(shift.startAt)<=Date.now() && shift.attendance!=='completed';
     return <Card key={shift.id}>
       <div className="flex items-start justify-between gap-2">
-        <div><h3 className="text-sm font-extrabold text-[#204534]">{officer?.name}</h3>
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-[#204534]">{officer?.name||'Unassigned'}</h3>
           <p className="mt-1 text-[11px] text-[#678274]">{data.sites.find(s=>s.id===shift.siteId)?.name}</p>
-          <p className="mt-1 flex items-center gap-1 text-[11px] text-[#678274]"><Clock3 className="h-3 w-3"/>{shiftWindow(shift)}</p></div>
+          <p className="mt-1 flex items-center gap-1 text-[11px] leading-5 text-[#678274]"><Clock3 className="h-3 w-3 shrink-0"/>{shiftWindow(shift)}</p>
+        </div>
         <Status value={shift.attendance}/>
       </div>
-      {(shift.arrivalAt||shift.method) && <p className="mt-2 rounded-xl bg-[#f2f8f4] px-3 py-2 text-[11px] leading-5 text-[#52766a]">Arrival: {shift.arrivalAt?formatClock(shift.arrivalAt):'Not recorded'} · {shift.method || 'Not verified'}</p>}
-      {['scheduled','unconfirmed'].includes(shift.attendance) && <label className="mt-3 block text-[11px] font-bold text-[#486b5c]">Reassign officer
-        <select className={field} value={shift.staffId} onChange={e=>perform(d=>assignShift(d,shift.id,e.target.value),'Duty roster updated.')}>
-          {data.staff.filter(s=>s.active).map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button type="button" className={primary} disabled={!started||shift.attendance==='confirmed'}
+          onClick={()=>perform(d=>setShiftPresence(d,shift.id,'on_site'),'Officer marked on site. The client roster has been updated.')}>
+          <Check className="h-4 w-4"/> On site
+        </button>
+        <button type="button" className={secondary} disabled={!started||shift.attendance==='absent'}
+          onClick={()=>perform(d=>setShiftPresence(d,shift.id,'not_on_site'),'Officer marked not on site. The client roster has been updated.')}>
+          Not on site
+        </button>
+      </div>
+      {!started&&shift.attendance!=='completed'&&<p className="mt-2 text-[10px] text-[#779084]">Attendance can be marked once the shift begins.</p>}
+      {['scheduled','unconfirmed'].includes(shift.attendance)&&<details className="mt-3 border-t border-[#e4eee6] pt-3">
+        <summary className="cursor-pointer text-[11px] font-bold text-emerald-700">Change assigned officer</summary>
+        <select className={field} value={shift.staffId}
+          onChange={e=>perform(d=>assignShift(d,shift.id,e.target.value),'Officer reassigned.')}>
+          {data.staff.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-      </label>}
-      {['scheduled','unconfirmed','reported'].includes(shift.attendance) && <div className="mt-3 flex flex-wrap gap-2">
-        {shift.attendance!=='reported' && <button type="button" className={secondary+' flex-1'} onClick={()=>perform(d=>confirmAttendance(d,shift.id,'office'),'Telephone-reported arrival saved as unverified.')}>Office report</button>}
-        <button type="button" className={primary+' flex-1'} onClick={()=>perform(d=>confirmAttendance(d,shift.id,'supervisor'),'Supervisor confirmation recorded.')}><CheckCircle2 className="h-3.5 w-3.5"/> Confirm on site</button>
-      </div>}
-      {shift.attendance==='confirmed' && <button type="button" className={secondary+' mt-3 w-full'} onClick={()=>perform(d=>completeShift(d,shift.id),'Shift departure recorded.')}><Check className="h-4 w-4"/> Record departure</button>}
+      </details>}
     </Card>;
   }
   function reportList(recs: typeof reports) {
     return recs.length ? <div className="space-y-3">{recs.map(rep=><Card key={rep.id}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
         <span className="text-[10px] text-[#7c9489]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
       </div>
       <h3 className="mt-3 text-sm font-extrabold text-[#264637]">{rep.title}</h3>
-      {role==='manager' && <p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>}
-      <p className="mt-1 text-[11px] text-[#779186]">Covered: {formatDay(rep.periodFrom)}{rep.periodFrom!==rep.periodTo?' to '+formatDay(rep.periodTo):''}</p>
-      <p className="mt-3 text-xs leading-6 text-[#4c695a]">{rep.summary}</p>
+      <p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>
+      <p className="mt-2 text-[11px] leading-5 text-[#779186]">From {formatDay(rep.periodFrom)} to {formatDay(rep.periodTo)}</p>
+      <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[#4c695a]">{rep.summary}</p>
+      {(rep.assets?.length||0)>0&&<div className="mt-3"><p className="text-[11px] font-bold text-[#456f5b]">Attached evidence</p><Assets assets={rep.assets||[]}/></div>}
     </Card>)}</div> : <Card><p className={textMuted}>No published reports yet.</p></Card>;
+  }
+  async function readReportFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files=Array.from(event.target.files||[]);
+    event.target.value='';
+    if(!files.length)return;
+    if(files.length+reportEvidence.length>3){setNotice('Attach up to three files per report.');return;}
+    const allowed=['image/png','image/jpeg','image/webp','application/pdf'];
+    if(files.some(file=>!allowed.includes(file.type)||file.size>600*1024)){
+      setNotice('Only PNG, JPEG, WebP or PDF files up to 600 KB each are supported in this browser demo.');
+      return;
+    }
+    try {
+      const uploads=await Promise.all(files.map(file=>new Promise<Asset>((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onerror=()=>reject(new Error('Could not read the attachment.'));
+        reader.onload=()=>resolve({
+          id:'file-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),
+          kind:file.type.startsWith('image/')?'image':'document',
+          name:file.name, mimeType:file.type, dataUrl:String(reader.result),
+        });
+        reader.readAsDataURL(file);
+      })));
+      setReportEvidence(current=>[...current,...uploads].slice(0,3));
+      setNotice(files.length+' attachment(s) added to the report.');
+    }catch(error){setNotice(error instanceof Error?error.message:'Attachment failed.');}
   }
 
   const rosterDetail = selectedTimeline ? <SecurityRosterDetail
