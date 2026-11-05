@@ -24,7 +24,7 @@ export function getCrmPool(): Pool {
 export const LEAD_COLUMNS = String.raw`id, company_name, industry, country, city, website,
   contact_name, contact_role, phone, email, existing_system,
   problem_summary, qualification_reason, source_url, priority,
-  lead_brief, important_details, next_action_type,
+  lead_brief, important_details, lead_facts, next_action_type,
   stage, COALESCE(last_outcome_v2, last_outcome) AS last_outcome,
   last_activity_channel, last_notes, next_action,
   next_action_at::text AS next_action_at,

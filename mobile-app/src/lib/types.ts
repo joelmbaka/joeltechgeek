@@ -6,6 +6,7 @@ export type Lead = {
   existing_system: string | null; problem_summary: string | null;
   qualification_reason: string | null; source_url: string | null;
   lead_brief: string | null; important_details: string | null;
+  lead_facts: Array<{label:string;value:string}>;
   next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   work_state?: string; last_call_at?: string | null;
   failed_call_streak?: number; retry_eligible_at?: string | null; last_worked_at?: string | null;

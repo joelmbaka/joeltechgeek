@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import type { Lead } from '@/lib/agent-crm/types';
+import { parseLeadFacts } from '@/lib/agent-crm/lead-facts';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -25,11 +26,14 @@ export async function PATCH(request:Request,{params}:Params){
   const brief=body.lead_brief,details=body.important_details;
   if(typeof brief!=='string'||brief.length>220||typeof details!=='string'||details.length>5000)
     return fail('Keep the lead brief under 220 characters and important details under 5000.',400);
+  const parsedFacts = body.lead_facts === undefined ? null : parseLeadFacts(body.lead_facts);
+  if(parsedFacts && !parsedFacts.ok)return fail(parsedFacts.error,400);
   try{
     const result=await getCrmPool().query<Lead>(
-      'UPDATE public.crm_leads SET lead_brief=$3,important_details=$4,updated_at=now() '+
+      'UPDATE public.crm_leads SET lead_brief=$3,important_details=$4,lead_facts=COALESCE($5::jsonb,lead_facts),updated_at=now() '+
       'WHERE id=$1 AND user_id=$2 RETURNING '+LEAD_COLUMNS,
-      [id,access.user.id,brief.trim()||null,details.trim()||null],
+      [id,access.user.id,brief.trim()||null,details.trim()||null,
+        parsedFacts?.ok ? JSON.stringify(parsedFacts.facts) : null],
     );
     if(!result.rows[0])return fail('Lead not found.',404);
     return NextResponse.json({ok:true,lead:result.rows[0]},{headers:{'Cache-Control':'private, no-store'}});

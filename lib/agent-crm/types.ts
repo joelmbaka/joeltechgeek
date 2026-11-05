@@ -127,6 +127,7 @@ export type Lead = {
   qualification_reason: string | null;
   lead_brief: string | null;
   important_details: string | null;
+  lead_facts: Array<{ label:string; value:string }>;
   next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   source_url: string | null;
   priority: 'high' | 'normal' | 'low';
