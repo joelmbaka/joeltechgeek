@@ -276,7 +276,7 @@ export default function DemosPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Logistics & transport · Concept</span>
               </div>
               <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Cargo Dispatch</h3>
-              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Create a cargo load, assign a truck directly, then collect a loaded-truck photo, delivery note and EIR at each trip handoff.</p>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Create a cargo load, assign a driver directly, then collect a loaded-truck photo, delivery note and EIR at each trip handoff.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Interactive workflow</span>
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Browser-local data</span>
