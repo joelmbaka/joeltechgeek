@@ -14,6 +14,8 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { useDailyMantra } from '@/lib/dailyMantra';
 import type { Lead, LeadList } from '@/lib/types';
+import { outcomeLabel, activityChannelLabel } from '@/lib/types';
+import { formatFollowupDue } from '@/lib/followup-display';
 
 // Keep the review login flow intact for future Play review submissions.
 // Switch to true when reviewer access must be visible in a new Android build.
@@ -24,12 +26,13 @@ function todayLabel(date: Date): string {
     weekday: 'short', month: 'short', day: 'numeric',
   }).format(date).replace(',', '');
 }
-const SORTS: SelectOption[] = [
-  { value: 'recommended', label: 'Default' },
-  { value: 'recent', label: 'Recent' },
-  { value: 'company', label: 'A–Z' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'followup', label: 'Follow-up' },
+const WORK_VIEWS: SelectOption[] = [
+  { value: 'for_you', label: 'For You' },
+  { value: 'to_call', label: 'To Call' },
+  { value: 'followups', label: 'Follow-ups' },
+  { value: 'done_today', label: 'Done Today' },
+  { value: 'priority', label: 'High Priority' },
+  { value: 'all', label: 'All Leads' },
 ];
 
 function BrandMark({ dark }: { dark: boolean }) {
@@ -52,9 +55,9 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
   const [offset, setOffset] = useState(0);
-  const [queue, setQueue] = useState('all');
+  const [view, setView] = useState('for_you');
   const [industry, setIndustry] = useState('all');
-  const [sort, setSort] = useState('recommended');
+  const [alphabetical, setAlphabetical] = useState(false);
   const [data, setData] = useState<LeadList | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -66,7 +69,7 @@ export default function HomeScreen() {
   const listHeaderHeight = useRef(0);
   const pendingPageScroll = useRef(false);
 
-  useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
+  useEffect(() => { setOffset(0); }, [debounced, view, industry, alphabetical]);
 
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
@@ -92,7 +95,8 @@ export default function HomeScreen() {
     setData(null); // Never show a previous page as current during a new request.
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
-      q: debounced, queue, industry, sort,
+      q: debounced, view: view === 'all' && alphabetical ? 'all_az' : view,
+      industry, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
       .then((result) => {
@@ -109,7 +113,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, offset, debounced, queue, industry, sort]);
+  }, [user?.id, offset, debounced, view, industry, alphabetical]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -143,7 +147,7 @@ export default function HomeScreen() {
     // Returning from a searched lead should show the ordinary lead list.
     setSearch('');
     setOffset(0);
-    router.push({ pathname: '/leads/[id]', params: { id } });
+    router.push({ pathname: '/leads/[id]', params: { id, view, industry } });
   };
 
   const openReview = async () => {
@@ -176,12 +180,6 @@ export default function HomeScreen() {
   </SafeAreaView>;
 
   const stats = loading ? null : data?.stats || null;
-  const queueOptions: SelectOption[] = [
-    { value: 'all', label: 'All leads' },
-    { value: 'to_call', label: 'To call' },
-    { value: 'due', label: 'Follow-ups due' },
-    { value: 'interested', label: 'Interested' },
-  ];
   const industryOptions: SelectOption[] = [
     { value: 'all', label: 'All categories' },
     { value: '__uncategorized__', label: 'No category' },
@@ -232,16 +230,16 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', gap: 9 }}>
           {([
             { label: 'To call', value: stats?.to_call, queue: 'to_call' },
-            { label: 'Follow-ups due', value: stats?.followups_due, queue: 'due' },
+            { label: 'Follow-ups due', value: stats?.followups_due, queue: 'followups' },
           ] as const).map((metric) => (
             <Pressable key={metric.queue}
               accessibilityRole="button"
               accessibilityLabel={metric.label + ', ' + (metric.value ?? 'loading') + ' leads'}
-              onPress={() => setQueue(metric.queue)}
+              onPress={() => setView(metric.queue)}
               style={[styles.card, {
                 flex: 1, minWidth: 0, minHeight: 70, paddingHorizontal: 13,
                 paddingVertical: 10, gap: 5,
-                borderColor: queue === metric.queue ? theme.primary : theme.border,
+                borderColor: view === metric.queue ? theme.primary : theme.border,
               }]}>
               <Text numberOfLines={1} style={[styles.label, { fontSize: 12 }]}>
                 {metric.label}
@@ -257,8 +255,8 @@ export default function HomeScreen() {
         </View>
         <View style={{ flexDirection: 'row', gap: 9 }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <SelectSheet title="Work queue" value={queue}
-              options={queueOptions} onChange={setQueue}/>
+            <SelectSheet title="View" value={view} options={WORK_VIEWS}
+              onChange={setView}/>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="Business category" value={industry}
@@ -277,8 +275,14 @@ export default function HomeScreen() {
             }}>
             {mantra}
           </Text>
-          <SelectSheet title="Sort" value={sort}
-            options={SORTS} onChange={setSort} compact/>
+          {view === 'all' ? <Pressable accessibilityRole="button"
+            onPress={() => setAlphabetical((v) => !v)}
+            style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10,
+              borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceMuted }}>
+            <Text style={{ color: theme.ink, fontSize: 12, fontWeight: '700' }}>
+              {alphabetical ? 'Recent' : 'A–Z'}
+            </Text>
+          </Pressable> : null}
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <TextInput
@@ -355,7 +359,10 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
       {lead.company_name ? (lead.contact_name || 'No contact') : (lead.contact_role || 'No company')}
       {lead.industry ? ' · ' + lead.industry : ''}
     </Text>
-    {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
+    {lead.lead_brief || lead.problem_summary ? <Text numberOfLines={2}
+      style={{ color: theme.ink, fontSize: 13, lineHeight: 19 }}>
+      {lead.lead_brief || lead.problem_summary}
+    </Text> : null}
     <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
       backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,
       borderWidth: 1, borderRadius: 20 }}>
@@ -363,8 +370,28 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
         {lead.stage.replace(/_/g, ' ')}
       </Text>
     </View>
-    {lead.next_action ? <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>
-      Next: {lead.next_action}{lead.next_action_at ? ' · ' + lead.next_action_at : ''}
+    <Text numberOfLines={1} style={styles.subtitle}>
+      {lead.last_outcome
+        ? 'Last ' + activityChannelLabel(lead.last_activity_channel, lead.last_outcome) +
+          ': ' + outcomeLabel(lead.last_outcome)
+        : 'Not contacted'}
+    </Text>
+    {lead.next_action ? <Text numberOfLines={2}
+      style={{ color: theme.primaryDark, fontWeight: '700', fontSize: 13 }}>
+      Next: {lead.next_action}
+    </Text> : null}
+    {lead.next_action_at ? <Text style={styles.subtitle}>
+      {formatFollowupDue(lead) ? 'Reminder due: ' + formatFollowupDue(lead) : ''}
+    </Text> : lead.retry_eligible_at && lead.work_state === 'cooldown'
+      ? <Text style={styles.subtitle}>Retry eligible: {lead.retry_eligible_at}</Text>
+      : null}
+    {lead.work_state && lead.work_state !== 'ready' ? <Text style={styles.subtitle}>
+      {({
+        due: 'Due now', scheduled: 'Scheduled', done_today: 'Done today',
+        cooldown: 'Retry cooldown', fix_contact: 'Correct contact details',
+        review: 'Retry needs review', needs_next_step: 'Needs next step',
+        closed: 'Closed',
+      } as Record<string,string>)[lead.work_state] || lead.work_state}
     </Text> : null}
   </Pressable>;
 }
