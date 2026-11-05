@@ -89,3 +89,9 @@ test('notification tap retains owner-scoped lead deep link and reconciliation re
   assert.match(scheduler,/cancelScheduledNotificationAsync/);
   assert.match(scheduler,/enqueueNotificationWork/);
 });
+
+test('company and selected-contact edits trigger notification reconciliation', () => {
+  const screen = fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'),'utf8');
+  assert.match(screen, /setEditingIdentity\(false\);\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
+  assert.match(screen, /<LeadContacts[\s\S]*?onRefresh=\{\(\) => \{\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
+});

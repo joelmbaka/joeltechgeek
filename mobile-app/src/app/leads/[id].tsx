@@ -110,6 +110,7 @@ export default function LeadScreen() {
       });
       setEditingIdentity(false);
       reload();
+      if (user) void reconcileReminders(user).catch(() => {});
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update lead details.');
     } finally { setSaving(false); }
@@ -260,7 +261,10 @@ export default function LeadScreen() {
           </View>
         </View>
       </View>}
-      <LeadContacts lead={lead} contacts={contacts} onRefresh={reload}/>
+      <LeadContacts lead={lead} contacts={contacts} onRefresh={() => {
+        reload();
+        if (user) void reconcileReminders(user).catch(() => {});
+      }}/>
       <View style={styles.card}>
         <Text style={styles.label}>Last {activityChannelLabel(lead.last_activity_channel, lead.last_outcome)} result</Text>
         <Text style={styles.value}>{outcomeLabel(lead.last_outcome)}</Text>
