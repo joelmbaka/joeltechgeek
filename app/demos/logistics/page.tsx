@@ -56,7 +56,7 @@ export default function DemoOverviewPage() {
         <aside className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-7 dark:border-emerald-900/50 dark:bg-emerald-950/20 sm:p-8">
           <Truck className="h-9 w-9 text-palm-green" aria-hidden />
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">See the operational handoffs</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace assigns loads to drivers and pairs drivers with trucks in Fleet. Assigned drivers progress trips with loaded-truck, delivery-note and EIR photos. Each driver can hold only one consignment from Assigned through Delivered; another can be assigned after completion. No booking or approval step.</p>
+          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace assigns loads to drivers and pairs drivers with trucks in Fleet. Assigned drivers progress trips with loaded-truck, delivery-note and EIR photos. Each driver can hold up to two unfinished consignments: the second may be assigned once the first is Delivered, but cannot start In Transit until the first is Complete. No booking or approval step.</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Industry workflow demo</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Simulated team roles</span>
