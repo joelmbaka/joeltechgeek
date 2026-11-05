@@ -110,3 +110,10 @@ test('changing a failed phone number makes the contact eligible to retry',()=>{
   assert.match(api,/const calledPhone/);
   assert.match(queue,/AND NOT e.phone_changed/);
 });
+
+test('wrong numbers stay blocked until changed and secondary contacts cannot borrow primary phones',()=>{
+  const queue=read('lib/agent-crm/work-queue.ts');
+  assert.match(queue,/CASE WHEN b.next_action_contact_id IS NOT NULL THEN contact.phone/);
+  assert.match(queue,/b.next_action_contact_id=b.primary_contact_id/);
+  assert.match(queue,/AND NOT \(COALESCE\(e.last_call_outcome/);
+});

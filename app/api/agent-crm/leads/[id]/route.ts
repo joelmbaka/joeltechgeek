@@ -165,7 +165,8 @@ export async function PATCH(request: Request, { params }: Params) {
           [callContact.id,id])
       : null;
     const calledPhone = channel === 'call'
-      ? contactNumber?.rows[0]?.phone || current.phone || null : null;
+      ? callContact.id ? contactNumber?.rows[0]?.phone || null : current.phone || null
+      : null;
     const actionContact = optOut || !nextAction.trim()
       ? { ok: true as const, id: null, name: null }
       : await resolveContactTarget(
@@ -186,7 +187,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const note = notes.trim() || null;
     // A logged call may complete the same due Call task. Other tasks must
     // remain outstanding. Never complete an unrelated email/meeting action.
-    const finishDueCall = body.complete_due_call === true &&
+    const finishDueCall = !optOut && body.complete_due_call === true &&
       channel === 'call' && current.next_action_type === 'call' &&
       Boolean(current.next_action_due_at) &&
       new Date(current.next_action_due_at!).getTime() <= Date.now() &&
