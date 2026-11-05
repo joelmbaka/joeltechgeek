@@ -241,7 +241,7 @@ export default function SecurityExperience() {
       <section className={styles.phone} aria-label="Interactive security operations mobile demo">
         <div className={styles.statusbar} aria-hidden="true"><span>9:41</span><span>●●● ◕ ▰</span></div>
         <header className={styles.appHeader}>
-          <span className={styles.logo}><ShieldCheck className="h-6 w-6" aria-hidden="true" /></span>
+          <a href="/demos/security" className={styles.logo} aria-label="Back to security demo overview"><ShieldCheck className="h-6 w-6" aria-hidden="true" /></a>
           <div className={styles.brand}>
             <strong>Security Operations</strong>
             <span>CLIENT SERVICE · DEMO</span>
