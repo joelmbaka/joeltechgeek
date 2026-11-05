@@ -216,7 +216,7 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
     next_action_time: lead.next_action_time?.slice(0, 5) || '',
     stage: '', do_not_contact: false,
   });
-  const [advanceAfterSave] = useState(() => ({ current: false }));
+  const advanceAfterSave = useRef(false);
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
   const [companyName, setCompanyName] = useState(lead.company_name);
