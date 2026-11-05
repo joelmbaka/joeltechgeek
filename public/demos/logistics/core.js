@@ -129,12 +129,14 @@ function pay(d,id){
 const DRIVERS=[
  {id:"DRV-DEMO-001",name:"Kevin Mwangi (fictional)"},
  {id:"DRV-DEMO-002",name:"Amina Wanjiku (fictional)"},
- {id:"DRV-DEMO-003",name:"Peter Otieno (fictional)"}
+ {id:"DRV-DEMO-003",name:"Peter Otieno (fictional)"},
+ {id:"DRV-DEMO-004",name:"David Kamau (fictional)"}
 ];
 const TRUCKS=[
  {id:"TRK-DEMO-001",truckPlate:"KDA 384P · DEMO",capacityTons:28,driverId:"DRV-DEMO-001"},
  {id:"TRK-DEMO-002",truckPlate:"KDU 537R · DEMO",capacityTons:24,driverId:"DRV-DEMO-002"},
- {id:"TRK-DEMO-003",truckPlate:"KBA 241L · DEMO",capacityTons:26,driverId:"DRV-DEMO-003"}
+ {id:"TRK-DEMO-003",truckPlate:"KBA 241L · DEMO",capacityTons:26,driverId:"DRV-DEMO-003"},
+ {id:"TRK-DEMO-004",truckPlate:"KCA 619M · DEMO",capacityTons:28,driverId:"DRV-DEMO-004"}
 ];
 const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,name,payment="Unpaid")=>{
  const assignedDriver=DRIVERS.find(x=>x.name===name)||null;
