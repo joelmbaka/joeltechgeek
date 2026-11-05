@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BriefcaseBusiness, CalendarDays, Check, ChevronRight,
   ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, X,
@@ -22,6 +22,9 @@ type Response = {
   leads: Lead[];
   stats: LeadStats;
   has_more: boolean;
+  filtered_total: number;
+  industries: string[];
+  industry_counts: Record<string, number>;
 };
 type FormValues = {
   channel: ActivityChannel;
@@ -41,7 +44,18 @@ const stages: LeadStage[] = [
 const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
-const priorityRank: Record<Lead['priority'], number> = { high: 0, normal: 1, low: 2 };
+const PAGE_SIZE = 50;
+function leadPageUrl(filters: { queue: Queue; industry: string; sortBy: LeadSort; query: string }, offset = 0) {
+  const params = new URLSearchParams({
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+    queue: filters.queue,
+    industry: filters.industry,
+    sort: filters.sortBy === 'follow_up' ? 'followup' : filters.sortBy,
+    q: filters.query,
+  });
+  return '/api/agent-crm/leads?' + params.toString();
+}
 const label = (str: string) => str.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 function todayInZone(timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -64,11 +78,6 @@ function timeLabel(str: string) {
     timeZone: browserTimezone(), day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   });
-}
-function isToCall(lead: Lead) {
-  return !lead.do_not_contact && !['won', 'lost', 'competitor'].includes(lead.stage) &&
-    (!lead.last_contacted_at ||
-      (!lead.next_action_at && ['number_unavailable','no_answer','busy','switched_off','wrong_number'].includes(lead.last_outcome || '')));
 }
 function isDue(lead: Lead) {
   if (lead.do_not_contact || ['won', 'lost', 'competitor'].includes(lead.stage) || !lead.next_action_at)
@@ -790,31 +799,70 @@ export function CrmClient() {
   const [sortBy, setSortBy] = useState<LeadSort>('recommended');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const requestSeq = useRef(0);
 
-  const refresh = useCallback(async (quiet = false) => {
-    if (quiet) setRefreshing(true); else setView('loading');
-    try {
-      const response = await api<Response>('/api/agent-crm/leads');
-      setData(response); setView('ready'); setError('');
-    } catch (err) {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
+  const refresh = useCallback((quiet = false) => {
+    if (quiet) setRefreshing(true);
+    else setView('loading');
+    setReloadKey((value) => value + 1);
+  }, []);
+
+  // All filtering and sorting happens in PostgreSQL, not just within the first page.
+  useEffect(() => {
+    const requestId = ++requestSeq.current;
+    setRefreshing(true);
+    setLoadingMore(false);
+    const url = leadPageUrl({ queue, industry, sortBy, query: debouncedQuery });
+    void api<Response>(url).then((response) => {
+      if (requestId !== requestSeq.current) return;
+      setData(response);
+      setView('ready');
+      setError('');
+    }).catch((err) => {
+      if (requestId !== requestSeq.current) return;
       const status = (err as Error & {status?: number}).status;
       setData(null);
       if (status === 403) setView('denied');
       else if (status === 401) {
         const accessDenied = new URLSearchParams(window.location.search).get('error') === 'AccessDenied';
         setView(accessDenied ? 'denied' : 'signed-out');
-        if (accessDenied) setError('Unable to access your personal CRM. Please sign in again.');
-        else setError('');
+        setError(accessDenied ? 'Unable to access your personal CRM. Please sign in again.' : '');
       } else {
         setError(errText(err));
         setView('error');
       }
-    } finally { setRefreshing(false); }
-  }, []);
+    }).finally(() => {
+      if (requestId === requestSeq.current) setRefreshing(false);
+    });
+    return () => {
+      if (requestId === requestSeq.current) requestSeq.current++;
+    };
+  }, [queue, industry, sortBy, debouncedQuery, reloadKey]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  async function loadMore() {
+    if (!data?.has_more || refreshing || loadingMore || query.trim() !== debouncedQuery) return;
+    const requestId = requestSeq.current;
+    const url = leadPageUrl({ queue, industry, sortBy, query: debouncedQuery }, data.leads.length);
+    setLoadingMore(true);
+    try {
+      const next = await api<Response>(url);
+      if (requestId !== requestSeq.current) return;
+      setData((current) => current ? { ...next, leads: [...current.leads, ...next.leads] } : next);
+      setError('');
+    } catch (err) {
+      if (requestId === requestSeq.current) setError(errText(err));
+    } finally {
+      if (requestId === requestSeq.current) setLoadingMore(false);
+    }
+  }
 
   async function signIn() {
     setGoogleLoading(true); setError('');
@@ -826,6 +874,7 @@ export function CrmClient() {
   }
 
   async function signOut() {
+    requestSeq.current++;
     setSelected(null); setData(null);
     try {
       await authSignOut({ redirectTo: '/crm' });
@@ -836,52 +885,17 @@ export function CrmClient() {
   }
   const leads = data?.leads || [];
   const stats = data?.stats || emptyStats;
-  // Show built-in categories and those present in existing leads.
+  // Category names and counts include all assigned leads, not just the current page.
   const industries = useMemo(
-    () => Array.from(new Set([...CRM_INDUSTRIES, ...leads.map((lead) => lead.industry)])).filter(Boolean)
+    () => Array.from(new Set([...CRM_INDUSTRIES, ...(data?.industries || [])])).filter(Boolean)
       .sort((a, b) => a.localeCompare(b)),
-    [leads],
+    [data?.industries],
   );
-  const industryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const lead of leads) counts.set(lead.industry, (counts.get(lead.industry) ?? 0) + 1);
-    return counts;
-  }, [leads]);
-  const filtered = useMemo(() => {
-    const matches = leads.filter((lead) => {
-      if (industry === '__uncategorized__' ? Boolean(lead.industry) : industry !== 'all' && lead.industry !== industry) return false;
-      if (queue === 'to_call' && !isToCall(lead)) return false;
-      if (queue === 'due' && !isDue(lead)) return false;
-      if (queue === 'interested' && !isInterested(lead)) return false;
-      const term = query.trim().toLowerCase();
-      return !term || [lead.company_name, lead.contact_name, lead.city,
-        lead.phone, lead.industry, lead.contacts_search, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
-    });
-    if (sortBy === 'recommended') return matches; // Existing server ordering.
-    const byCompany = (a: Lead, b: Lead) =>
-      (a.company_name ? 0 : 1) - (b.company_name ? 0 : 1) ||
-      a.company_name.localeCompare(b.company_name) ||
-      (a.contact_name || '').localeCompare(b.contact_name || '');
-    const byFollowup = (a: Lead, b: Lead) => {
-      const byDate = (a.next_action_at ?? '9999-12-31')
-        .localeCompare(b.next_action_at ?? '9999-12-31');
-      return byDate ||
-        (a.next_action_time ?? '99:99').localeCompare(b.next_action_time ?? '99:99');
-    };
-    matches.sort((a, b) => {
-      switch (sortBy) {
-        case 'follow_up': return byFollowup(a, b) || byCompany(a, b);
-        case 'priority':
-          return priorityRank[a.priority] - priorityRank[b.priority] ||
-            byFollowup(a, b) || byCompany(a, b);
-        case 'company': return byCompany(a, b);
-        case 'industry': return a.industry.localeCompare(b.industry) || byCompany(a, b);
-        case 'recent': return b.updated_at.localeCompare(a.updated_at) || byCompany(a, b);
-        default: return 0;
-      }
-    });
-    return matches;
-  }, [leads, industry, queue, query, sortBy]);
+  const industryCounts = useMemo(
+    () => new Map<string, number>(Object.entries(data?.industry_counts || {})),
+    [data?.industry_counts],
+  );
+  const filtered = leads;
   const counters: Array<{key:Queue; title:string; value:number}> = [
     {key:'all',title:'Total leads',value:stats.total},
     {key:'to_call',title:'To call',value:stats.to_call},
@@ -1013,7 +1027,7 @@ export function CrmClient() {
           <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0E1D2A] sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-3 px-1">
               <h3 className="text-sm font-bold text-[#0A2836] dark:text-white">Lead directory</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{leads.length} assigned</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{stats.total} assigned</span>
             </div>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <label className="relative min-w-0 flex-1">
@@ -1042,22 +1056,18 @@ export function CrmClient() {
               </select>
             </div>
           </div>
-          {data?.has_more && (
-            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Showing the first 1,000 leads. Pagination will be needed before this account exceeds 1,000.
-            </p>
-          )}
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
-            <span>{filtered.length} lead{filtered.length === 1 ? '' : 's'} shown{queue !== 'all' ? ' · Filtered queue' : ''}</span>
+            <span>{filtered.length} of {data?.filtered_total ?? 0} lead{data?.filtered_total === 1 ? '' : 's'} shown{refreshing || query.trim() !== debouncedQuery ? ' · Updating…' : ''}</span>
             {(queue !== 'all' || industry !== 'all' || query || sortBy !== 'recommended') && (
               <button type="button" onClick={() => { setQueue('all'); setIndustry('all'); setQuery(''); setSortBy('recommended'); }}
                 className="font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Clear filters</button>
             )}
           </div>
+          {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200" role="alert">{error}</p>}
           {filtered.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm dark:border-white/15 dark:bg-[#0E1D2A] sm:py-14">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50/60 dark:border-emerald-800/30 dark:bg-emerald-900/20">
-                {leads.length === 0 ? (
+                {stats.total === 0 ? (
                   <>
                     <span className="dark:hidden"><BrandSymbol size={40} /></span>
                     <span className="hidden dark:block"><BrandSymbol size={40} onDark /></span>
@@ -1065,17 +1075,17 @@ export function CrmClient() {
                 ) : <Search className="h-7 w-7 text-[#059669] dark:text-emerald-300" />}
               </div>
               <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#059669] dark:text-[#34D399]">
-                {leads.length === 0 ? 'Ready for your first leads' : 'No matching results'}
+                {stats.total === 0 ? 'Ready for your first leads' : 'No matching results'}
               </p>
               <h3 className="mt-2 text-lg font-bold tracking-tight text-[#0A2836] dark:text-white">
-                {leads.length === 0 ? 'No leads assigned yet' : 'No leads match these filters'}
+                {stats.total === 0 ? 'No leads assigned yet' : 'No leads match these filters'}
               </h3>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">
-                {leads.length === 0
+                {stats.total === 0
                   ? 'Once prospects are assigned to your account, they will appear here with their contact details and next actions.'
                   : 'Try another category, search term or queue to find the prospect you need.'}
               </p>
-              {leads.length === 0 && (
+              {stats.total === 0 && (
                 <button type="button" onClick={() => void refresh(true)} disabled={refreshing}
                   className="mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200">
                   <RefreshCw className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')} /> Refresh leads
@@ -1085,6 +1095,16 @@ export function CrmClient() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filtered.map((lead) => <LeadCard key={lead.id} lead={lead} onOpen={setSelected} />)}
+            </div>
+          )}
+          {data?.has_more && (
+            <div className="flex justify-center">
+              <button type="button" onClick={() => void loadMore()}
+                disabled={loadingMore || refreshing || query.trim() !== debouncedQuery}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-white px-5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800 dark:bg-[#0E1D2A] dark:text-emerald-300">
+                {loadingMore && <RefreshCw className="h-4 w-4 animate-spin" />}
+                {loadingMore ? 'Loading more…' : 'Load more (' + Math.max(0, data.filtered_total - leads.length) + ' remaining)'}
+              </button>
             </div>
           )}
           <p className="pb-5 text-center text-xs text-slate-500 dark:text-slate-400">
