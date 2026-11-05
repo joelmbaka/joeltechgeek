@@ -24,17 +24,17 @@ export const STORAGE_KEY = 'joeltechgeek-security-service-demo-v2';
 export const seedDemo = (): DemoData => ({
   version: 2,
   guards: [
-    { id: 'kevin', name: 'Kevin Otieno', phone: '+254 700 100 201', active: true },
-    { id: 'brian', name: 'Brian Mwangi', phone: '+254 700 100 202', active: true },
-    { id: 'daniel', name: 'Daniel Mwangi', phone: '+254 700 100 203', active: true },
-    { id: 'mary', name: 'Mary Achieng', phone: '+254 700 100 204', active: true },
-    { id: 'peter', name: 'Peter Kariuki', phone: '+254 700 100 205', active: true },
-    { id: 'jane', name: 'Jane Wanjiru', phone: '+254 700 100 206', active: true },
+    { id: 'kevin', name: 'Kevin Otieno', phone: '07XX XXX 201', active: true },
+    { id: 'brian', name: 'Brian Mwangi', phone: '07XX XXX 202', active: true },
+    { id: 'daniel', name: 'Daniel Mwangi', phone: '07XX XXX 203', active: true },
+    { id: 'mary', name: 'Mary Achieng', phone: '07XX XXX 204', active: true },
+    { id: 'peter', name: 'Peter Kariuki', phone: '07XX XXX 205', active: true },
+    { id: 'jane', name: 'Jane Wanjiru', phone: '07XX XXX 206', active: true },
   ],
   sites: [
-    { id: 'greenview', name: 'Greenview Apartments', area: 'Kilimani, Nairobi', client: 'Alex Kamau', controlRoom: '0700 900 900' },
-    { id: 'karen', name: 'Karen Residence', area: 'Karen, Nairobi', client: 'Njeri Wambui', controlRoom: '0700 900 900' },
-    { id: 'westlands', name: 'Westlands Plaza', area: 'Westlands, Nairobi', client: 'Samira Hassan', controlRoom: '0700 900 900' },
+    { id: 'greenview', name: 'Greenview Apartments', area: 'Kilimani, Nairobi', client: 'Alex Kamau', controlRoom: '07XX XXX 900' },
+    { id: 'karen', name: 'Karen Residence', area: 'Karen, Nairobi', client: 'Njeri Wambui', controlRoom: '07XX XXX 900' },
+    { id: 'westlands', name: 'Westlands Plaza', area: 'Westlands, Nairobi', client: 'Samira Hassan', controlRoom: '07XX XXX 900' },
   ],
   shifts: [
     { id: 'shift-1', siteId: 'greenview', guardId: 'kevin', day: 'today', starts: '06:00', ends: '18:00', status: 'unconfirmed' },
@@ -82,7 +82,7 @@ export function markArrival(data: DemoData, shiftId: string, method: 'office' | 
   const guard = data.guards.find(g => g.id === shift.guardId)!;
   const status: Attendance = method === 'supervisor' ? 'confirmed' : 'reported';
   const source = method === 'supervisor' ? 'Supervisor visual confirmation' : 'Office telephone report (not independently verified)';
-  const arrival = shift.arrival || '06:04';
+  const arrival = shift.arrival || (shift.starts === '18:00' ? '18:04' : '06:04');
   return {
     ...data,
     shifts: data.shifts.map(s => s.id === shiftId ? {
@@ -99,7 +99,7 @@ export function recordDeparture(data: DemoData, shiftId: string): DemoData {
   const guard = data.guards.find(g => g.id === shift.guardId)!;
   return {
     ...data,
-    shifts: data.shifts.map(s => s.id === shiftId ? { ...s, status: 'completed', departure: '18:02' } : s),
+    shifts: data.shifts.map(s => s.id === shiftId ? { ...s, status: 'completed', departure: shift.ends === '06:00' ? '06:02' : '18:02' } : s),
     activity: append(data, shift.siteId, guard.name + ': shift departure confirmed by supervisor', 'client'),
   };
 }
