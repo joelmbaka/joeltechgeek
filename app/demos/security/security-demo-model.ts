@@ -68,12 +68,19 @@ export function shiftOnDay(shift: Shift, day: string): boolean {
   const [start, end] = dayBounds(day);
   return Date.parse(shift.startAt) < end && Date.parse(shift.endAt) > start;
 }
-export function shiftWindow(shift: Shift, day: string): string {
-  const [start, end] = dayBounds(day);
-  const from = Date.parse(shift.startAt), to = Date.parse(shift.endAt);
-  const first = from < start ? '00:00' : formatClock(shift.startAt);
-  const last = to > end ? '00:00 (+1)' : formatClock(shift.endAt);
-  return first + ' – ' + last;
+/** Display the actual, uncut duty period on every date it overlaps. */
+export function shiftWindow(shift: Shift): string {
+  const dayText = (value: string): string => new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Nairobi', weekday: 'short', day: 'numeric', month: 'short',
+  }).format(new Date(value)).replace(',', '');
+  const timeText = (value: string): string => new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Nairobi', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(new Date(value));
+  const fromYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Nairobi', year: 'numeric' }).format(new Date(shift.startAt));
+  const toYear = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Nairobi', year: 'numeric' }).format(new Date(shift.endAt));
+  const from = dayText(shift.startAt) + (fromYear !== toYear ? ' ' + fromYear : '') + ', ' + timeText(shift.startAt);
+  const to = dayText(shift.endAt) + (fromYear !== toYear ? ' ' + toYear : '') + ', ' + timeText(shift.endAt);
+  return from + ' – ' + to;
 }
 export function issueAt(issues: Issue[], id: string): Issue | undefined {
   return issues.find(i => i.id === id);
@@ -253,9 +260,7 @@ export function timelineForDay(state: State, day: string, siteId: string): Timel
       id: 'timeline-' + s.id, at: new Date(Math.max(start, Date.parse(s.startAt))).toISOString(),
       kind: 'shift' as const,
       title: (state.staff.find(p => p.id === s.staffId)?.name || 'Assigned officer') + ' · Duty shift',
-      detail: shiftWindow(s, day) + ' · ' + (s.attendance === 'confirmed' ? 'Arrival confirmed' : s.attendance === 'completed' ? 'Shift completed' : s.attendance === 'reported' ? 'Arrival reported, not verified' : s.attendance === 'unconfirmed' ? 'Arrival not confirmed' : 'Scheduled') +
-        (Date.parse(s.startAt) < start ? ' · Continued from previous day' : '') +
-        (Date.parse(s.endAt) > end ? ' · Continues next day' : ''),
+      detail: shiftWindow(s) + ' · ' + (s.attendance === 'confirmed' ? 'Arrival confirmed' : s.attendance === 'completed' ? 'Shift completed' : s.attendance === 'reported' ? 'Arrival reported, not verified' : s.attendance === 'unconfirmed' ? 'Arrival not confirmed' : 'Scheduled'),
       assets: [], shift: s,
     }));
   const events: TimelineItem[] = state.activity
