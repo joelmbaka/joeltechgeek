@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
-import type { ActivityOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
+import type { ActivityOutcome, CrmUser, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
@@ -16,8 +16,9 @@ const CONTACT_SEARCH_COLUMN = `(SELECT string_agg(concat_ws(' ', c.name, c.phone
   FROM public.crm_lead_contacts c WHERE c.lead_id = crm_leads.id) AS contacts_search`;
 
 
-/** A paginated, server-searchable response for Android. Web GET remains unchanged. */
-async function getPagedLeads(params: URLSearchParams, userId: string) {
+/** Paginated, server-searchable leads shared by web and Android. */
+async function getPagedLeads(params: URLSearchParams, user: CrmUser) {
+  const userId = user.id;
   const rawLimit = params.get('limit') || '25';
   const rawOffset = params.get('offset') || '0';
   if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset))
@@ -33,7 +34,7 @@ async function getPagedLeads(params: URLSearchParams, userId: string) {
   const sort = params.get('sort') || 'recommended';
   const industry = (params.get('industry') || '').trim();
   if (!['all','due','to_call','interested'].includes(queue) ||
-      !['recommended','recent','company','priority','followup'].includes(sort) ||
+      !['recommended','recent','company','priority','followup','industry'].includes(sort) ||
       industry.length > 100) return badInput('Invalid filter.');
 
   const due = "(next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))))";
@@ -56,6 +57,9 @@ async function getPagedLeads(params: URLSearchParams, userId: string) {
         'phone ILIKE ' + p + " ESCAPE '!' OR " +
         'email ILIKE ' + p + " ESCAPE '!' OR " +
         'industry ILIKE ' + p + " ESCAPE '!' OR " +
+        'city ILIKE ' + p + " ESCAPE '!' OR " +
+        'country ILIKE ' + p + " ESCAPE '!' OR " +
+        'problem_summary ILIKE ' + p + " ESCAPE '!' OR " +
         'EXISTS (SELECT 1 FROM public.crm_lead_contacts c WHERE c.lead_id=crm_leads.id ' +
         "AND (coalesce(c.name,'') ILIKE " + p + " ESCAPE '!' OR " +
         "coalesce(c.phone,'') ILIKE " + p + " ESCAPE '!' OR " +
@@ -68,6 +72,7 @@ async function getPagedLeads(params: URLSearchParams, userId: string) {
     company: "NULLIF(lower(btrim(company_name)), '') ASC NULLS LAST, lower(coalesce(contact_name,'')) ASC, id ASC",
     priority: "CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, updated_at DESC, id DESC",
     followup: 'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, id ASC',
+    industry: "lower(btrim(industry)) ASC, lower(btrim(company_name)) ASC, id ASC",
   };
   try {
     const db = getCrmPool();
@@ -96,7 +101,7 @@ async function getPagedLeads(params: URLSearchParams, userId: string) {
       ),
     ]);
     return NextResponse.json({
-      ok: true, leads: leads.rows.slice(0, limit),
+      ok: true, user, leads: leads.rows.slice(0, limit),
       has_more: leads.rows.length > limit, filtered_total: filteredCount.rows[0]?.total ?? 0, limit, offset,
       stats: summary.rows[0], industries: industryRows.rows.map((row) => row.industry),
       industry_counts: Object.fromEntries(industryRows.rows.map((row) => [row.industry, row.count])),
@@ -110,7 +115,7 @@ export async function GET(request: Request) {
 
   const searchParams = new URL(request.url).searchParams;
   if (searchParams.has('limit')) {
-    return getPagedLeads(searchParams, access.user.id);
+    return getPagedLeads(searchParams, access.user);
   }
   try {
     const db = getCrmPool();
