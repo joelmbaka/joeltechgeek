@@ -160,6 +160,84 @@ export function seedDemo(day: string = kenyaToday()): State {
     ],
   };
 }
+
+export const HISTORY_DAYS = 30;
+export const PLANNING_DAYS = 30;
+
+/**
+ * Fill a bounded window around the date the prospect opens the demo.
+ * IDs are stable per date/site/shift so refreshing cannot duplicate data.
+ * Existing records always take precedence; generated samples never overwrite
+ * manual edits and generated future shifts never imply confirmed attendance.
+ */
+export function fillRollingWindow(state: State, today: string = kenyaToday()): State {
+  const shifts = [...state.shifts];
+  const activities = [...state.activity];
+  const activeSites = new Set(state.sites.map(s => s.id));
+  const activeStaff = new Set(state.staff.map(s => s.id));
+  const existingActivities = new Set(activities.map(a => a.id));
+  const templates = [
+    { site: 'greenview', staff: 'kevin', key: 'day', from: '06:00', to: '18:00' },
+    { site: 'greenview', staff: 'brian', key: 'night', from: '18:00', to: '06:00' },
+    { site: 'karen', staff: 'peter', key: 'day', from: '06:00', to: '18:00' },
+    { site: 'westlands', staff: 'mary', key: 'day', from: '06:00', to: '18:00' },
+    { site: 'westlands', staff: 'daniel', key: 'night', from: '18:00', to: '06:00' },
+  ] as const;
+  // The prior day's evening shift is required for the first historical date.
+  for (let offset = -HISTORY_DAYS - 1; offset <= PLANNING_DAYS; offset++) {
+    const day = addDays(today, offset);
+    const history = offset < 0;
+    for (const template of templates) {
+      if (offset === -HISTORY_DAYS - 1 && template.key !== 'night') continue;
+      if (!activeSites.has(template.site) || !activeStaff.has(template.staff)) continue;
+      const startAt = localInstant(day, template.from);
+      const endDay = template.key === 'night' ? addDays(day, 1) : day;
+      const endAt = localInstant(endDay, template.to);
+      const id = 'sample-shift-' + template.site + '-' + day + '-' + template.key;
+      if (shifts.some(s => s.id === id)) continue;
+      const startMs = Date.parse(startAt), endMs = Date.parse(endAt);
+      // Never add overlapping shifts at the same property or for the same officer.
+      if (shifts.some(s => (s.siteId === template.site || s.staffId === template.staff) &&
+        Date.parse(s.startAt) < endMs && Date.parse(s.endAt) > startMs)) continue;
+      const variation = (Math.abs(offset) + template.site.length + (template.key === 'night' ? 3 : 0)) % 6;
+      const status: Attendance = history ? (variation === 5 ? 'reported' : 'completed') : 'scheduled';
+      const arrivalAt = history ? localInstant(day, template.key === 'night' ? '18:03' : '06:04') : undefined;
+      const departureAt = status === 'completed' ? endAt : undefined;
+      shifts.push({
+        id, siteId: template.site, staffId: template.staff, startAt, endAt,
+        attendance: status, arrivalAt, departureAt,
+        method: history ? (status === 'completed' ? 'Sample supervisor confirmation' : 'Sample office telephone report (unverified)') : undefined,
+        confirmedBy: status === 'completed' ? 'Sample security manager' : undefined,
+      });
+    }
+    if (!history || offset < -HISTORY_DAYS) continue;
+    for (const site of state.sites.filter(s => ['greenview', 'karen', 'westlands'].includes(s.id))) {
+      const id = 'sample-activity-' + site.id + '-' + day;
+      if (existingActivities.has(id)) continue;
+      const variation = (Math.abs(offset) + site.id.length) % 4;
+      const topics = [
+        ['Site perimeter inspection', 'Illustrative site walk-through recorded by the security team.'],
+        ['Shift handover observations', 'Illustrative handover notes and assigned-post review.'],
+        ['Routine site visit', 'Illustrative security manager check of the entrance and duty register.'],
+        ['Security equipment inspection', 'Illustrative review of property access points and lighting.'],
+      ] as const;
+      const [title, detail] = topics[variation];
+      const attached = (Math.abs(offset) + site.id.length) % 5 === 0;
+      const assets: Asset[] = attached ? [{
+        id: 'sample-photo-' + site.id + '-' + day, kind: 'image',
+        name: 'Illustrative site inspection image', sample: true,
+      }] : [];
+      activities.push({
+        id, siteId: site.id, at: localInstant(day, '10:20'),
+        title, detail, type: variation === 2 ? 'visit' : 'observation',
+        clientVisible: true, assets,
+      });
+      existingActivities.add(id);
+    }
+  }
+  return { ...state, anchorDate: today, shifts, activity: activities };
+}
+
 export function valid(data: unknown): data is State {
   if (!data || typeof data !== 'object') return false;
   const d = data as Partial<State>;
