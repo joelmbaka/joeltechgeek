@@ -237,3 +237,10 @@ button.directory-item:hover{border-color:#9ccfbe}
 .finance-status{font-size:11px;font-weight:800;border-radius:40px;padding:5px 9px;color:#987029;background:#fff3de}
 .finance-status.paid{color:#167b50;background:#e5f5ec}
 .finance-record-bottom .button{min-height:35px}
+
+/* Browser-local proof photo previews and evidence handoff form */
+.evidence-photo{display:block;width:100%;max-width:260px;max-height:190px;object-fit:cover;border-radius:9px;border:1px solid #c6e7d6;margin-top:9px}
+.proof-input{display:grid;gap:10px;padding:13px;border-radius:11px;border:1px solid #dce7e6;background:#fff}
+.proof-input label{color:#294c52;font-size:13px;font-weight:700}
+.proof-input input[type="file"]{font:inherit;font-size:12px;max-width:100%;color:#294c52}
+.proof-input input::file-selector-button{border:1px solid #b4cfc7;background:#eaf6f1;color:#265f4b;padding:8px;border-radius:8px;margin-right:9px;cursor:pointer}
