@@ -143,6 +143,19 @@ test('five ticket tabs keep later stages visible and replace premature content w
  assert.ok(!rendered.includes('data-action="issue-cart"'));
  assert.ok(!rendered.includes('Pending cart'));
 });
+test('full diagnosis workspace is visible before inspection is recorded', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ for(const label of ['1 · Inspection findings','2 · Services & labour estimate','3 · Parts Requirements & Price List','4 · Customer approval'])
+  assert.ok(html.includes(label));
+ assert.ok(html.includes('Record diagnosis'));
+ assert.ok(html.includes('Add service fee'));
+ assert.ok(html.includes('Add part'));
+ assert.ok(html.includes('disabled title="Record inspection findings first"'));
+ assert.ok(!html.includes('data-action="request-approval"'));
+ assert.ok(!html.includes('data-action="issue-cart"'));
+});
 test('diagnosis and estimate includes services, required parts and customer decision in one tab', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const d=c.seed(),ui={page:'tickets',ticketId:'T-1042',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
