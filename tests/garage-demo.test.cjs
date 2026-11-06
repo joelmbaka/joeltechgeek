@@ -129,18 +129,48 @@ test('catalogue name and source are separate controls with a custom-name choice'
  assert.ok(app.includes('function syncRequirementForm(form)'));
  assert.ok(app.includes('custom?p.description:chosen.name'));
 });
-test('premature ticket tabs remain navigable previews without enabled stock actions', () => {
- const core=fs.readFileSync(path.join(demoDir,'core.js'),'utf8');
+test('five ticket tabs keep later stages visible and replace premature content with a large lock', () => {
  const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
  const makeViews=vm.runInNewContext(views+'\n;garageViews',{});
  const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'cart',search:'',filter:'all',modal:null,document:null};
  const rendered=makeViews(d,ui,c).main();
- assert.ok(rendered.includes('data-tab="cart"'));
- assert.ok(rendered.includes('Preview only'));
+ for(const id of ['overview','diagnosis','cart','billing','history'])assert.ok(rendered.includes('data-tab="'+id+'"'));
+ assert.ok(!rendered.includes('data-tab="requirements"'));
+ assert.ok(!rendered.includes('data-tab="services"'));
+ assert.ok(rendered.includes('class="stage-lock"'));
+ assert.ok(rendered.includes('Customer approval required'));
+ assert.ok(rendered.includes('data-tab="diagnosis"'));
  assert.ok(!rendered.includes('data-action="issue-cart"'));
- assert.ok(!rendered.includes('data-action="remove-cart"'));
- assert.ok(views.includes('class="workflow-hint"'));
- assert.ok(core.includes('Customer approval is required before issuing stock.'));
+ assert.ok(!rendered.includes('Pending cart'));
+});
+test('diagnosis and estimate includes services, required parts and customer decision in one tab', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1042',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ for(const label of ['Inspection findings','Services & labour estimate','Parts Requirements & Price List','Customer approval'])
+  assert.ok(html.includes(label));
+ assert.ok(html.includes('View / share list'));
+ assert.ok(!html.includes('id="requirements-cart"'));
+});
+test('approved repair can use parts cart and see required inventory and customer-sourced actions', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1043',tab:'cart',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ assert.ok(!html.includes('class="stage-lock"'));
+ assert.ok(html.includes('id="requirements-cart"'));
+ assert.ok(html.includes('Mark customer part received'));
+ assert.ok(html.includes('Add selected to cart'));
+});
+test('billing stays locked until repair is finished or customer declines', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1044',tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const locked=makeViews(d,ui,c).main();
+ assert.ok(locked.includes('Finish the repair first'));
+ assert.ok(!locked.includes('Ticket financials'));
+ ui.ticketId='T-1047';
+ const unlocked=makeViews(d,ui,c).main();
+ assert.ok(!unlocked.includes('class="stage-lock"'));
+ assert.ok(unlocked.includes('Create invoice'));
 });
 
 test('parts requirements are informational and do not deduct stock', () => {
