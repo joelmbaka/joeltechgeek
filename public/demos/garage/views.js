@@ -99,6 +99,17 @@ return function(d,ui,c){
    '<p class="footnote">Gross contribution excludes staff wages, taxes, rent, utilities and other overhead. It is not net profit.</p>';
  }
  const TABS=[["overview","Overview"],["diagnosis","Diagnosis"],["requirements","Parts requirements"],["cart","Parts cart"],["services","Services & fees"],["billing","Billing"],["history","History"]];
+ function tabGate(tab){
+  if(["overview","history"].includes(tab))return null;
+  if(tab==="diagnosis")return null;
+  if(tab==="requirements"&&!t.diagnosis?.feasible)return "Available after a feasible diagnosis is recorded.";
+  if(tab==="services"&&!t.diagnosis)return "Record the diagnosis before adding service fees.";
+  if(tab==="cart"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released"].includes(t.status))
+   return "Inventory actions unlock after customer approval. You can preview this tab now.";
+  if(tab==="billing"&&!["ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status))
+   return "Billing becomes actionable after work is complete, the estimate is rejected, or repair is unavailable.";
+  return null;
+ }
  function actions(t){let a=[];
   if(t.status==="open")a.push(btn("Record diagnosis","modal","diagnosis","primary"));
   if(t.status==="estimating")a.push(btn("Request customer approval","request-approval",t.id,"primary"));
@@ -154,7 +165,7 @@ return function(d,ui,c){
   }).join("");
   return '<div class="sub-head"><div><h2>Parts Requirements & Price List</h2><p>All parts the vehicle needs, available offers and customer sourcing.</p></div>'+
    '<div class="head-actions">'+(editable?btn("＋ Add requirement","modal","requirement","outline"):"")+
-    btn("View / share list","show-document","requirements","primary")+'</div></div>'+
+    (t.requirements.length?btn("View / share list","show-document","requirements","primary"):"")+'</div></div>'+
    panel("Parts requirements · "+t.requirements.length,t.requirements.length?
     '<form id="requirements-cart">'+table(["Part","Needed","Availability","Our unit offer","Outstanding","From inventory"],rows)+
     (canCart?'<div class="form-footer"><span>Check available items to add them to the cart.</span>'+
@@ -228,7 +239,9 @@ return function(d,ui,c){
    panel("Payment records",t.payments.length?table(["Recorded","Method","Amount"],t.payments.map(x=>tablerow([
     e(x.at),e(x.method),kes(x.amount)])).join("")):empty("No payment records","Record payments after invoicing."))+
    (t.status==="released"?'<div class="release-banner">✓ Vehicle released · '+e(t.release?.reason)+'</div>':
-   '<div class="release-bar">'+btn("Release vehicle","release",t.id,"primary")+
+   '<div class="release-bar">'+((t.status==="invoiced"&&a.outstanding<=0)||(["rejected","cannot-repair"].includes(t.status)&&a.total===0)?
+    btn("Release vehicle","release",t.id,"primary"):
+    '<button type="button" class="btn primary" disabled title="Settle the invoice or complete the applicable closure first">Release vehicle</button>')+
    '<span>Vehicle release requires the appropriate ticket closure and payment settlement.</span></div>');
  }
 
@@ -239,7 +252,8 @@ return function(d,ui,c){
     '<p>'+e(v.plate+" · "+o.name+" · "+o.phone)+'</p></div>'+tag(c.status(t))+'</div>'+
    '<div class="ticket-actions">'+actions(t)+'</div>'+
    '<nav class="ticket-tabs" aria-label="Ticket sections">'+TABS.map(([id,label])=>
-    '<button class="'+(ui.tab===id?"active":"")+'" data-tab="'+id+'">'+e(label)+'</button>').join("")+'</nav>'+
+    '<button class="'+(ui.tab===id?"active":"")+(tabGate(id)?" preview":"")+'" data-tab="'+id+'" aria-current="'+(ui.tab===id?"page":"false")+'" title="'+e(tabGate(id)||"Available")+'">'+e(label)+'</button>').join("")+'</nav>'+
+   (tabGate(ui.tab)?'<div class="workflow-hint" role="note"><strong>Preview only</strong><span>'+e(tabGate(ui.tab))+'</span></div>':"")+
    '<div class="ticket-content">'+({
     overview,diagnosis,requirements,cart,services,billing,history:()=>panel("Ticket timeline",history(t.id))
    }[ui.tab]||overview)()+'</div>';
@@ -287,12 +301,12 @@ return function(d,ui,c){
     '<p class="hint">Adding a service after approval requires renewed customer approval.</p>';
   }else if(kind==="requirement"){
    title="Add parts requirement";submit="Add required part";
-   body=select("Item source","source",[["inventory","Link to inventory"],["manual","Customer to source / not listed"]],"inventory")+
-    select("Available inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available"]),d.inventory[0]?.id)+
-    '<label class="field"><span>Description (required for customer-sourced item)</span>'+
-    '<input name="description" maxlength="140" placeholder="e.g. Rear bumper"/></label>'+
+   body=select("Part name","partChoice",d.inventory.map(i=>[i.id,i.name]).concat([["custom","Not in catalogue — enter part name"]]),d.inventory[0]?.id||"custom")+
+    '<div id="custom-part-field" hidden>'+field("New part name","description","","placeholder=\\"e.g. Rear bumper\\" maxlength=\\"140\\" disabled")+'</div>'+
+    select("Source","source",[["inventory","From garage inventory"],["manual","Customer to source / provide"]],"inventory")+
     '<div class="form-grid">'+numberField("Quantity required","quantity",1)+
-    priceField("Discount per unit, if stocked (KES)","discount",0)+'</div>'+
+    '<div id="requirement-discount">'+priceField("Discount per unit (KES)","discount",0)+'</div></div>'+
+    '<p id="requirement-source-note" class="hint">Catalogue items can be offered from inventory or sourced by the customer. Items not in the catalogue remain informational and do not create inventory stock.</p>'+
     '<p class="hint">This list only informs the customer. Nothing is reserved or deducted.</p>';
   }else if(kind==="cart"){
    title="Add part to ticket cart";submit="Add to cart";
