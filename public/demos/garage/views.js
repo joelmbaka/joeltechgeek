@@ -120,7 +120,112 @@ return function(d,ui,c){
     released:"Vehicle has been released and the ticket is read-only."
    }[t.status])+'</p>'+actions(t))+panel("Recent ticket activity",history(t.id));
  }
- /*GARAGE_DETAIL_FUNCTIONS*/
+ 
+ function diagnosis(){
+  const x=t.diagnosis;
+  return panel("Diagnosis & inspection",x?pair("Repair possible",x.feasible?"Yes":"No")+
+   '<div class="note"><b>Findings</b><p>'+e(x.findings)+'</p></div>'+pair("Recorded",x.at)+
+   '<p class="hint">'+(x.feasible?"Add parts and services, then request approval.":"Release directly or bill an agreed diagnostic fee.")+'</p>':
+   '<p class="hint">Record inspection findings and whether this workshop can perform the repair.</p>'+
+   btn("Record diagnosis","modal","diagnosis","primary"));
+ }
+ function requirements(){
+  const editable=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing"].includes(t.status)&&!t.invoice;
+  const canCart=["awaiting-parts","in-repair"].includes(t.status);
+  const rows=t.requirements.map(r=>{
+   const i=r.itemId?inv(r.itemId):null;
+   const issued=i?c.issuedQty(t,i.id):0,missing=Math.max(0,r.quantity-r.customerProvided-issued);
+   const max=i?Math.min(i.quantity,missing):0;
+   return tablerow([
+    '<b>'+e(r.description)+'</b><small>'+e(r.id)+'</small>',e(r.quantity),
+    tag(i?(i.quantity>0?i.quantity+" available":"Unavailable"):"Customer to source"),
+    i?'<b>'+kes(i.sellPrice-r.discount)+'</b>'+(r.discount?'<small>'+kes(r.discount)+" discount per unit</small>": ""):"—",
+    '<b>'+e(missing)+'</b><small>'+e(r.customerProvided)+" provided · "+e(issued)+" issued</small>",
+    canCart&&max>0?'<label class="req-check"><input type="checkbox" name="selected" value="'+e(r.id)+'"/> Add</label>'+
+     '<input class="quantity-mini" type="number" name="qty-'+e(r.id)+'" aria-label="Quantity for '+e(r.description)+'" min="1" max="'+e(max)+'" value="'+e(max)+'" />':
+     canCart&&missing>0?btn("Mark received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"'):"—"
+   ]);
+  }).join("");
+  return '<div class="sub-head"><div><h2>Parts Requirements & Price List</h2><p>All parts the vehicle needs, available offers and customer sourcing.</p></div>'+
+   '<div class="head-actions">'+(editable?btn("＋ Add requirement","modal","requirement","outline"):"")+
+    btn("View / share list","show-document","requirements","primary")+'</div></div>'+
+   panel("Parts requirements · "+t.requirements.length,t.requirements.length?
+    '<form id="requirements-cart">'+table(["Part","Needed","Availability","Our unit offer","Outstanding","From inventory"],rows)+
+    (canCart?'<div class="form-footer"><span>Check available items to add them to the cart.</span>'+
+     '<button class="btn primary" type="submit">Add selected to cart</button></div>':
+     '<p class="hint">Record customer approval before selecting inventory items for the cart.</p>')+'</form>':
+    empty("No requirements added","Add parts identified during diagnosis. Items do not have to exist in inventory."))+
+   '<p class="footnote">Sharing or viewing this list does not reserve or deduct stock, or create a financial transaction.</p>';
+ }
+ function cart(){
+  const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
+  const pending=t.cart.map(row=>{
+   const i=inv(row.itemId);
+   return tablerow([e(i.name),e(row.quantity),kes(row.unitPrice),kes(row.discount),
+    kes((row.unitPrice-row.discount)*row.quantity),allowed?btn("Remove","remove-cart",row.id,"danger-text compact"):"—"]);
+  }).join("");
+  const issued=t.issues.map(row=>{
+   const returned=t.returns.filter(x=>x.issueId===row.id).reduce((sum,x)=>sum+x.quantity,0);
+   return tablerow([e(row.name),e(row.quantity-returned)+" / "+e(row.quantity),kes(row.unitPrice-row.discount),
+    kes((row.quantity-returned)*(row.unitPrice-row.discount)),returnAllowed?
+    btn("Return unused","modal","return","outline compact",'data-issue-id="'+e(row.id)+'"'):"—"]);
+  }).join("");
+  return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Add from requirements, or directly from available inventory.</p></div>'+
+   (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
+   panel("Pending cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
+    '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
+     (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
+    empty("No cart items","Check available requirements or select any inventory item, even one not on the list."))+
+   panel("Confirmed inventory issues",issued?table(["Part","Net / issued quantity","Net unit price","Net total",""],issued):
+    empty("No inventory issued","Only confirmed issues count as inventory consumption."))+
+   '<p class="footnote">Add to cart has no stock effect. Confirm Issue deducts inventory. Returns restore quantity and reverse charges before invoicing.</p>';
+ }
+ function services(){
+  const canAdd=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing","cannot-repair"].includes(t.status)&&!t.invoice;
+  const rows=t.services.map(l=>tablerow([
+   '<b>'+e(l.description)+'</b><small>'+e(l.kind==="diagnosis"?"Diagnosis fee":"Repair service")+'</small>',
+   e(l.quantity),kes(l.unitPrice),kes(l.discount),kes((l.unitPrice-l.discount)*l.quantity),
+   l.done?tag("Completed"):["awaiting-parts","in-repair"].includes(t.status)?
+    btn("Mark complete","complete-service",l.id,"outline compact"):tag("Proposed")
+  ])).join("");
+  return '<div class="sub-head"><div><h2>Services & fees</h2><p>Enter individual service descriptions and prices for this vehicle.</p></div>'+
+   (canAdd?btn("＋ Add service fee","modal","service","primary"):"")+'</div>'+
+   panel("Ticket service lines",t.services.length?table(["Service","Qty","Fee / unit","Discount","Amount","State"],rows):
+    empty("No service fees yet","Add the diagnosis fee or proposed repair services."))+
+   '<p class="footnote">There is no service catalogue. A changed repair scope after customer approval requires renewed authorization.</p>';
+ }
+ function billing(){
+  const a=c.charges(t),parts=t.issues.map(i=>{
+   const returned=t.returns.filter(r=>r.issueId===i.id).reduce((sum,r)=>sum+r.quantity,0);
+   return {...i,netQty:i.quantity-returned};
+  }).filter(i=>i.netQty>0);
+  return '<div class="columns two">'+panel("Ticket financials",
+    pair("Completed services",kes(a.services))+pair("Confirmed parts sales",kes(a.parts))+
+    pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
+    pair("Invoice",t.invoice?t.invoice.id:"Not posted")+
+    pair("Invoice total",t.invoice?kes(t.invoice.total):"—")+
+    pair("Collected",kes(a.collected))+pair("Outstanding",t.invoice?kes(a.outstanding):"—"))+
+   panel("Payment & invoice",
+    t.invoice?'<div class="success-line">Invoice '+e(t.invoice.id)+" · "+e(t.invoice.at)+'</div>'+
+      (a.outstanding>0?btn("Record payment","modal","payment","primary"):tag("Fully paid"))+
+      '<div class="head-actions spaced">'+btn("Service invoice","show-document","services","outline")+
+       btn("Payment receipt","show-document","payment","outline")+'</div>':
+     '<p class="hint">Create an invoice after repairs complete, customer rejection or an unsuccessful diagnosis.</p>'+
+      (["ready-for-billing","rejected","cannot-repair"].includes(t.status)?btn("Create invoice","invoice",t.id,"primary"):"")
+    )+'</div>'+
+   panel("Parts receipt · confirmed issues only",parts.length?
+    table(["Item","Net issued quantity","Unit price","Discount / unit","Line total"],parts.map(i=>tablerow([
+     e(i.name),e(i.netQty),kes(i.unitPrice),kes(i.discount),kes(i.netQty*(i.unitPrice-i.discount))
+    ])).join(""))+'<div class="form-footer"><b>'+kes(a.parts)+'</b>'+
+    btn("View parts receipt","show-document","parts","outline")+'</div>':
+    empty("No parts issued","The receipt contains only stock actually issued against this ticket."))+
+   panel("Payment records",t.payments.length?table(["Recorded","Method","Amount"],t.payments.map(x=>tablerow([
+    e(x.at),e(x.method),kes(x.amount)])).join("")):empty("No payment records","Record payments after invoicing."))+
+   (t.status==="released"?'<div class="release-banner">✓ Vehicle released · '+e(t.release?.reason)+'</div>':
+   '<div class="release-bar">'+btn("Release vehicle","release",t.id,"primary")+
+   '<span>Vehicle release requires the appropriate ticket closure and payment settlement.</span></div>');
+ }
+
  function ticketView(){if(!t)return empty("Ticket unavailable","Select a ticket.");
   const v=c.vehicleFor(d,t),o=c.customerFor(d,t);
   return '<div class="breadcrumb">'+btn("← Tickets","back","","text")+e(t.id)+'</div>'+
