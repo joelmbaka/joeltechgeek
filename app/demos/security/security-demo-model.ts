@@ -165,7 +165,7 @@ export function seedDemo(day: string = kenyaToday()): State {
       },
       {
         id: 'rep-greenview-month', siteId: 'greenview', period: 'monthly',
-        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(addDays(previous, -1), '15:15'),
+        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(day, '08:15'),
         title: 'Monthly property security review',
         preparedBy: 'Grace Wanjiku · Security Supervisor',
         summary: '1. SERVICE OVERVIEW\nCoverage was organized around day and overnight duty assignments, with attendance and handovers documented for review.\n\n2. PROPERTY SAFETY\nExternal security lighting and the rear-gate access point were reviewed. A previously reported lighting concern was resolved, while follow-up inspections continue for the access point.\n\n3. RECOMMENDATIONS\nContinue regular site inspections, document unusual visitor activity, and review property maintenance concerns with the caretaker.',
@@ -181,7 +181,7 @@ export function seedDemo(day: string = kenyaToday()): State {
       },
       {
         id: 'rep-riverside-month', siteId: 'riverside', period: 'monthly',
-        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(addDays(previous,-3), '12:10'),
+        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(day, '08:05'),
         title: 'Monthly Riverside site performance report',
         preparedBy: 'Grace Wanjiku · Security Supervisor',
         summary: '1. COVERAGE SUMMARY\nRiverside Annex followed its scheduled coverage plan with an emphasis on residential access and visitor registration.\n\n2. SUPERVISION\nA periodic review of the main gate, perimeter lighting and shared parking areas was documented.\n\n3. RECOMMENDATIONS\nMaintain the visitor log, record unusual deliveries and continue monthly supervision reviews. Any individual events can be found in the daily activity roster.',
