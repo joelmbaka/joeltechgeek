@@ -24,7 +24,7 @@ export type LeadContact = {
   is_primary: boolean; created_at: string; updated_at: string;
 };
 export type LeadEvent = {
-  id: string; event_type: 'outreach' | 'action_completed' | 'followup_updated';
+  id: string; event_type: 'outreach' | 'action_completed' | 'followup_updated' | 'note_added' | 'classification_changed';
   outcome: string | null; channel: ActivityChannel | null;
   action: string | null; notes: string | null;
   next_action: string | null; next_action_at: string | null;

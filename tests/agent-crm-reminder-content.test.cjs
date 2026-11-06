@@ -91,10 +91,11 @@ test('notification tap retains owner-scoped lead deep link and reconciliation re
   assert.match(scheduler,/enqueueNotificationWork/);
 });
 
-test('company and selected-contact edits trigger notification reconciliation', () => {
-  const screen = fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'),'utf8');
-  assert.match(screen, /setEditingIdentity\(false\);\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
-  assert.match(screen, /<LeadContacts[\s\S]*?onRefresh=\{\(\) => \{\s*reload\(\);\s*if \(user\) void reconcileReminders\(user\)/);
+test('company and contact edits still reconcile reminders after the redesign', () => {
+  const screen=fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'),'utf8');
+  assert.match(screen,/setIdentityEditing\(false\);reload\(\);setNotice/);
+  assert.match(screen,/if\(user\)void reconcileReminders\(user\)/);
+  assert.match(screen,/onRefresh=\{\(\)=>\{reload\(\);void reconcileReminders\(user\)/);
 });
 
 test('Android may serialize notification data numbers as strings', async () => {
@@ -140,10 +141,11 @@ test('follow-up display distinguishes a due time from the saved timestamp', asyn
   assert.match(legacy, /time not recorded/);
 });
 
-test('Android history labels recorded and reminder due separately', () => {
-  const screen = fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'), 'utf8');
-  assert.match(screen, /Recorded: \{new Date\(event\.created_at\)/);
-  assert.match(screen, /Reminder due: \{formatFollowupDue\(event\)\}/);
-  assert.match(screen, /Reminder due: \{formatFollowupDue\(lead\)\}/);
-  assert.doesNotMatch(screen, /Leave time blank for a 9:00 AM reminder/);
+test('Android shows recent activity and displays the follow-up due time', () => {
+  const screen=fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'),'utf8');
+  assert.match(screen,/new Date\(event\.created_at\)\.toLocaleString/);
+  assert.match(screen,/formatFollowupDue\(event\)/);
+  assert.match(screen,/formatFollowupDue\(activeLead\)/);
+  assert.match(screen,/history\.slice\(0,3\)/);
+  assert.doesNotMatch(screen,/Leave time blank for a 9:00 AM reminder/);
 });

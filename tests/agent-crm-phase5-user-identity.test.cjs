@@ -7,7 +7,8 @@ const source = (p) => fs.readFileSync(path.join(root,p),'utf8');
 const api = [
   'leads/route.ts','leads/[id]/route.ts',
   'leads/[id]/actions/route.ts','leads/[id]/classification/route.ts',
-  'leads/[id]/followup/route.ts','leads/[id]/contact/route.ts',
+  'leads/[id]/followup/route.ts','leads/[id]/updates/route.ts',
+  'leads/[id]/contact/route.ts',
   'leads/[id]/contacts/route.ts','leads/[id]/contacts/[contactId]/route.ts',
   'leads/[id]/identity/route.ts','categories/route.ts',
   'followups/upcoming/route.ts','mobile/meta/route.ts',

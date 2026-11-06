@@ -3,7 +3,7 @@ import type { CrmUser, Lead } from './types';
 import { getCrmPool, LEAD_COLUMNS } from './db';
 import { crmError } from './auth';
 
-export const WORK_VIEWS = ['for_you','to_call','followups','done_today','priority','all','all_az'] as const;
+export const WORK_VIEWS = ['for_you','to_call','followups','done_today','priority','all','all_az','all_active','all_az_active','closed','closed_competitor','closed_dnc','closed_won','closed_lost'] as const;
 export type WorkView = (typeof WORK_VIEWS)[number];
 
 export function callRetryDays(failedAttempts: number): number | null {
@@ -18,6 +18,7 @@ export function validZone(zone: string): boolean {
 const FAIL = "('no_answer','switched_off','busy')";
 const BAD = "('wrong_number','number_unavailable')";
 const ACTIVE = "NOT w.do_not_contact AND w.stage NOT IN ('won','lost','competitor','do_not_contact')";
+const CLOSED = "(w.do_not_contact OR w.stage IN ('won','lost','competitor','do_not_contact'))";
 
 /** Contact-aware call history. Older unassigned call events are a fallback. */
 export function workQueueSQL(): string {
@@ -88,14 +89,23 @@ export function workViewFilter(view: WorkView): string {
   if(view==='for_you') return ACTIVE+" AND (w.is_due OR (NOT w.done_today AND w.next_action_at IS NULL AND (w.to_call_now OR w.work_state IN ('needs_next_step','fix_contact','review'))))";
   if(view==='to_call') return ACTIVE+' AND w.to_call_now';
   if(view==='followups') return ACTIVE+' AND w.next_action_at IS NOT NULL';
-  if(view==='done_today') return 'w.done_today';
+  if(view==='done_today') return ACTIVE + ' AND w.done_today';
   if(view==='priority') return ACTIVE+" AND w.priority='high'";
-  return 'true';
+  // Keep existing web All Leads behavior; the Android directory uses explicit
+  // active-only views so its excluded records are accessible only in Closed.
+  if(view==='all' || view==='all_az') return 'true';
+  if(view==='closed') return CLOSED;
+  if(view==='closed_competitor') return "w.stage='competitor'";
+  if(view==='closed_dnc') return "(w.do_not_contact OR w.stage='do_not_contact')";
+  if(view==='closed_won') return "w.stage='won' AND NOT w.do_not_contact";
+  if(view==='closed_lost') return "w.stage='lost' AND NOT w.do_not_contact";
+  return ACTIVE;
 }
 function viewOrder(view: WorkView): string {
   const p="CASE w.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END";
-  if(view==='all_az') return "lower(COALESCE(NULLIF(btrim(w.company_name),''),w.contact_name,'')) ASC,w.id ASC";
-  if(view==='all') return 'w.updated_at DESC,w.id DESC';
+  if(view==='all_az' || view==='all_az_active') return "lower(COALESCE(NULLIF(btrim(w.company_name),''),w.contact_name,'')) ASC,w.id ASC";
+  if(view.startsWith('closed')) return 'w.updated_at DESC,w.id DESC';
+  if(view==='all' || view==='all_active') return 'w.updated_at DESC,w.id DESC';
   if(view==='done_today') return 'w.last_worked_at DESC NULLS LAST,w.id ASC';
   if(view==='followups') return 'w.next_action_due_at ASC NULLS LAST,w.next_action_at ASC,w.id ASC';
   if(view==='priority') return "CASE WHEN w.is_due THEN 0 WHEN w.to_call_now THEN 1 ELSE 2 END,w.next_action_due_at ASC NULLS LAST,w.updated_at DESC,w.id ASC";
@@ -117,11 +127,9 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   if(search.length>120||industry.length>100) return NextResponse.json({ok:false,error:'Invalid filter.'},{status:400});
   const values:unknown[]=[user.id,zone];
   const bind=(value:unknown)=>{values.push(value);return '$'+values.length;};
-  // Search is global across work views, so a lead hidden as Done Today or
-  // Scheduled can always be found by company, contact or other context.
-  // For You supports global discovery of scheduled leads; other queues keep
-  // their selected work-state filter even when a search term is supplied.
-  const filters:string[]=[search && view==='for_you' ? 'true' : workViewFilter(view)];
+  // For You search may discover scheduled ACTIVE records; never surface
+  // excluded or closed leads in the normal working directory.
+  const filters:string[]=[search && view==='for_you' ? ACTIVE : workViewFilter(view)];
   if(industry==='__uncategorized__') filters.push("btrim(w.industry)=''");
   else if(industry && industry!=='all') filters.push('w.industry='+bind(industry));
   for(const word of search.split(/\s+/).filter(Boolean).slice(0,8)){

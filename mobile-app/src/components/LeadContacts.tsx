@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { LeadContactActions } from './LeadContactActions';
 import { useAppDialog } from '@/components/AppDialog';
 import { Button, Field, useUIStyles } from '@/components/ui';
 import { useTheme } from '@/lib/config';
@@ -12,18 +13,6 @@ const toForm = (c: LeadContact): Form => ({
   name: c.name || '', role: c.role || '', phone: c.phone || '', email: c.email || '',
 });
 
-function whatsappNumber(phone: string, country: string) {
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return null;
-  if (phone.startsWith('+')) return digits;
-  if (country.toLowerCase() === 'kenya') {
-    if (digits.length === 10 && digits.startsWith('0')) return '254' + digits.slice(1);
-    if (digits.length === 12 && digits.startsWith('254')) return digits;
-    if (digits.length === 9 && /^[17]/.test(digits)) return '254' + digits;
-  }
-  return null;
-}
-
 export function LeadContacts({ lead, contacts, onRefresh }: {
   lead: Lead; contacts: LeadContact[]; onRefresh: () => void;
 }) {
@@ -34,7 +23,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
   const [form, setForm] = useState<Form>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const locked = lead.do_not_contact || lead.stage === 'competitor';
+  const locked = lead.do_not_contact || ['competitor','do_not_contact','won','lost'].includes(lead.stage);
   const base = '/api/agent-crm/leads/' + encodeURIComponent(lead.id) + '/contacts';
 
   const begin = (id: string, contact?: LeadContact) => {
@@ -82,20 +71,6 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         .finally(() => setBusy(false));
     },
   });
-  const callContact = (phone: string) => {
-    const number = phone.replace(/[^\d+]/g, '');
-    if (number) void Linking.openURL('tel:' + number);
-  };
-  const messageContact = (phone: string) => {
-    const number = whatsappNumber(phone, lead.country);
-    if (!number) {
-      dialog({ title: 'Number needs country code', message: 'Add an international country code to use WhatsApp.' });
-      return;
-    }
-    void Linking.openURL('https://wa.me/' + number).catch(() => {
-      dialog({ title: 'WhatsApp unavailable', message: 'Could not open WhatsApp.' });
-    });
-  };
 
   return <View style={[styles.card, { gap: 12 }]}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -115,11 +90,9 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
       {c.role ? <Text style={styles.subtitle}>{c.role}</Text> : null}
       {c.phone ? <Text selectable style={styles.subtitle}>{c.phone}</Text> : null}
       {c.email ? <Text selectable style={styles.subtitle}>{c.email}</Text> : null}
-      {!locked && (c.phone || c.email) ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {c.phone ? <Button secondary disabled={busy} onPress={() => callContact(c.phone!)}>Call</Button> : null}
-        {c.phone ? <Button secondary disabled={busy} onPress={() => messageContact(c.phone!)}>WhatsApp</Button> : null}
-        {c.email ? <Button secondary disabled={busy} onPress={() => void Linking.openURL('mailto:' + c.email)}>Email</Button> : null}
-      </View> : null}
+      <LeadContactActions phone={c.phone} email={c.email} country={lead.country}
+        disabled={locked || busy}/>
+
       {!locked && editing === null ? <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
         <Pressable accessibilityRole="button" onPress={() => begin(c.id, c)} disabled={busy}>
           <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>Edit</Text>

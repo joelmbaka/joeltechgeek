@@ -33,6 +33,7 @@ const WORK_VIEWS: SelectOption[] = [
   { value: 'done_today', label: 'Done Today' },
   { value: 'priority', label: 'High Priority' },
   { value: 'all', label: 'All Leads' },
+  { value: 'closed', label: 'Closed & Excluded' },
 ];
 
 function BrandMark({ dark }: { dark: boolean }) {
@@ -56,6 +57,7 @@ export default function HomeScreen() {
   const debounced = useDebouncedValue(search.trim(), 300);
   const [offset, setOffset] = useState(0);
   const [view, setView] = useState('for_you');
+  const [closedStatus, setClosedStatus] = useState('all');
   const [industry, setIndustry] = useState('all');
   const [alphabetical, setAlphabetical] = useState(false);
   const [data, setData] = useState<LeadList | null>(null);
@@ -69,7 +71,7 @@ export default function HomeScreen() {
   const listHeaderHeight = useRef(0);
   const pendingPageScroll = useRef(false);
 
-  useEffect(() => { setOffset(0); }, [debounced, view, industry, alphabetical]);
+  useEffect(() => { setOffset(0); }, [debounced, view, closedStatus, industry, alphabetical]);
 
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
@@ -95,7 +97,9 @@ export default function HomeScreen() {
     setData(null); // Never show a previous page as current during a new request.
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
-      q: debounced, view: view === 'all' && alphabetical ? 'all_az' : view,
+      q: debounced,
+      view: view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
+        view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view,
       industry, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
@@ -113,7 +117,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, offset, debounced, view, industry, alphabetical]);
+  }, [user?.id, offset, debounced, view, closedStatus, industry, alphabetical]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -263,6 +267,14 @@ export default function HomeScreen() {
               options={industryOptions} onChange={setIndustry} searchable/>
           </View>
         </View>
+        {view === 'closed' ? <SelectSheet title="Closed status" value={closedStatus}
+          onChange={setClosedStatus} options={[
+            {value:'all',label:'All closed & excluded'},
+            {value:'competitor',label:'Competitors'},
+            {value:'dnc',label:'Do Not Contact'},
+            {value:'won',label:'Won'},
+            {value:'lost',label:'Lost'},
+          ]}/> : null}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
           justifyContent: 'space-between', gap: 8, marginTop: 2,

@@ -69,17 +69,21 @@ test('lead notes and changes are separate from the immutable activity timeline',
   assert.doesNotMatch(brief,/DELETE FROM|UPDATE public\.crm_lead_events/);
 });
 
-test('save and next runs only on activity save, after successful API response',()=>{
+test('one atomic mobile save supports Save & Stay and Save & Next',()=>{
   const screen=read('mobile-app/src/app/leads/[id].tsx');
-  const identity=screen.slice(screen.indexOf('const saveIdentity'),screen.indexOf('const beginContextEdit'));
-  const save=screen.slice(screen.indexOf('const save = async'),screen.indexOf('const confirmCallSave'));
-  assert.doesNotMatch(identity,/advance|candidate/);
-  assert.match(save,/await apiFetch\(path/);
-  assert.match(save,/if \(advance && kind === 'call'\)/);
-  assert.match(save,/next\.leads\.find/);
-  assert.match(screen,/confirmCallSave\(true\)/);
-  assert.match(screen,/confirmCallSave\(false\)/);
-  assert.match(screen,/title: 'Mark as Do Not Contact\?'/);
+  const sheet=read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  const api=read('app/api/agent-crm/leads/[id]/updates/route.ts');
+  assert.match(screen,/const saveUnified = async/);
+  assert.match(screen,/await apiFetch<\{ok:true;lead:Lead\}>/);
+  assert.match(screen,/if\(advance\)/);
+  assert.match(screen,/next\.leads\.find/);
+  assert.match(sheet,/Save & Stay/);
+  assert.match(sheet,/Save & Next/);
+  assert.match(api,/await client\.query\('BEGIN'\)/);
+  assert.match(api,/await client\.query\('COMMIT'\)/);
+  assert.match(api,/await client\.query\('ROLLBACK'\)/);
+  assert.match(api,/willChangeFollowup/);
+  assert.match(api,/mode === 'keep'/);
 });
 
 test('existing 9am reminder scheduler and tapping behavior remain intact',()=>{
@@ -91,14 +95,18 @@ test('existing 9am reminder scheduler and tapping behavior remain intact',()=>{
   assert.match(notifications,/cancelScheduledNotificationAsync/);
 });
 
-test('For You search is global while queue searches preserve eligibility',()=>{
+test('For You search discovers active records but never closed or excluded',()=>{
   const q=read('lib/agent-crm/work-queue.ts');
-  assert.match(q,/search && view==='for_you' \? 'true' : workViewFilter\(view\)/);
+  assert.match(q,/search && view==='for_you' \? ACTIVE : workViewFilter\(view\)/);
+  assert.match(q,/if\(view==='all' \|\| view==='all_active'\)/);
+  assert.match(q,/if\(view==='closed_competitor'\)/);
+  assert.match(q,/if\(view==='closed_dnc'\)/);
+  assert.match(q,/if\(view==='done_today'\) return ACTIVE/);
 });
-test('Save & Next continues To Call regardless of original list sort',()=>{
-  const lead=read('mobile-app/src/app/leads/[id].tsx');
-  assert.match(lead,/const nextView = channel === 'call' \? 'to_call' : 'for_you'/);
-  assert.match(lead,/view: nextView/);
+test('Save & Next preserves its selected active work view',()=>{
+  const screen=read('mobile-app/src/app/leads/[id].tsx');
+  assert.match(screen,/const target = view && view !== 'closed' \? view : 'for_you'/);
+  assert.match(screen,/params:\{id:item\.id,view:target/);
 });
 
 test('changing a failed phone number makes the contact eligible to retry',()=>{
