@@ -15,7 +15,7 @@ import {
   seedDemo, valid, timelineForDay, siteIssues, siteReports, clientSiteReports, shiftOnDay,
   assignShift, addShift, setShiftPresence, addSite, addStaff,
   addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
-  type State, type Role, type Shift, type Issue, type IssueStatus, type Asset,
+  type State, type Role, type Shift, type Issue, type IssueStatus, type Asset, type Report,
   type ReportPeriod
 } from './security-demo-model';
 
@@ -111,8 +111,11 @@ export default function SecurityExperience() {
   const [visitNote,setVisitNote] = useState('');
   const [visitPhoto,setVisitPhoto] = useState(false);
   const [reportSite,setReportSite] = useState('greenview');
-  const [reportPeriod,setReportPeriod] = useState<ReportPeriod>('daily');
-  const [reportFrom,setReportFrom] = useState(kenyaToday);
+  const [clientReportSiteId,setClientReportSiteId] = useState('greenview');
+  const [selectedReportId,setSelectedReportId] = useState<string | null>(null);
+  const [reportPreparedBy,setReportPreparedBy] = useState('Grace Wanjiku · Security Supervisor');
+  const [reportPeriod,setReportPeriod] = useState<ReportPeriod>('weekly');
+  const [reportFrom,setReportFrom] = useState(() => addDays(kenyaToday(),-6));
   const [reportTo,setReportTo] = useState(kenyaToday);
   const [reportText,setReportText] = useState('');
   const [reportEvidence,setReportEvidence] = useState<Asset[]>([]);
@@ -151,7 +154,9 @@ export default function SecurityExperience() {
   const windowStart = addDays(kenyaToday(),-HISTORY_DAYS);
   const windowEnd = addDays(kenyaToday(),PLANNING_DAYS);
   const issues = siteIssues(data,siteId);
-  const clientReportGroups = clientSiteReports(data,siteId);
+  const clientReportGroups = clientSiteReports(data,'greenview');
+  const clientReportSite = clientReportGroups.find(group=>group.site.id===clientReportSiteId) || clientReportGroups[0];
+  const selectedReport = selectedReportId ? data.reports.find(r=>r.id===selectedReportId) : undefined;
   const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
   const tabs = role === 'client'
     ? [{id:'roster',name:'Roster', Icon: CalendarDays},{id:'issues',name:'Issues', Icon: MessageSquare},{id:'reports',name:'Reports', Icon:FileText}]
@@ -162,11 +167,12 @@ export default function SecurityExperience() {
     catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to update sample data.'); }
   }
   function switchRole(next: Role) {
-    setRole(next); setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setNotice('');
+    setRole(next); setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedReportId(null);setSelectedSiteId(null);setNotice('');
+    if(next==='client')setSiteId('greenview');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function moveTab(next: string) {
-    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setNotice('');
+    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setSelectedReportId(null);setSelectedSiteId(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function openTimeline(id: string) {
@@ -189,7 +195,7 @@ export default function SecurityExperience() {
   function reset() {
     if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
     const next = fillRollingWindow(seedDemo());setData(next);setDate(next.anchorDate);setSiteId('greenview');
-    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setReportEvidence([]);setNotice('Sample data restored.');
+    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedReportId(null);setClientReportSiteId('greenview');setSelectedSiteId(null);setReportEvidence([]);setNotice('Sample data restored.');
   }
   function submitIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -357,7 +363,7 @@ export default function SecurityExperience() {
       <h1 className="mt-1 text-xl font-extrabold text-[#214935]">{currentSite.name}</h1>
       <p className="mt-1 flex items-center gap-1 text-[11px] text-[#718d7e]"><MapPin className="h-3.5 w-3.5"/>{currentSite.area}</p></div>
     <label className="block text-[11px] font-semibold text-[#749084]">Sample property
-      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);setActiveTimelineId(null);}}>{data.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+      <select className={field} value={siteId} onChange={e=>{setSiteId(e.target.value);setActiveIssueId(null);setActiveTimelineId(null);}}>{clientReportGroups.map(({site})=><option key={site.id} value={site.id}>{site.name}</option>)}</select>
     </label>
     <DateNavigator date={date} onChange={changeRosterDate} />
     {rosterTimeline()}
@@ -665,7 +671,7 @@ export default function SecurityExperience() {
         <div className={styles.brand}><strong>Security Operations</strong><span>CONNECTED SERVICE · DEMO</span></div>
         <label className={styles.roleLabel} htmlFor="security-role-select">Switch role
           <select id="security-role-select" className={styles.roleSelect} value={role} onChange={e=>switchRole(e.target.value as Role)}>
-            <option value="client">{currentSite.client.split(' ')[0]} · Client</option>
+            <option value="client">Alex · Client</option>
             <option value="manager">Grace · Supervisor</option>
           </select>
         </label>
