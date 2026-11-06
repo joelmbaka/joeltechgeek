@@ -12,7 +12,7 @@ import SecurityRosterDetail from './SecurityRosterDetail';
 import {
   STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant, shiftWindow,
   HISTORY_DAYS, PLANNING_DAYS, fillRollingWindow,
-  seedDemo, valid, timelineForDay, siteIssues, siteReports, clientSiteReports, shiftOnDay,
+  seedDemo, valid, timelineForDay, siteIssues, clientSiteReports, shiftOnDay,
   assignShift, addShift, setShiftPresence, addSite, addStaff,
   addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
   type State, type Role, type Shift, type Issue, type IssueStatus, type Asset, type Report,
