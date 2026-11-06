@@ -15,7 +15,7 @@ function createDiagnosed() {
     customerId: owner.id, plate: 'KDW 900Q', model: 'Toyota Fielder',
     year: 2018, mileage: 84000,
   });
-  const t = c.openTicket(d, {vehicleId: vehicle.id, complaint: 'Brake noise while stopping'});
+  const t = c.createTicket(d, {vehicleId: vehicle.id, complaint: 'Brake noise while stopping'});
   c.diagnose(d, t.id, {findings: 'Front brake pads worn and fluid needs replacement', feasible: 'yes'});
   return { d, t };
 }
@@ -61,9 +61,9 @@ test('vehicle registration requires an existing customer and rejects duplicate p
 });
 test('new ticket requires a registered vehicle and does not create customers', () => {
   const d=c.seed(), count=d.customers.length;
-  assert.throws(()=>c.openTicket(d,{vehicleId:'MISSING',complaint:'Brake inspection needed'}),/Vehicle not found/);
+  assert.throws(()=>c.createTicket(d,{vehicleId:'MISSING',complaint:'Brake inspection needed'}),/Vehicle not found/);
   const vehicle=c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDW 777X',model:'Toyota Corolla',year:2016,mileage:67000});
-  const ticket=c.openTicket(d,{vehicleId:vehicle.id,complaint:'Brake inspection needed'});
+  const ticket=c.createTicket(d,{vehicleId:vehicle.id,complaint:'Brake inspection needed'});
   assert.equal(ticket.vehicleId,vehicle.id);
   assert.equal(d.customers.length,count);
 });
@@ -76,6 +76,38 @@ test('customer and vehicle actions are kept out of new ticket dialog', () => {
   assert.ok(dialog.includes('Customer complaint'));
 });
 
+test('active appointment blocks direct ticket creation and converts only through booking', () => {
+  const d=c.seed(),booking=d.appointments.find(a=>a.id==='APT-23');
+  assert.equal(booking.vehicleId,'VH-9');
+  assert.throws(()=>c.createTicket(d,{vehicleId:booking.vehicleId,complaint:'Vehicle arrived for suspension inspection'}),/active appointment/i);
+  const t=c.createTicket(d,{vehicleId:booking.vehicleId,complaint:booking.concern,appointmentId:booking.id});
+  assert.equal(t.appointmentId,booking.id);
+  assert.equal(booking.ticketId,t.id);
+  assert.equal(booking.status,'Completed');
+  assert.equal(d.appointments.filter(c.activeAppointment).some(a=>a.id===booking.id),false);
+  assert.throws(()=>c.createTicket(d,{vehicleId:booking.vehicleId,complaint:booking.concern,appointmentId:booking.id}),/active ticket/i);
+});
+test('walk-in vehicle without appointment can create a ticket', () => {
+  const d=c.seed();
+  const t=c.createTicket(d,{vehicleId:'VH-8',complaint:'Routine inspection required today'});
+  assert.equal(t.vehicleId,'VH-8');
+  assert.equal(t.appointmentId,null);
+});
+test('appointment conversion cannot use another vehicle or a completed booking', () => {
+  const d=c.seed(),a=d.appointments.find(x=>x.id==='APT-23');
+  assert.throws(()=>c.createTicket(d,{vehicleId:'VH-8',complaint:a.concern,appointmentId:a.id}),/cannot be converted/i);
+  const t=c.createTicket(d,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
+  assert.equal(t.appointmentId,a.id);
+  assert.throws(()=>c.createTicket(d,{vehicleId:'VH-8',complaint:'Routine inspection required today',appointmentId:a.id}),/cannot be converted/i);
+});
+test('sidebar and labels distinguish create from open', () => {
+  const source=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+  const nav=source.slice(source.indexOf('const NAV='),source.indexOf('const btn='));
+  assert.ok(nav.indexOf('"appointments"')<nav.indexOf('"tickets"'));
+  assert.ok(source.includes('Create ticket'));
+  assert.ok(source.includes('Open ticket'));
+  assert.ok(source.includes('filter(a=>c.activeAppointment(a))'));
+});
 test('parts requirements are informational and do not deduct stock', () => {
   const {d,t}=createDiagnosed();
   const initial=c.stock(d,'SKU-1').quantity;
