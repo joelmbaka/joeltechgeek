@@ -294,7 +294,7 @@ test('informational parts estimate does not prevent invoice or repair completion
  const r=c.addRequirement(d,t.id,{description:'Suggested steering linkage',quantity:2,itemId:null});
  c.approve(d,t.id);
  assert.equal(t.status,'in-repair');
- assert.equal(c.missingRequirements(t).length,1);
+ assert.equal(t.requirements.length,1);
  c.completeService(d,t.id,t.services[0].id);
  c.finishRepair(d,t.id);
  const inv=c.invoiceTicket(d,t.id);
@@ -360,16 +360,19 @@ test('returning issued stock restores quantity, sales and cost', () => {
   assert.equal(c.charges(t).cost,520);
   assert.throws(()=>c.returnIssue(d,t.id,row.id,2),/exceeds issued quantity/);
 });
-test('customer-provided parts fulfil requirements without affecting inventory or parts revenue', () => {
-  const {d,t}=createDiagnosed();
-  c.addService(d,t.id,{description:'Fit customer-provided bumper',quantity:1,unitPrice:2000,discount:0,kind:'repair'});
-  const r=c.addRequirement(d,t.id,{description:'Rear bumper',quantity:1});
-  c.requestApproval(d,t.id);c.approve(d,t.id);
-  const before=c.stock(d,'SKU-1').quantity;
-  c.receiveCustomerPart(d,t.id,r.id,1);
-  assert.equal(t.status,'in-repair');
-  assert.equal(c.stock(d,'SKU-1').quantity,before);
-  assert.equal(c.charges(t).parts,0);
+test('customer-supplied actual part does not affect suggestions, stock or garage parts revenue', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Fit customer-provided bumper',quantity:1,unitPrice:2000,discount:0,kind:'repair'});
+ c.addRequirement(d,t.id,{description:'Rear bumper suggested',quantity:1});
+ c.approve(d,t.id);
+ const before=c.stock(d,'SKU-1').quantity;
+ const part=c.recordOutsidePart(d,t.id,{name:'Bumper supplied by customer',quantity:1,source:'customer'});
+ assert.equal(part.source,'Customer supplied');
+ assert.equal(t.requirements.length,1);
+ assert.equal(t.externalParts.length,1);
+ assert.equal(t.status,'in-repair');
+ assert.equal(c.stock(d,'SKU-1').quantity,before);
+ assert.equal(c.charges(t).parts,0);
 });
 test('rejecting an estimate does not bill uncompleted repairs', () => {
   const {d,t}=createDiagnosed();
