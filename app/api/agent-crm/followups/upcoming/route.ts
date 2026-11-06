@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 
 type ReminderRow = {
   id: string;
+  notification_id: string | null;
   next_action_due_at: string;
   next_action_timezone: string | null;
   company_name: string | null;
@@ -25,16 +26,30 @@ export async function GET(request: Request) {
   const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   try {
-    const result = await getCrmPool().query<ReminderRow>(
-      `SELECT l.id::text AS id, l.next_action_due_at, l.next_action_timezone,
+    const db = getCrmPool();
+    // Preserve the existing local reminder feed until the additive inbox
+    // migration is installed. Missing schema never disables Android alarms.
+    const inboxInstalled = await db.query<{installed: boolean}>(
+      "SELECT to_regclass('public.crm_notifications') IS NOT NULL AS installed",
+    );
+    const hasInbox = inboxInstalled.rows[0]?.installed === true;
+    const notificationId = hasInbox ? 'n.id::text' : 'NULL::text';
+    const notificationJoin = hasInbox ? `
+         LEFT JOIN public.crm_notifications n
+           ON n.lead_id = l.id AND n.user_id = l.user_id
+          AND n.due_at = l.next_action_due_at AND n.canceled_at IS NULL` : '';
+    const result = await db.query<ReminderRow>(
+      `SELECT l.id::text AS id, ${notificationId} AS notification_id,
+              l.next_action_due_at, l.next_action_timezone,
               l.company_name, l.contact_name AS lead_contact_name,
               selected.name AS selected_contact_name, l.next_action
          FROM public.crm_leads l
+         ${notificationJoin}
          LEFT JOIN public.crm_lead_contacts selected
            ON selected.id = l.next_action_contact_id AND selected.lead_id = l.id
         WHERE l.user_id = $1 AND l.next_action_due_at > now()
           AND NOT l.do_not_contact
-          AND l.stage NOT IN ('won', 'lost', 'competitor')
+          AND l.stage NOT IN ('won', 'lost', 'competitor', 'do_not_contact')
         ORDER BY l.next_action_due_at ASC, l.id ASC LIMIT 50`,
       [access.user.id],
     );

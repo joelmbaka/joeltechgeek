@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
 import { getUser, restoreSession, signOutSession, startGoogleSignIn, startPlayReviewSignIn, subscribeSession } from './session';
-import { cancelUserReminders, notificationLeadId, reconcileReminders, requestReminderPermissions } from './notifications';
+import { cancelUserReminders, notificationLeadId, notificationRecordId, reconcileReminders, requestReminderPermissions } from './notifications';
+import { markCrmNotificationRead, notifyInboxChanged } from './notification-inbox';
 import type { CrmUser } from './types';
 
 type AuthContextValue = {
@@ -33,20 +34,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void requestReminderPermissions().then((enabled) => {
       if (enabled) return reconcileReminders(user);
     }).catch(() => {});
+    const markOpened = (data: Record<string, unknown> | undefined) => {
+      const notificationId = notificationRecordId(data);
+      if (notificationId) void markCrmNotificationRead(notificationId).catch(() => {});
+    };
+    const received = Notifications.addNotificationReceivedListener(() => notifyInboxChanged());
     const tapped = Notifications.addNotificationResponseReceivedListener((event) => {
       const data = event.notification.request.content.data;
       if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) return;
       const id = notificationLeadId(data);
+      markOpened(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
     });
     void Notifications.getLastNotificationResponseAsync().then((last) => {
       const data = last?.notification.request.content.data;
       if ((data?.crm_user_id ?? data?.crm_agent_id) !== user.id) return;
       const id = notificationLeadId(data);
+      markOpened(data);
       if (id) router.push({ pathname: '/leads/[id]', params: { id } });
       void Notifications.clearLastNotificationResponseAsync().catch(() => {});
     }).catch(() => {});
-    return () => tapped.remove();
+    return () => { tapped.remove(); received.remove(); };
   }, [user, router]);
   // Server/web-scheduled follow-ups can change while this app is backgrounded.
   // Reconcile local Android reminders when the user brings the app to the foreground.

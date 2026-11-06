@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
+import { NotificationBell } from '@/components/NotificationBell';
 import { AppDialogProvider } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 
@@ -39,8 +40,12 @@ function Navigation() {
         </View>,
         headerBackVisible: false,
         headerLeft: () => null,
-        headerRight: () => <HeaderProfileMenu />,
+        headerRight: () => <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <NotificationBell />
+          <HeaderProfileMenu />
+        </View>,
       }}/>
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }}/>
       <Stack.Screen name="profile" options={{ title: 'Profile' }}/>
       <Stack.Screen name="signing-out" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}/>
       <Stack.Screen name="auth-callback" options={{ title: 'Google sign-in' }}/>

@@ -76,6 +76,7 @@ async function syncReminders(user: CrmUser): Promise<void> {
         title: preview.title, body: preview.body,
         data: {
           crm_user_id: user.id, lead_id: leadId, due: preview.dueAtMs,
+          notification_id: preview.notificationId,
           reminder_preview_version: REMINDER_PREVIEW_VERSION,
         },
       },
@@ -98,6 +99,10 @@ export function cancelUserReminders(userId: string): Promise<void> {
       }
     }
   });
+}
+export function notificationRecordId(data: Record<string, unknown> | undefined): string | null {
+  const id = data?.notification_id;
+  return typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
 }
 export function notificationLeadId(data: Record<string, unknown> | undefined): string | null {
   const id = data?.lead_id;

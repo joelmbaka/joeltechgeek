@@ -1,6 +1,7 @@
 /** Data returned by the user-scoped reminder feed. No private notes or phone numbers. */
 export type ReminderFeedItem = {
   id: string;
+  notification_id?: string | null;
   next_action_due_at: string;
   next_action_timezone: string | null;
   company_name: string | null;
@@ -9,12 +10,13 @@ export type ReminderFeedItem = {
   next_action: string | null;
 };
 
-export const REMINDER_PREVIEW_VERSION = 3;
+export const REMINDER_PREVIEW_VERSION = 4;
 
 export type ReminderPreview = {
   title: string;
   body: string;
   dueAtMs: number;
+  notificationId: string | null;
 };
 
 const clean = (value: string | null | undefined) =>
@@ -43,7 +45,7 @@ export function buildReminderPreview(reminder: ReminderFeedItem): ReminderPrevie
   const action = shorten(clean(reminder.next_action) || 'Follow-up due', 125);
   // The notification intentionally shows only who and what. The scheduled
   // timestamp is retained for Android scheduling and lead details, not text.
-  return { title, body: action, dueAtMs };
+  return { title, body: action, dueAtMs, notificationId: reminder.notification_id ?? null };
 }
 
 /** Detects edits to contact or task, even when the due time hasn't changed. */
@@ -63,6 +65,7 @@ export function isCurrentScheduledReminder(
   return data?.crm_user_id === userId &&
     data?.lead_id === leadId &&
     String(data?.due) === String(preview.dueAtMs) &&
+    String(data?.notification_id ?? '') === String(preview.notificationId ?? '') &&
     Number(data?.reminder_preview_version) === REMINDER_PREVIEW_VERSION &&
     existing.content.title === preview.title &&
     existing.content.body === preview.body;
