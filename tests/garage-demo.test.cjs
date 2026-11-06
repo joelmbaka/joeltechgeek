@@ -165,25 +165,89 @@ test('diagnosis and estimate includes services, required parts and customer deci
  assert.ok(html.includes('View / share list'));
  assert.ok(!html.includes('id="requirements-cart"'));
 });
-test('approved repair can use parts cart and see required inventory and customer-sourced actions', () => {
+test('approved repair can use cart without duplicate requirements selector', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const d=c.seed(),ui={page:'tickets',ticketId:'T-1043',tab:'cart',search:'',filter:'all',modal:null,document:null};
  const html=makeViews(d,ui,c).main();
  assert.ok(!html.includes('class="stage-lock"'));
- assert.ok(html.includes('id="requirements-cart"'));
- assert.ok(html.includes('Mark customer part received'));
- assert.ok(html.includes('Add selected to cart'));
+ assert.ok(!html.includes('Select from parts requirements'));
+ assert.ok(!html.includes('id="requirements-cart"'));
+ assert.ok(html.includes('Customer-provided parts'));
+ assert.ok(html.includes('Mark received'));
+ assert.ok(html.includes('Add from inventory'));
 });
-test('billing stays locked until repair is finished or customer declines', () => {
+test('billing can be visited before repair completion and hosts its only complete-repair action', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const d=c.seed(),ui={page:'tickets',ticketId:'T-1044',tab:'billing',search:'',filter:'all',modal:null,document:null};
- const locked=makeViews(d,ui,c).main();
- assert.ok(locked.includes('Finish the repair first'));
- assert.ok(!locked.includes('Ticket financials'));
- ui.ticketId='T-1047';
- const unlocked=makeViews(d,ui,c).main();
- assert.ok(!unlocked.includes('class="stage-lock"'));
- assert.ok(unlocked.includes('Create invoice'));
+ const visible=makeViews(d,ui,c).main();
+ assert.ok(!visible.includes('class="stage-lock"'));
+ assert.ok(visible.includes('Repair completion'));
+ assert.ok(visible.includes('Complete repair'));
+ assert.ok(visible.includes('Create invoice'));
+ ui.tab='diagnosis';
+ const diagnosis=makeViews(d,ui,c).main();
+ assert.ok(!diagnosis.includes('data-action="finish-repair"'));
+ ui.tab='overview';
+ const overview=makeViews(d,ui,c).main();
+ assert.ok(!overview.includes('Next action'));
+ assert.ok(!overview.includes('data-action="finish-repair"'));
+});
+
+
+test('record diagnosis is shown once outside inspection findings and no separate approval request exists', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ assert.equal((html.match(/data-action="modal" data-id="diagnosis"/g)||[]).length,1);
+ assert.ok(!html.includes('Request customer approval'));
+ assert.ok(!html.includes('Next action'));
+ const ticket=makeViews(d,{...ui,ticketId:'T-1042'},c).main();
+ assert.ok(ticket.includes('Customer approved'));
+ assert.ok(ticket.includes('Customer rejected'));
+ assert.ok(!ticket.includes('Request customer approval'));
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('window.confirm?.("Confirm that the customer approved'));
+ assert.ok(app.includes('window.confirm?.("Confirm that the customer rejected'));
+});
+test('customer approval and rejection can be recorded directly after diagnosis', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Repair brake pads',quantity:1,unitPrice:800,discount:0,kind:'repair'});
+ c.approve(d,t.id);
+ assert.equal(t.approval.decision,'Approved');
+ const other=createDiagnosed();
+ c.addService(other.d,other.t.id,{description:'Repair brake pads',quantity:1,unitPrice:800,discount:0,kind:'repair'});
+ c.reject(other.d,other.t.id);
+ assert.equal(other.t.status,'rejected');
+});
+test('posting invoice before service completion does not permit early release', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ const inv=c.invoiceTicket(d,t.id);
+ assert.equal(inv.total,2950);
+ assert.equal(t.status,'invoiced');
+ c.payment(d,t.id,{amount:inv.total,method:'Cash'});
+ assert.throws(()=>c.release(d,t.id),/Complete repair before releasing/i);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'invoiced');
+ assert.equal(t.repairCompleted,true);
+ assert.equal(t.invoice.total,inv.total);
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
+});
+test('finishing repairs before invoicing also works, and invoice amount is stable', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'ready-for-billing');
+ const invoice=c.invoiceTicket(d,t.id);
+ assert.equal(invoice.total,2950);
+ c.payment(d,t.id,{amount:2950,method:'Cash'});
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
 });
 
 test('parts requirements are informational and do not deduct stock', () => {
