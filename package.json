@@ -32,7 +32,8 @@
     "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs",
     "test:crm-unified": "node --test tests/agent-crm-unified-updates.test.cjs",
     "test:crm-queue": "node --experimental-strip-types --test tests/mobile-lead-queue.test.cjs",
-    "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs"
+    "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs",
+    "test:garage-demo": "node --test tests/garage-demo.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
