@@ -72,3 +72,49 @@
 .diagnosis-findings{font-size:13px;line-height:1.85;color:#354f59;white-space:pre-wrap;overflow-wrap:anywhere}
 .invoice-diagnosis{border-top:2px solid #d7e8df;padding-top:16px;margin-top:28px}
 @media(max-width:560px){.report-actions{flex-wrap:wrap}.report-actions>.btn{flex:1 1 135px}}
+
+/* Consistent inner gutters for panel content.
+   Keep table cells aligned to their own grid and leave printable documents untouched. */
+:root{--panel-gutter:clamp(17px,1.7vw,24px)}
+.panel>.pair{
+  margin-inline:var(--panel-gutter);
+  padding-block:14px;
+  min-width:0;
+  align-items:baseline;
+}
+.panel>.pair:first-of-type{padding-top:18px}
+.panel>.pair:last-of-type{padding-bottom:18px;border-bottom:0}
+.panel>.pair span{flex:1 1 45%;min-width:0;line-height:1.5}
+.panel>.pair strong{flex:0 1 55%;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.panel>p,.panel>.hint,.panel>.paragraph{
+  margin:16px var(--panel-gutter);
+  padding:0;
+}
+.panel>.note{
+  padding:0;
+  margin:18px var(--panel-gutter);
+  overflow-wrap:anywhere;
+}
+.panel>.note p{margin:8px 0 0}
+.panel>.success-line{margin:18px var(--panel-gutter) 0;line-height:1.55;overflow-wrap:anywhere}
+.panel>.payment-status{margin:10px var(--panel-gutter) 0}
+.panel>.report-actions{
+  width:auto;
+  margin:14px var(--panel-gutter) 18px;
+}
+.panel>.payment-secondary{margin:0 var(--panel-gutter) 18px}
+.panel>.payment-secondary>.btn{max-width:100%}
+.panel>.head-actions{margin:14px var(--panel-gutter) 18px}
+.panel>.btn,.panel>.tag{margin:0 var(--panel-gutter) 18px}
+.panel>.form-footer{margin:0;padding:17px var(--panel-gutter)}
+.panel>.form-footer b,.panel>.form-footer span{overflow-wrap:anywhere}
+.panel>.empty{padding:35px var(--panel-gutter)}
+.panel>.table-wrap{margin:0}
+.panel-head{padding:19px var(--panel-gutter)}
+@media(max-width:570px){
+  :root{--panel-gutter:16px}
+  .panel>.pair{gap:12px}
+  .panel>.pair span{flex-basis:48%}
+  .panel>.pair strong{flex-basis:52%}
+  .panel>.report-actions{gap:8px}
+}
