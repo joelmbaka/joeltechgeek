@@ -291,7 +291,8 @@ function metrics(d){
  return {active:d.tickets.filter(t=>t.status!=="released").length,
   awaitingApproval:d.tickets.filter(t=>t.status==="awaiting-approval").length,
   awaitingParts:d.tickets.filter(t=>t.status==="awaiting-parts").length,
-  inRepair:d.tickets.filter(t=>t.status==="in-repair").length,
+  pendingIssues:d.tickets.filter(t=>t.cart.length>0).length,
+  inRepair:d.tickets.filter(t=>["awaiting-parts","in-repair"].includes(t.status)).length,
   released:d.tickets.filter(t=>t.status==="released").length,revenue,collected,
   outstanding:round(revenue-collected),cost,contribution:round(revenue-cost),
   lowStock:d.inventory.filter(i=>i.quantity<=2).length};
