@@ -250,6 +250,47 @@ test('finishing repairs before invoicing also works, and invoice amount is stabl
  assert.equal(t.status,'released');
 });
 
+
+test('saving diagnosis navigates to Diagnosis & Estimate', () => {
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.",()=>{ui.tab="diagnosis";}'));
+});
+test('unissued cart items do not satisfy required parts and blocking message identifies the item', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ c.addToCart(d,t.id,'SKU-1',1,0);
+ assert.equal(c.missingRequirements(t).length,1);
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const blocked=makeViews(d,ui,c).main();
+ assert.ok(blocked.includes('Required parts not yet fulfilled'));
+ assert.ok(blocked.includes('Brake fluid 1L'));
+ assert.ok(blocked.includes('unissued cart item'));
+ assert.ok(!blocked.includes('data-action="invoice"'));
+ ui.tab='cart';
+ const cart=makeViews(d,ui,c).main();
+ assert.ok(cart.includes('1 in cart, not issued'));
+ assert.ok(cart.includes('Confirm issue &amp; deduct inventory')||cart.includes('Confirm issue & deduct inventory'));
+ c.issueCart(d,t.id);
+ assert.equal(c.missingRequirements(t).length,0);
+ ui.tab='billing';
+ const ready=makeViews(d,ui,c).main();
+ assert.ok(!ready.includes('Required parts not yet fulfilled'));
+ assert.ok(ready.includes('Create invoice'));
+});
+test('outstanding inventory requirement can be added to cart directly with preselected quantity', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ const html=makeViews(d,{page:'tickets',ticketId:t.id,tab:'cart',search:'',filter:'all',modal:null,document:null},c).main();
+ assert.ok(html.includes('Parts still required before billing'));
+ assert.ok(html.includes('data-item-id="SKU-1"'));
+ assert.ok(html.includes('data-quantity="1"'));
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('quantity:attrs.quantity||null'));
+ assert.ok(app.includes('openModal(id,{itemId,requirementId,issueId,quantity})'));
+});
+
 test('parts requirements are informational and do not deduct stock', () => {
   const {d,t}=createDiagnosed();
   const initial=c.stock(d,'SKU-1').quantity;
