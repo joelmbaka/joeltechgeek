@@ -63,3 +63,12 @@
 .invoice-summary .invoice-balance{border-top:1px solid #cadfd6;margin-top:13px;padding-top:15px;font-size:16px;font-weight:800;color:#0b6b53}
 .invoice-summary p{text-align:right;font-size:11px;color:#397b65;font-weight:700;margin:12px 0 0}
 @media print{.invoice-section{break-inside:avoid}.invoice-summary{break-inside:avoid}}
+
+/* Paired actions use the available horizontal space, including on invoice cards. */
+.report-actions{display:flex;align-items:stretch;gap:10px;width:100%;margin:16px 0}
+.report-actions>.btn{flex:1 1 0;min-width:0;white-space:normal}
+.payment-secondary{margin:9px 0 0}
+.payment-status{margin:8px 0 0}
+.diagnosis-findings{font-size:13px;line-height:1.85;color:#354f59;white-space:pre-wrap;overflow-wrap:anywhere}
+.invoice-diagnosis{border-top:2px solid #d7e8df;padding-top:16px;margin-top:28px}
+@media(max-width:560px){.report-actions{flex-wrap:wrap}.report-actions>.btn{flex:1 1 135px}}
