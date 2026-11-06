@@ -223,7 +223,11 @@ function finishRepair(d,key){
  if(!["awaiting-parts","in-repair","invoiced"].includes(t.status)||t.repairCompleted||t.approval?.decision!=="Approved")
   throw Error("Approved repair must be in progress before completion.");
  if(t.cart.length)throw Error("Confirm or remove pending cart items.");
- if(t.services.some(s=>!s.done))throw Error("Mark all services complete first.");
+ // The final repair action completes all authorized service lines at once.
+ // For already-posted invoices, only lines included in that invoice can be finalized.
+ if(t.invoice&&t.services.some(s=>!t.invoice.services.some(i=>i.id===s.id)))
+  throw Error("A service is missing from the posted invoice.");
+ for(const service of t.services)service.done=true;
  t.repairCompleted=true;
  if(!t.invoice)t.status="ready-for-billing";
  note(d,t,t.invoice?"Repair completed · invoice already posted":"Repair completed · ready for billing");return t;
