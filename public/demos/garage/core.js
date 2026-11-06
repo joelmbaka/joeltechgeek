@@ -81,13 +81,17 @@ function charges(t){
  const collected=round(t.payments.reduce((s,p)=>s+p.amount,0));
  return {services,parts,cost,total:round(services+parts),contribution:round(services+parts-cost),collected,outstanding:round((t.invoice?.total||0)-collected)};
 }
-function createCustomerVehicle(d,p){
- const name=text(p.name,"Customer name",2,80),phone=text(p.phone,"Phone",7,30),
- plate=text(p.plate,"Registration",4,16).toUpperCase(),model=text(p.model,"Vehicle model",3,80);
+function createCustomer(d,p){
+ const name=text(p.name,"Customer name",2,80),phone=text(p.phone,"Phone",7,30);
+ const c={id:id(d,"CU"),name,phone};d.customers.push(c);return c;
+}
+function createVehicle(d,p){
+ const owner=customer(d,p.customerId);
+ const plate=text(p.plate,"Registration",4,16).toUpperCase(),model=text(p.model,"Vehicle model",3,80);
  if(d.vehicles.some(v=>v.plate===plate))throw Error("Registration already exists.");
  const year=qty(p.year,"Year",1970,2030),mileage=qty(p.mileage,"Mileage",0,9999999);
- const c={id:id(d,"CU"),name,phone},v={id:id(d,"VH"),customerId:c.id,plate,name:model,year,mileage};
- d.customers.push(c);d.vehicles.push(v);return v;
+ const v={id:id(d,"VH"),customerId:owner.id,plate,name:model,year,mileage};
+ d.vehicles.push(v);return v;
 }
 function createAppointment(d,p){
  vehicle(d,p.vehicleId);
@@ -258,7 +262,7 @@ function metrics(d){
   lowStock:d.inventory.filter(i=>i.quantity<=2).length};
 }
 return {NOW,STATES,seed,valid,status,ticket,stock,vehicle,customer,vehicleFor,customerFor,issuedQty,missingRequirements,
- charges,createCustomerVehicle,createAppointment,openTicket,diagnose,addService,addRequirement,requireInventory,
+ charges,createCustomer,createVehicle,createAppointment,openTicket,diagnose,addService,addRequirement,requireInventory,
  requestApproval,approve,reject,receiveCustomerPart,addToCart,removeCart,issueCart,returnIssue,
  completeService,finishRepair,invoiceTicket,payment,release,addInventory,stockIn,metrics};
 })();
