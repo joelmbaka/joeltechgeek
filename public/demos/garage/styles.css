@@ -21,3 +21,20 @@
 .workflow-hint{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;margin:0 0 16px;border:1px solid #dbe5e7;border-radius:10px;background:#f7faf9;color:#5d7380;font-size:12px}
 .workflow-hint strong{color:#346f62;white-space:nowrap}
 #custom-part-field[hidden],#requirement-discount[hidden]{display:none!important}
+
+/* Garage ticket navigation: clear, instructional workflow boundaries. */
+.workflow-heading{margin:0 0 23px;padding:4px 2px}
+.workflow-heading h2{font-size:21px;font-weight:800;color:#193e48;letter-spacing:-.02em;margin:0}
+.workflow-heading p{color:#637885;font-size:13px;line-height:1.65;margin:8px 0 0}
+.stage-next{border:1px dashed #bbd5ca;background:#f5faf7;border-radius:13px;padding:20px;margin:16px 0 22px;color:#3b6861;font-size:13px;line-height:1.65}
+.stage-next b{display:block;font-size:14px;margin-bottom:6px}.stage-next p{margin:0 0 13px}.stage-next .btn{margin-top:8px}
+.ticket-tabs button.locked-tab:not(.active){color:#83949f}
+.ticket-tabs button.locked-tab.active{color:#54766e;border-color:#8ebcaf}
+.ticket-tabs button.locked-tab span{font-size:12px;vertical-align:1px;filter:grayscale(1);opacity:.6}
+.stage-lock{min-height:390px;background:#fff;border:1px solid #e0e9e9;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:52px 30px;box-shadow:0 2px 12px #0f303608}
+.stage-lock-icon{width:126px;height:126px;background:#f0f7f4;border-radius:50%;display:grid;place-items:center;color:#78a594;margin:0 0 23px}
+.stage-lock-eyebrow{font-size:10px;font-weight:850;letter-spacing:.16em;color:#729b8f}
+.stage-lock h2{font-size:clamp(21px,2.6vw,28px);letter-spacing:-.025em;color:#294b50;margin:13px 0 10px}
+.stage-lock p{max-width:470px;color:#6c7e85;font-size:13px;line-height:1.8;margin:0 0 24px}
+.stage-lock .btn{min-width:210px}
+@media(max-width:570px){.stage-lock{min-height:350px;padding:42px 19px}.stage-lock-icon{width:108px;height:108px}.stage-lock-icon svg{width:66px;height:66px}.workflow-heading h2{font-size:19px}}
