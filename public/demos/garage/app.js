@@ -39,7 +39,7 @@ function openModal(kind,attrs={}){
  if(!valid.includes(kind))return;
  if(["diagnosis","service","requirement","cart","receive","reject","return","payment"].includes(kind)&&!ui.ticketId)return;
  ui.document=null;ui.modal={kind,itemId:attrs.itemId||null,requirementId:attrs.requirementId||null,
- issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null};ui.toast="";render();
+ issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null,quantity:attrs.quantity||null};ui.toast="";render();
 }
 function openDocument(kind){
  if(!ui.ticketId||!["requirements","parts","services","payment"].includes(kind))return;
@@ -87,7 +87,7 @@ function render(){
 document.addEventListener("click",event=>{
  const el=event.target.closest("[data-nav],[data-tab],[data-action]");
  if(!el||!root.contains(el))return;
- const {nav,tab,action,id,itemId,requirementId,issueId}=el.dataset;
+ const {nav,tab,action,id,itemId,requirementId,issueId,quantity}=el.dataset;
  if(nav){navigate(nav);return;}
  if(tab){if(["overview","diagnosis","cart","billing","history"].includes(tab)&&ui.ticketId){
   ui.tab=tab;ui.toast="";render();
@@ -97,7 +97,7 @@ document.addEventListener("click",event=>{
  if(action==="dismiss"){ui.toast="";render();return;}
  if(action==="back"){navigate("tickets");return;}
  if(action==="open-ticket"){openTicket(id);return;}
- if(action==="modal"){openModal(id,{itemId,requirementId,issueId});return;}
+ if(action==="modal"){openModal(id,{itemId,requirementId,issueId,quantity});return;}
  if(action==="close-modal"){ui.modal=null;ui.toast="";render();return;}
  if(action==="show-document"){openDocument(id);return;}
  if(action==="close-document"){ui.document=null;render();return;}
