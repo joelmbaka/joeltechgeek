@@ -162,7 +162,9 @@ test('diagnosis and estimate includes services, required parts and customer deci
  const html=makeViews(d,ui,c).main();
  for(const label of ['Inspection findings','Services & labour estimate','Parts Requirements & Price List','Customer approval'])
   assert.ok(html.includes(label));
- assert.ok(html.includes('View / share list'));
+ assert.ok(html.includes('View diagnosis report'));
+ assert.ok(html.includes('Share diagnosis report'));
+ assert.ok(!html.includes('View / share list'));
  assert.ok(!html.includes('id="requirements-cart"'));
 });
 test('parts cart contains only independent pending, issued and externally sourced parts', () => {
@@ -493,6 +495,54 @@ test('repair completion clears all unfinished authorized services in one action'
  c.finishRepair(d,t.id);
  assert.ok(t.services.every(x=>x.done));
  assert.equal(t.repairCompleted,true);
+});
+
+
+test('diagnosis report combines findings first, then service fees and suggested parts', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:'T-1042',tab:'diagnosis',search:'',filter:'all',modal:null,document:{ticketId:'T-1042',kind:'diagnosis'}};
+ const html=makeViews(d,ui,c).documentView();
+ const a=html.indexOf('1 · Diagnosis'),b=html.indexOf('2 · Services & labour estimate'),third=html.indexOf('3 · Suggested parts & price list');
+ assert.ok(a>0&&b>a&&third>b);
+ assert.ok(html.includes('Diagnosis Report'));
+ assert.ok(html.includes('Share to WhatsApp'));
+ assert.ok(html.includes('Print / Save as PDF'));
+ assert.ok(html.includes('Repair feasible:'));
+ const page=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(page.includes('class="report-actions"'));
+ assert.ok(page.includes('View diagnosis report'));
+ assert.ok(!page.includes('View / share list'));
+});
+test('diagnosis report requires recorded inspection and shares all three sections', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ assert.equal(makeViews(d,{page:'tickets',ticketId:'T-1041',tab:'diagnosis',document:{ticketId:'T-1041',kind:'diagnosis'},modal:null,search:'',filter:'all'},c).documentView(),'');
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('function diagnosisReportText(t)'));
+ assert.ok(app.includes('DIAGNOSIS'));
+ assert.ok(app.includes('SERVICES & FEES'));
+ assert.ok(app.includes('SUGGESTED PARTS'));
+ assert.ok(!app.includes('function whatsappText('));
+});
+test('unified invoice has final diagnosis section and payment actions share width', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ const inv=c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const html=makeViews(d,ui,c).documentView();
+ const diag=html.indexOf('class="invoice-section invoice-diagnosis"');
+ const payments=html.indexOf('class="invoice-summary"');
+ assert.ok(diag>payments);
+ assert.ok(html.includes('Diagnosis'));
+ assert.ok(html.includes(t.diagnosis.findings));
+ const billing=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(billing.includes('class="report-actions"'));
+ assert.ok(billing.includes('Record payment'));
+ assert.ok(billing.includes('View invoice'));
+ c.payment(d,t.id,{amount:inv.total,method:'Cash'});
+ const paid=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(paid.includes('View invoice'));
+ assert.ok(paid.includes('Payment receipt'));
 });
 
 test('invoice and released tickets cannot be mutated', () => {
