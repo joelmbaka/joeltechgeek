@@ -240,7 +240,98 @@ return function(d,ui,c){
  }
  function main(){if(t)return ticketView();
   return ({dashboard,tickets,appointments,vehicles,inventory,reports}[ui.page]||dashboard)();}
- /*GARAGE_MODAL_FUNCTIONS*/
+ 
+ function dialog(){
+  if(!ui.modal)return"";
+  const m=ui.modal,kind=m.kind;let title="",body="",submit="Save";
+  if(kind==="customer"){
+   title="New customer & vehicle";submit="Save vehicle";
+   body='<div class="form-grid">'+field("Customer name","name")+
+   field("Phone","phone","","placeholder=\"07XX XXX XXX\"")+field("Registration","plate","","placeholder=\"KDW 700J\"")+
+   field("Make and model","model","","placeholder=\"Toyota Fielder\"")+
+   numberField("Year","year",2016,'type="number" min="1970" max="2030" step="1"')+
+   numberField("Mileage (km)","mileage",80000,'type="number" min="0" step="1"')+'</div>';
+  }else if(kind==="ticket"){
+   title="Open repair ticket";submit="Create ticket";
+   const options=d.vehicles.map(v=>[v.id,vehicleName(v)]);
+   body=select("Vehicle","vehicleId",options,m.vehicleId||options[0]?.[0])+
+    area("Customer complaint","complaint")+
+    '<p class="hint">Select an existing vehicle or add a new customer and vehicle first.</p>'+
+    btn("＋ Add customer & vehicle","open-customer","","outline");
+  }else if(kind==="appointment"){
+   title="New appointment";submit="Save appointment";
+   body=select("Vehicle","vehicleId",d.vehicles.map(v=>[v.id,vehicleName(v)]),d.vehicles[0]?.id)+
+    '<div class="form-grid">'+field("Date","date","2026-11-07",'type="date"')+
+    field("Time","time","10:00",'type="time"')+'</div>'+
+    area("Reported service need","concern");
+  }else if(kind==="diagnosis"){
+   title="Record diagnosis";submit="Save diagnosis";
+   body=area("Inspection findings","findings")+
+    select("Can this workshop perform the repair?","feasible",[["yes","Yes — prepare an estimate"],["no","No — release or charge diagnosis"]],"yes");
+  }else if(kind==="service"){
+   title="Add a service fee";submit="Add service";
+   body=field("Service description","description","","placeholder=\"e.g. Brake system repair\"")+
+    '<div class="form-grid">'+numberField("Quantity","quantity",1)+
+    priceField("Unit fee (KES)","unitPrice",1500)+priceField("Discount / unit (KES)","discount",0)+
+    select("Fee type","kind",[["repair","Repair / labour"],["diagnosis","Diagnosis / inspection"]],"repair")+'</div>'+
+    '<p class="hint">Adding a service after approval requires renewed customer approval.</p>';
+  }else if(kind==="requirement"){
+   title="Add parts requirement";submit="Add required part";
+   body=select("Item source","source",[["inventory","Link to inventory"],["manual","Customer to source / not listed"]],"inventory")+
+    select("Available inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available"]),d.inventory[0]?.id)+
+    '<label class="field"><span>Description (required for customer-sourced item)</span>'+
+    '<input name="description" maxlength="140" placeholder="e.g. Rear bumper"/></label>'+
+    '<div class="form-grid">'+numberField("Quantity required","quantity",1)+
+    priceField("Discount per unit, if stocked (KES)","discount",0)+'</div>'+
+    '<p class="hint">This list only informs the customer. Nothing is reserved or deducted.</p>';
+  }else if(kind==="cart"){
+   title="Add part to ticket cart";submit="Add to cart";
+   const itemId=m.itemId||d.inventory.find(i=>i.quantity>0)?.id;
+   body=select("Inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available · "+kes(i.sellPrice)]),itemId)+
+    '<div class="form-grid">'+numberField("Quantity","quantity",m.quantity||1)+
+    priceField("Discount / unit (KES)","discount",m.discount||0)+'</div>'+
+    '<p class="hint">The inventory quantity changes only after confirming the issue.</p>';
+  }else if(kind==="receive"){
+   const r=t?.requirements.find(x=>x.id===m.requirementId);if(!r)return"";
+   title="Customer-provided parts";submit="Record received quantity";
+   body='<p class="form-caption">'+e(r.description)+" · "+e(r.quantity)+" required</p>"+
+    numberField("Quantity received","quantity",1);
+  }else if(kind==="reject"){
+   title="Record estimate rejection";submit="Confirm rejection";
+   body=area("Reason","notes","Customer declined proposed repairs.");
+  }else if(kind==="return"){
+   const issue=t?.issues.find(x=>x.id===m.issueId);if(!issue)return"";
+   title="Return unused part";submit="Return to inventory";
+   body='<p class="form-caption">'+e(issue.name)+" · "+e(issue.quantity)+" issued</p>"+
+    numberField("Quantity returned","quantity",1);
+  }else if(kind==="item"){
+   title="Register inventory item";submit="Add inventory item";
+   body=field("Part name","name","","placeholder=\"e.g. Battery\"")+
+   '<div class="form-grid">'+priceField("Buying price (KES)","buyPrice",500)+
+   priceField("Selling price (KES)","sellPrice",850)+'</div>'+
+   '<p class="hint">New items start with zero quantity. Use Stock in for intake.</p>';
+  }else if(kind==="stock-in"){
+   title="Stock in";submit="Record inventory intake";
+   const i=inv(m.itemId)||d.inventory[0];
+   body=select("Inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available"]),i.id)+
+    '<div class="form-grid">'+numberField("Quantity received","quantity",1)+
+    priceField("Buying price / unit (KES)","buyPrice",i.buyPrice)+
+    priceField("Selling price / unit (KES)","sellPrice",i.sellPrice)+'</div>';
+  }else if(kind==="payment"){
+   title="Record sample payment";submit="Record payment";
+   const outstanding=c.charges(t).outstanding;
+   body='<p class="form-caption">Current outstanding balance: '+kes(outstanding)+'</p>'+
+    priceField("Payment amount (KES)","amount",outstanding)+
+    select("Method","method",["Cash","M-Pesa (sample)","Bank (sample)"],"Cash");
+  }else return"";
+  return '<div class="modal-shell"><button type="button" data-action="close-modal" class="shade" aria-label="Close dialog"></button>'+
+   '<section role="dialog" aria-modal="true" aria-label="'+e(title)+'" class="dialog">'+
+   '<header><h2>'+e(title)+'</h2>'+btn("×","close-modal","","close-icon")+'</header>'+
+   '<div class="dialog-body"><form id="garage-form" data-kind="'+e(kind)+'" data-requirement-id="'+e(m.requirementId||"")+
+    '" data-issue-id="'+e(m.issueId||"")+'">'+body+
+    '<button type="submit" class="btn primary full">'+e(submit)+'</button></form></div></section></div>';
+ }
+
  /*GARAGE_DOCUMENT_FUNCTIONS*/
  return {NAV,main,dialog,documentView,btn,e,kes};
 };
