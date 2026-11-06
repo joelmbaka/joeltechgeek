@@ -37,7 +37,7 @@ return function(d,ui,c){
  function dashboard(){const m=c.metrics(d),active=d.tickets.filter(t=>t.status!=="released");
   return heading("Garage overview","Vehicles and repairs · fictional workshop records.",btn("＋ Create ticket","modal","ticket","primary"))+
    '<div class="metrics">'+metric("Vehicles in workshop",m.active,"Open tickets")+metric("Awaiting approval",m.awaitingApproval,"Customer decision pending")+
-    metric("Awaiting parts",m.awaitingParts,"Items customer needs to bring")+metric("Repairs in progress",m.inRepair,"Authorized work")+'</div>'+
+    metric("Pending stock issues",m.pendingIssues,"Cart items not yet issued")+metric("Repairs in progress",m.inRepair,"Authorized work")+'</div>'+
    panel("Workshop tickets",ticketTable(active.slice(0,6)));
  }
  function tickets(){let rows=d.tickets;
