@@ -332,7 +332,63 @@ return function(d,ui,c){
     '<button type="submit" class="btn primary full">'+e(submit)+'</button></form></div></section></div>';
  }
 
- /*GARAGE_DOCUMENT_FUNCTIONS*/
+ 
+ function documentView(){
+  if(!ui.document)return"";
+  const x=d.tickets.find(t=>t.id===ui.document.ticketId);
+  if(!x)return"";
+  const v=c.vehicleFor(d,x),owner=c.customerFor(d,x),kind=ui.document.kind,bill=c.charges(x);
+  let name="",description="",head=[],rows=[],total=null;
+  if(kind==="requirements"){
+   name="Parts Requirements & Price List";
+   description="Informational document · customer decides which available items to purchase or source independently.";
+   head=["Required part","Qty","Availability","Our unit price","Discount / unit","Net unit offer"];
+   rows=x.requirements.map(r=>{
+    const i=r.itemId?inv(r.itemId):null;
+    return [e(r.description),e(r.quantity),e(i?(i.quantity>0?i.quantity+" available":"Unavailable"):"Customer to source"),
+     i?kes(i.sellPrice):"—",i?kes(r.discount):"—",i?kes(i.sellPrice-r.discount):"—"];
+   });
+  }else if(kind==="parts"){
+   name="Parts Receipt";description="Only parts actually issued from inventory, net of returns. Not proof of payment.";
+   head=["Item issued","Net quantity","Unit price","Discount","Total"];
+   rows=x.issues.map(i=>{
+    const back=x.returns.filter(r=>r.issueId===i.id).reduce((a,r)=>a+r.quantity,0),q=i.quantity-back;
+    return q>0?[e(i.name),e(q),kes(i.unitPrice),kes(i.discount),kes(q*(i.unitPrice-i.discount))]:null;
+   }).filter(Boolean);total=bill.parts;
+  }else if(kind==="services"){
+   name="Service Invoice";description="Service lines completed and billed on this repair ticket.";
+   head=["Service","Quantity","Unit fee","Discount","Amount"];
+   rows=(x.invoice?.services||[]).map(s=>[e(s.description),e(s.quantity),kes(s.unitPrice),kes(s.discount),
+    kes((s.unitPrice-s.discount)*s.quantity)]);
+   total=rows.reduce((a,row)=>a+Number(row[4].replace(/[^0-9.]/g,"")),0);
+  }else if(kind==="payment"){
+   name="Payment Receipt";description="Recorded fictional customer payments; not a real transaction confirmation.";
+   head=["Recorded","Method","Amount"];
+   rows=x.payments.map(p=>[e(p.at),e(p.method),kes(p.amount)]);
+   total=bill.collected;
+  }else return"";
+  const notice=kind==="requirements"?
+   "No sale is made, no stock is reserved and no invoice is created by this list.":
+   kind==="parts"?"This receipt lists inventory issues only, not the full parts requirements.":
+   kind==="services"?"Inventory issues are shown separately on the parts receipt.":
+   "Payment records are simulated. This document has no real-world financial validity.";
+  return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close document"></button>'+
+   '<section class="print-sheet">'+
+   '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+   (kind==="requirements"?btn("Share to WhatsApp","whatsapp",x.id,"outline"):"")+
+   btn("Print / Save as PDF","print","","primary")+'</div>'+
+   '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+   '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+   '<div class="doc-heading"><span>DOCUMENT FOR TICKET '+e(x.id)+'</span><h1>'+e(name)+'</h1><p>'+e(description)+'</p></div>'+
+   '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+   '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+   '<div><b>Reference</b><span>'+e(x.id)+'</span><span>'+e(d.date)+'</span></div></div>'+
+   (rows.length?table(head,rows.map(tablerow).join("")):empty("No line items","Nothing has been added to this document yet."))+
+   (total!==null?'<div class="doc-total"><b>Document total</b><strong>'+kes(total)+'</strong></div>':"")+
+   '<p class="doc-notice">'+e(notice)+'</p><p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p>'+
+   '</section></div>';
+ }
+
  return {NAV,main,dialog,documentView,btn,e,kes};
 };
 })();
