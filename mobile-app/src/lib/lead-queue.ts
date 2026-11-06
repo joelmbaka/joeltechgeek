@@ -33,13 +33,26 @@ export function nextPageAfterSnapshot(
   if (!lastSurvivingId) return null;
   const anchorIndex = fetchedIds.indexOf(lastSurvivingId);
   const nextIndex = fetchedIds.findIndex((id, index) => index > anchorIndex && !known.has(id));
-  if (nextIndex < 0) return null;
-  const ids = fetchedIds.slice(nextIndex, nextIndex + pageSize).filter(id => !known.has(id));
+  // If the saved lead is still present but moved after the original page,
+  // the anchor can be at the end of the refreshed result. In that case the
+  // first record outside the original snapshot is the next page candidate.
+  // Only use records at/after the original page boundary so an overlapping
+  // fetch for a later page cannot jump backwards into the preceding page.
+  // One snapshot record is the saved lead itself; after the write it may be
+  // removed or moved beyond the page, so the next page can begin one slot
+  // before the original page length.
+  const boundaryIndex = fetchedOffset + Math.max(0, snapshot.length - 1);
+  const fallbackIndex = nextIndex < 0
+    ? fetchedIds.findIndex((id, index) => index >= boundaryIndex && !known.has(id))
+    : -1;
+  const candidateIndex = nextIndex >= 0 ? nextIndex : fallbackIndex;
+  if (candidateIndex < 0) return null;
+  const ids = fetchedIds.slice(candidateIndex, candidateIndex + pageSize).filter(id => !known.has(id));
   if (!ids.length) return null;
   return {
     ids,
-    offset: fetchedOffset + nextIndex,
-    hasMore: fetchedHasMore || nextIndex + pageSize < fetchedIds.length,
+    offset: fetchedOffset + candidateIndex,
+    hasMore: fetchedHasMore || candidateIndex + pageSize < fetchedIds.length,
   };
 }
 

@@ -14,7 +14,7 @@ import type { InlineFollowupUpdate } from '@/components/InlineFollowupEditor';
 import { useAppDialog } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
 import { formatFollowupDue } from '@/lib/followup-display';
@@ -73,6 +73,7 @@ export default function LeadScreen() {
   const [updateOpen,setUpdateOpen] = useState(false);
   const [inlineFollowupMode,setInlineFollowupMode] = useState<'edit'|'complete'|null>(null);
   const [savingKind,setSavingKind] = useState<'stay'|'next'|null>(null);
+  const [nextRetry,setNextRetry] = useState<(() => void) | null>(null);
   const savingRef = useRef(false);
   // Discard older detail GETs when focus, a save, and foreground refresh overlap.
   const detailsRequestVersion = useRef(0);
@@ -175,6 +176,11 @@ export default function LeadScreen() {
         const originalOffset = Number(queueOffsetParam);
         const offset = Number.isSafeInteger(originalOffset) &&
           originalOffset >= 0 ? originalOffset : 0;
+        if (__DEV__) console.info('[CRM_SAVE_NEXT]', {
+          advance, savedLeadId: response.lead.id, routeView: view, queueView: apiView,
+          queueOffset: offset, queueMore, queueIdsCount: ids.length,
+          currentIndex: savedIndex,
+        });
         const openNext = (
           nextId: string, nextIds: string[], nextOffset: number, hasMore: boolean,
         ) => {
@@ -194,36 +200,52 @@ export default function LeadScreen() {
         } else if (savedIndex !== -1 && queueMore !== '1') {
           router.replace('/');
         } else {
-          try {
-            // At page boundaries, overlap with the preceding page: saving can
-            // remove a record from a filtered queue and shift OFFSET results.
-            const queryOffset = savedIndex !== -1 ?
-              Math.max(0, offset - QUEUE_PAGE_SIZE) : 0;
-            const params = new URLSearchParams({
-              view:apiView, industry:selectedIndustry, q:queueQuery||'',
-              tz:timezone, limit:String(QUEUE_PAGE_SIZE*3), offset:String(queryOffset),
-            });
-            const next = await apiFetch<LeadList>('/api/agent-crm/leads?'+params);
-            if (savedIndex !== -1) {
-              const page = nextPageAfterSnapshot(
-                ids,next.leads.map(row=>row.id),queryOffset,next.has_more,
-              );
-              if (page) openNext(page.ids[0],page.ids,page.offset,page.hasMore);
-              else router.replace('/');
-            } else {
-              // Deep-linked lead: no prior ordering snapshot was available.
-              // Start at the first eligible item in the selected work view.
-              const pageIds = next.leads.map(row=>row.id)
-                .filter(leadId=>leadId!==response.lead.id).slice(0,QUEUE_PAGE_SIZE);
-              if (pageIds.length) openNext(pageIds[0],pageIds,0,
-                next.has_more || next.leads.length>QUEUE_PAGE_SIZE);
-              else router.replace('/');
+          // At page boundaries, overlap with the preceding page: saving can
+          // remove a record from a filtered queue and shift OFFSET results.
+          const queryOffset = savedIndex !== -1 ?
+            Math.max(0, offset - QUEUE_PAGE_SIZE) : 0;
+          const params = new URLSearchParams({
+            view:apiView, industry:selectedIndustry, q:queueQuery||'',
+            tz:timezone, limit:String(QUEUE_PAGE_SIZE*3), offset:String(queryOffset),
+          });
+          const loadNext = async (): Promise<void> => {
+            try {
+              const next = await apiFetch<LeadList>('/api/agent-crm/leads?'+params);
+              const fetchedIds = next.leads.map(row=>row.id);
+              if (__DEV__) console.info('[CRM_SAVE_NEXT_BOUNDARY]', {
+                url: '/api/agent-crm/leads?'+params.toString(),
+                status: 200, fetchedRecordCount: fetchedIds.length, fetchedIds,
+              });
+              if (savedIndex !== -1) {
+                const page = nextPageAfterSnapshot(ids,fetchedIds,queryOffset,next.has_more);
+                if (__DEV__) console.info('[CRM_SAVE_NEXT_BOUNDARY_RESULT]', { page });
+                if (page) {
+                  setNextRetry(null); openNext(page.ids[0],page.ids,page.offset,page.hasMore);
+                } else {
+                  setNextRetry(null);
+                  setError('Update saved, but no next lead was found in this queue. Return to the list and refresh.');
+                }
+              } else {
+                const pageIds = fetchedIds.filter(leadId=>leadId!==response.lead.id).slice(0,QUEUE_PAGE_SIZE);
+                if (pageIds.length) {
+                  setNextRetry(null); openNext(pageIds[0],pageIds,0,
+                    next.has_more || fetchedIds.length>QUEUE_PAGE_SIZE);
+                } else {
+                  setNextRetry(null);
+                  setError('Update saved, but no next lead was found. Return to the list and refresh.');
+                }
+              }
+            } catch (reason) {
+              if (__DEV__) console.warn('[CRM_SAVE_NEXT_BOUNDARY_ERROR]', {
+                url: '/api/agent-crm/leads?'+params.toString(),
+                status: reason instanceof ApiError ? reason.status : 0,
+                error: reason instanceof Error ? reason.message : String(reason),
+              });
+              setError('Update saved, but the next lead could not load. Retry next lead.');
+              setNextRetry(()=>{ void loadNext(); });
             }
-          } catch {
-            // Save already committed: never retry the mutation or navigate
-            // to an arbitrary lead after a failed directory refresh.
-            router.replace('/');
-          }
+          };
+          void loadNext();
         }
       }
     } finally {
@@ -356,6 +378,7 @@ export default function LeadScreen() {
     {!activeLead && loading ? <LeadDetailSkeleton/> : null}
     {error ? <View style={styles.card}>
       <Text style={styles.error}>{error}</Text>
+      {nextRetry ? <Button secondary onPress={nextRetry}>Retry next lead</Button> : null}
       {!activeLead ? <Button secondary onPress={reload}>Retry loading lead</Button> : null}
     </View> : null}
     {notice ? <View style={{gap:6}}>

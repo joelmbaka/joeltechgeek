@@ -30,6 +30,13 @@ test('page transition keeps the original sort position with overlap',async()=>{
   const page=nextPageAfterSnapshot(['b','c','d'],['a','b','c','d','e','f','g','h'],12,true,3);
   assert.deepEqual(page,{ids:['e','f','g'],offset:16,hasMore:true});
 });
+test('25-to-26 boundary survives a saved lead moving after the refreshed page',async()=>{
+  const {nextPageAfterSnapshot}=await queue;
+  const original=Array.from({length:25},(_,i)=>'lead-'+String(i+1).padStart(2,'0'));
+  const fetched=[...original.slice(0,24),'lead-26','lead-27','lead-28','lead-29','lead-30','lead-25'];
+  const page=nextPageAfterSnapshot(original,fetched,0,true,25);
+  assert.deepEqual(page,{ids:['lead-26','lead-27','lead-28','lead-29','lead-30'],offset:24,hasMore:true});
+});
 test('missing anchors never jump to first arbitrary record',async()=>{
   const {nextPageAfterSnapshot}=await queue;
   assert.equal(nextPageAfterSnapshot(['b','c'],['a','d','e'],0,false),null);
