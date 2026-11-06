@@ -211,7 +211,7 @@ function returnIssue(d,key,issueId,count){
 function completeService(d,key,serviceId){
  const t=ticket(d,key);
  if(!["awaiting-parts","in-repair","invoiced"].includes(t.status)||t.repairCompleted)throw Error("Approve the repair before completing services.");
- if(t.invoice&&!t.approval?.decision==="Approved")throw Error("Customer approval required.");
+ if(t.invoice&&t.approval?.decision!=="Approved")throw Error("Customer approval required.");
  const s=get(t.services,serviceId,"Service");if(s.done)throw Error("Service already completed.");
  if(t.invoice&&!t.invoice.services.some(row=>row.id===s.id))throw Error("Service was not included in the posted invoice.");
  s.done=true;note(d,t,s.description+" completed");return s;
