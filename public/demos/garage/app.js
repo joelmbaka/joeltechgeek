@@ -187,7 +187,7 @@ document.addEventListener("submit",event=>{
   change(w=>c.createTicket(w,p),"Repair ticket created.",newTicket=>openState(newTicket.id));return;
  }
  if(kind==="appointment")return void change(w=>c.createAppointment(w,p),"Appointment saved.");
- if(kind==="diagnosis")return void change(w=>c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.");
+ if(kind==="diagnosis")return void change(w=>c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.",()=>{ui.tab="diagnosis";});
  if(kind==="service")return void change(w=>c.addService(w,ui.ticketId,p),"Service fee added to ticket.");
  if(kind==="requirement"){
   const custom=p.partChoice==="custom",manual=custom||p.source==="manual";
