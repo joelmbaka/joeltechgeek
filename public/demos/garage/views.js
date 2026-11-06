@@ -151,16 +151,17 @@ return function(d,ui,c){
    '<div class="note"><b>Findings</b><p>'+e(x.findings)+'</p></div>'+pair("Recorded",x.at):
    '<p class="hint">Inspect the vehicle and record whether the workshop can perform the repair.</p>'+
    btn("Record diagnosis","modal","diagnosis","primary"));
-  if(!x)return '<div class="workflow-heading"><h2>Diagnosis & Estimate</h2><p>Inspect the vehicle before preparing services and parts requirements.</p></div>'+first+
-   '<div class="stage-next">After diagnosis, this workspace will show the service estimate, parts requirements and customer approval.</div>';
-  const estimate=services()+(x.feasible?requirements():'<p class="hint">Repair is unavailable. Only an agreed diagnosis fee can be billed; no repair parts estimate is needed.</p>');
+  const estimate=services()+requirements()+
+   (x&&!x.feasible?'<p class="hint">Repair unavailable: only an agreed diagnosis fee can be billed. Parts requirements are read-only.</p>':"");
   const decision=t.approval?.decision==="Approved"?'Customer approved the estimate. Authorized repair work can proceed.':
    t.approval?.decision==="Rejected"?'Customer rejected the proposed repair. Only agreed diagnosis fees may be billed.':
    t.status==="awaiting-approval"?'Waiting for customer approval or rejection. Inventory cannot be issued until approved.':
    t.status==="estimating"?'Add the proposed service and parts lines, then request customer approval.':
+   t.status==="open"?'Record inspection findings to enable service and parts estimates.':
    ["cannot-repair"].includes(t.status)?'Repair unavailable; record the agreed diagnosis fee, if any, and proceed to billing or release.':
    'Approval and repair history remain attached to this ticket.';
-  const controls=t.status==="estimating"?btn("Request customer approval","request-approval",t.id,"primary"):
+  const controls=t.status==="open"?'<button type="button" class="btn primary" disabled title="Record inspection findings first">Request customer approval</button>':
+   t.status==="estimating"?btn("Request customer approval","request-approval",t.id,"primary"):
    t.status==="awaiting-approval"?btn("Customer approved","approve",t.id,"primary")+btn("Customer rejected","modal","reject","outline"):"";
   const work=["awaiting-parts","in-repair"].includes(t.status)?
    '<div class="stage-next"><b>Repair execution</b><p>Mark authorized services complete here. Use Parts Cart to record customer-provided parts and issue inventory.</p>'+
@@ -179,7 +180,7 @@ return function(d,ui,c){
     '<b>'+e(missing)+'</b><small>'+e(r.customerProvided)+" provided · "+e(issued)+" issued</small>"]);
   }).join("");
   return '<div class="sub-head"><div><h2>3 · Parts Requirements & Price List</h2><p>What is needed, what the garage can offer and what the customer may provide.</p></div>'+
-   '<div class="head-actions">'+(editable?btn("＋ Add part","modal","requirement","outline"):"")+
+   '<div class="head-actions">'+(editable?btn("＋ Add part","modal","requirement","outline"):t.status==="open"?'<button type="button" class="btn outline" disabled title="Record inspection findings first">＋ Add part</button>':"")+
    (t.requirements.length?btn("View / share list","show-document","requirements","primary"):"")+'</div></div>'+
    panel("Required parts · "+t.requirements.length,t.requirements.length?
     table(["Part","Needed","Availability","Our unit offer","Outstanding"],rows):
@@ -239,7 +240,7 @@ return function(d,ui,c){
    l.done?tag("Completed"):canComplete?btn("Mark complete","complete-service",l.id,"outline compact"):tag("Proposed")
   ])).join("");
   return '<div class="sub-head"><div><h2>2 · Services & labour estimate</h2><p>Add repair and inspection fees. Mark services complete only after approval.</p></div>'+
-   (canAdd?btn("＋ Add service fee","modal","service","primary"):"")+'</div>'+
+   (canAdd?btn("＋ Add service fee","modal","service","primary"):t.status==="open"?'<button type="button" class="btn primary" disabled title="Record inspection findings first">＋ Add service fee</button>':"")+'</div>'+
    panel("Service lines · "+t.services.length,t.services.length?table(["Service","Qty","Fee / unit","Discount","Amount","State"],rows):
     empty("No service fees yet","Add the proposed repair services or a diagnostic fee."))+
    '<p class="footnote">Changing the approved scope requires renewed customer authorization.</p>';
