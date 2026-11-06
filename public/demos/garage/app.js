@@ -34,10 +34,10 @@ function openTicket(ticketId){
  ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";render();
 }
 function openModal(kind,attrs={}){
- const valid=["customer","vehicle","ticket","appointment","diagnosis","service","requirement","cart","outside-part","receive","reject",
+ const valid=["customer","vehicle","ticket","appointment","diagnosis","service","requirement","cart","outside-part","reject",
  "return","item","stock-in","payment"];
  if(!valid.includes(kind))return;
- if(["diagnosis","service","requirement","cart","outside-part","receive","reject","return","payment"].includes(kind)&&!ui.ticketId)return;
+ if(["diagnosis","service","requirement","cart","outside-part","reject","return","payment"].includes(kind)&&!ui.ticketId)return;
  ui.document=null;ui.modal={kind,itemId:attrs.itemId||null,requirementId:attrs.requirementId||null,
  issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null,quantity:attrs.quantity||null};ui.toast="";render();
 }
@@ -201,7 +201,7 @@ document.addEventListener("submit",event=>{
  }
  if(kind==="cart")return void change(w=>c.addToCart(w,ui.ticketId,p.itemId,p.quantity,p.discount),"Inventory item added to ticket cart.");
  if(kind==="outside-part")return void change(w=>c.recordOutsidePart(w,ui.ticketId,p),"Outside part recorded.");
- if(kind==="receive")return void change(w=>c.receiveCustomerPart(w,ui.ticketId,form.dataset.requirementId,p.quantity),"Customer-provided part received.");
+
  if(kind==="reject")return void change(w=>c.reject(w,ui.ticketId,p.notes),"Customer rejection recorded.");
  if(kind==="return")return void change(w=>c.returnIssue(w,ui.ticketId,form.dataset.issueId,p.quantity),"Unused part returned. Quantity and charges reversed.");
  if(kind==="item")return void change(w=>c.addInventory(w,p),"Inventory item registered.");
