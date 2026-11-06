@@ -34,7 +34,7 @@ function openTicket(ticketId){
  ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";render();
 }
 function openModal(kind,attrs={}){
- const valid=["customer","ticket","appointment","diagnosis","service","requirement","cart","receive","reject",
+ const valid=["customer","vehicle","ticket","appointment","diagnosis","service","requirement","cart","receive","reject",
  "return","item","stock-in","payment"];
  if(!valid.includes(kind))return;
  if(["diagnosis","service","requirement","cart","receive","reject","return","payment"].includes(kind)&&!ui.ticketId)return;
@@ -98,7 +98,6 @@ document.addEventListener("click",event=>{
  if(action==="back"){navigate("tickets");return;}
  if(action==="open-ticket"){openTicket(id);return;}
  if(action==="modal"){openModal(id,{itemId,requirementId,issueId});return;}
- if(action==="open-customer"){openModal("customer");return;}
  if(action==="close-modal"){ui.modal=null;ui.toast="";render();return;}
  if(action==="show-document"){openDocument(id);return;}
  if(action==="close-document"){ui.document=null;render();return;}
@@ -161,11 +160,8 @@ document.addEventListener("submit",event=>{
  }
  if(!ui.modal||ui.modal.kind!==form.dataset.kind)return;
  const kind=ui.modal.kind;
- if(kind==="customer"){
-  change(w=>c.createCustomerVehicle(w,p),"Customer and vehicle saved.",vehicle=>{
-   ui.modal={kind:"ticket",vehicleId:vehicle.id};
-  });return;
- }
+ if(kind==="customer")return void change(w=>c.createCustomer(w,p),"Customer saved.");
+ if(kind==="vehicle")return void change(w=>c.createVehicle(w,p),"Vehicle registered.");
  if(kind==="ticket"){
   change(w=>c.openTicket(w,p),"Repair ticket opened.",newTicket=>openState(newTicket.id));return;
  }
