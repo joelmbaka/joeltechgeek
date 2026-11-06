@@ -89,7 +89,7 @@ document.addEventListener("click",event=>{
  if(!el||!root.contains(el))return;
  const {nav,tab,action,id,itemId,requirementId,issueId}=el.dataset;
  if(nav){navigate(nav);return;}
- if(tab){if(["overview","diagnosis","requirements","cart","services","billing","history"].includes(tab)&&ui.ticketId){
+ if(tab){if(["overview","diagnosis","cart","billing","history"].includes(tab)&&ui.ticketId){
   ui.tab=tab;ui.toast="";render();
  }return;}
  if(action==="toggle-menu"){ui.mobileMenu=!ui.mobileMenu;render();return;}
