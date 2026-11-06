@@ -70,8 +70,6 @@ function seed(){
 const valid=d=>!!(d&&d.version===1&&Number.isSafeInteger(d.sequence)&&["customers","vehicles","tickets","inventory","appointments","movements","events"].every(k=>Array.isArray(d[k])));
 const status=t=>STATES[t.status]||t.status;
 const vehicleFor=(d,t)=>vehicle(d,t.vehicleId),customerFor=(d,t)=>customer(d,vehicleFor(d,t).customerId);
-const issuedQty=(t,itemId)=>t.issues.filter(x=>x.itemId===itemId).reduce((s,x)=>s+x.quantity,0)-t.returns.filter(x=>x.itemId===itemId).reduce((s,x)=>s+x.quantity,0);
-const missingRequirements=t=>t.requirements.map(r=>({...r,missing:Math.max(0,r.quantity-r.customerProvided-(r.itemId?issuedQty(t,r.itemId):0))})).filter(r=>r.missing>0);
 const syncParts=t=>{if(t.status==="awaiting-parts")t.status="in-repair"};
 const feeLines=t=>t.services.filter(s=>s.done&&(s.kind==="diagnosis"||!["rejected","cannot-repair"].includes(t.status)));
 function charges(t){
@@ -162,13 +160,6 @@ function reject(d,key,notes=""){
  const reason=text(notes||"Customer declined repairs.","Reason",6,280);
  t.approval={decision:"Rejected",notes:reason,at:NOW};t.status="rejected";t.cart=[];
  note(d,t,"Customer rejected estimate");return t;
-}
-function receiveCustomerPart(d,key,reqId,count){
- const t=ticket(d,key);edit(t);
- if(!["awaiting-parts","in-repair"].includes(t.status))throw Error("Approve the repair before receiving customer parts.");
- const r=get(t.requirements,reqId,"Required part"),n=qty(count),fromStock=r.itemId?issuedQty(t,r.itemId):0;
- if(n>r.quantity-r.customerProvided-fromStock)throw Error("Received quantity exceeds outstanding requirements.");
- r.customerProvided+=n;syncParts(t);note(d,t,n+" × "+r.description+" received from customer");return r;
 }
 function recordOutsidePart(d,key,p){
  const t=ticket(d,key);
@@ -297,8 +288,8 @@ function metrics(d){
   outstanding:round(revenue-collected),cost,contribution:round(revenue-cost),
   lowStock:d.inventory.filter(i=>i.quantity<=2).length};
 }
-return {NOW,STATES,seed,valid,status,ticket,stock,vehicle,customer,vehicleFor,customerFor,issuedQty,missingRequirements,
+return {NOW,STATES,seed,valid,status,ticket,stock,vehicle,customer,vehicleFor,customerFor,
  charges,createCustomer,createVehicle,createAppointment,createTicket,activeAppointment,diagnose,addService,addRequirement,requireInventory,
- requestApproval,approve,reject,receiveCustomerPart,recordOutsidePart,addToCart,removeCart,issueCart,returnIssue,
+ requestApproval,approve,reject,recordOutsidePart,addToCart,removeCart,issueCart,returnIssue,
  completeService,finishRepair,invoiceTicket,payment,release,addInventory,stockIn,metrics};
 })();
