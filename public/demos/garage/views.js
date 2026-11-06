@@ -383,19 +383,6 @@ return function(d,ui,c){
     return [e(r.description),e(r.quantity),e(i?(i.quantity>0?i.quantity+" available":"Unavailable"):"Customer to source"),
      i?kes(i.sellPrice):"—",i?kes(r.discount):"—",i?kes(i.sellPrice-r.discount):"—"];
    });
-  }else if(kind==="parts"){
-   name="Parts Receipt";description="Only parts actually issued from inventory, net of returns. Not proof of payment.";
-   head=["Item issued","Net quantity","Unit price","Discount","Total"];
-   rows=x.issues.map(i=>{
-    const back=x.returns.filter(r=>r.issueId===i.id).reduce((a,r)=>a+r.quantity,0),q=i.quantity-back;
-    return q>0?[e(i.name),e(q),kes(i.unitPrice),kes(i.discount),kes(q*(i.unitPrice-i.discount))]:null;
-   }).filter(Boolean);total=bill.parts;
-  }else if(kind==="services"){
-   name="Service Invoice";description="Service lines completed and billed on this repair ticket.";
-   head=["Service","Quantity","Unit fee","Discount","Amount"];
-   rows=(x.invoice?.services||[]).map(s=>[e(s.description),e(s.quantity),kes(s.unitPrice),kes(s.discount),
-    kes((s.unitPrice-s.discount)*s.quantity)]);
-   total=rows.reduce((a,row)=>a+Number(row[4].replace(/[^0-9.]/g,"")),0);
   }else if(kind==="payment"){
    name="Payment Receipt";description="Recorded fictional customer payments; not a real transaction confirmation.";
    head=["Recorded","Method","Amount"];
@@ -448,8 +435,6 @@ return function(d,ui,c){
   }
   const notice=kind==="requirements"?
    "No sale is made, no stock is reserved and no invoice is created by this list.":
-   kind==="parts"?"This receipt lists inventory issues only, not the full parts requirements.":
-   kind==="services"?"Inventory issues are shown separately on the parts receipt.":
    "Payment records are simulated. This document has no real-world financial validity.";
   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close document"></button>'+
    '<section class="print-sheet">'+
