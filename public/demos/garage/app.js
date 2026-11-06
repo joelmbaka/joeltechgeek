@@ -118,8 +118,8 @@ document.addEventListener("click",event=>{
  if(action==="convert-appointment"){
   change(w=>{
    const a=w.appointments.find(x=>x.id===id);if(!a)throw Error("Appointment unavailable.");
-   return c.openTicket(w,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
-  },"Appointment converted to a repair ticket.",res=>openState(res.id));return;
+   return c.createTicket(w,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
+  },"Ticket created from appointment.",res=>openState(res.id));return;
  }
  if(action==="request-approval")return void change(w=>c.requestApproval(w,id),"Estimate submitted for customer approval.");
  if(action==="approve")return void change(w=>c.approve(w,id),"Customer approval recorded.");
@@ -163,7 +163,7 @@ document.addEventListener("submit",event=>{
  if(kind==="customer")return void change(w=>c.createCustomer(w,p),"Customer saved.");
  if(kind==="vehicle")return void change(w=>c.createVehicle(w,p),"Vehicle registered.");
  if(kind==="ticket"){
-  change(w=>c.openTicket(w,p),"Repair ticket opened.",newTicket=>openState(newTicket.id));return;
+  change(w=>c.createTicket(w,p),"Repair ticket created.",newTicket=>openState(newTicket.id));return;
  }
  if(kind==="appointment")return void change(w=>c.createAppointment(w,p),"Appointment saved.");
  if(kind==="diagnosis")return void change(w=>c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.");
