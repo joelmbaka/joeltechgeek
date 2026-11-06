@@ -165,16 +165,16 @@ test('diagnosis and estimate includes services, required parts and customer deci
  assert.ok(html.includes('View / share list'));
  assert.ok(!html.includes('id="requirements-cart"'));
 });
-test('approved repair can use cart without duplicate requirements selector', () => {
+test('parts cart contains only independent pending, issued and externally sourced parts', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const d=c.seed(),ui={page:'tickets',ticketId:'T-1043',tab:'cart',search:'',filter:'all',modal:null,document:null};
  const html=makeViews(d,ui,c).main();
  assert.ok(!html.includes('class="stage-lock"'));
  assert.ok(!html.includes('Select from parts requirements'));
- assert.ok(!html.includes('id="requirements-cart"'));
- assert.ok(html.includes('Customer-provided parts'));
- assert.ok(html.includes('Mark received'));
+ assert.ok(!html.includes('Parts still required before billing'));
  assert.ok(html.includes('Add from inventory'));
+ assert.ok(html.includes('Record outside part'));
+ assert.ok(html.includes('Parts obtained outside the garage'));
 });
 test('billing can be visited before repair completion and hosts its only complete-repair action', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
@@ -255,40 +255,63 @@ test('saving diagnosis navigates to Diagnosis & Estimate', () => {
  const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
  assert.ok(app.includes('c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.",()=>{ui.tab="diagnosis";}'));
 });
-test('unissued cart items do not satisfy required parts and blocking message identifies the item', () => {
+test('a pending cart item blocks invoicing but suggested parts do not', () => {
  const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const {d,t}=createDiagnosed();
  approveWithPart(d,t);
  c.addToCart(d,t.id,'SKU-1',1,0);
- assert.equal(c.missingRequirements(t).length,1);
  const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:null};
- const blocked=makeViews(d,ui,c).main();
- assert.ok(blocked.includes('Required parts not yet fulfilled'));
- assert.ok(blocked.includes('Brake fluid 1L'));
- assert.ok(blocked.includes('unissued cart item'));
- assert.ok(!blocked.includes('data-action="invoice"'));
- ui.tab='cart';
- const cart=makeViews(d,ui,c).main();
- assert.ok(cart.includes('1 in cart, not issued'));
- assert.ok(cart.includes('Confirm issue &amp; deduct inventory')||cart.includes('Confirm issue & deduct inventory'));
- c.issueCart(d,t.id);
- assert.equal(c.missingRequirements(t).length,0);
- ui.tab='billing';
- const ready=makeViews(d,ui,c).main();
- assert.ok(!ready.includes('Required parts not yet fulfilled'));
- assert.ok(ready.includes('Create invoice'));
+ const before=makeViews(d,ui,c).main();
+ assert.ok(!before.includes('class="stage-lock"'));
+ assert.ok(!before.includes('Required parts not yet fulfilled'));
+ assert.ok(!before.includes('data-action="invoice"'));
+ assert.throws(()=>c.invoiceTicket(d,t.id),/pending cart|Clear pending cart/i);
+ c.removeCart(d,t.id,t.cart[0].id);
+ const after=makeViews(d,ui,c).main();
+ assert.ok(after.includes('Create invoice'));
+ const result=c.invoiceTicket(d,t.id);
+ assert.equal(result.total,2100);
 });
-test('outstanding inventory requirement can be added to cart directly with preselected quantity', () => {
- const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+test('recording an outside part requires no matching requirement or garage stock', () => {
  const {d,t}=createDiagnosed();
  approveWithPart(d,t);
- const html=makeViews(d,{page:'tickets',ticketId:t.id,tab:'cart',search:'',filter:'all',modal:null,document:null},c).main();
- assert.ok(html.includes('Parts still required before billing'));
- assert.ok(html.includes('data-item-id="SKU-1"'));
- assert.ok(html.includes('data-quantity="1"'));
- const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
- assert.ok(app.includes('quantity:attrs.quantity||null'));
- assert.ok(app.includes('openModal(id,{itemId,requirementId,issueId,quantity})'));
+ const stockBefore=d.inventory.map(x=>x.quantity);
+ const external=c.recordOutsidePart(d,t.id,{name:'Rear bumper',quantity:1,source:'external'});
+ assert.equal(external.source,'Purchased outside');
+ assert.equal(t.externalParts.length,1);
+ assert.equal(t.cart.length,0);
+ assert.equal(t.issues.length,0);
+ assert.equal(c.charges(t).parts,0);
+ assert.equal(d.inventory.every((x,i)=>x.quantity===stockBefore[i]),true);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const h=makeViews(d,{page:'tickets',ticketId:t.id,tab:'cart',search:'',filter:'all',modal:null,document:null},c).main();
+ assert.ok(h.includes('Rear bumper'));
+ assert.ok(h.includes('Purchased outside'));
+});
+test('informational parts estimate does not prevent invoice or repair completion', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Inspect and repair steering',quantity:1,unitPrice:1500,discount:0,kind:'repair'});
+ const r=c.addRequirement(d,t.id,{description:'Suggested steering linkage',quantity:2,itemId:null});
+ c.approve(d,t.id);
+ assert.equal(t.status,'in-repair');
+ assert.equal(c.missingRequirements(t).length,1);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ const inv=c.invoiceTicket(d,t.id);
+ assert.equal(inv.total,1500);
+ assert.equal(t.requirements[0].id,r.id);
+ assert.equal(t.issues.length,0);
+});
+test('outside parts received from customer are separate from estimated suggestions', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Install supplied part',quantity:1,unitPrice:1000,discount:0,kind:'repair'});
+ c.approve(d,t.id);
+ const p=c.recordOutsidePart(d,t.id,{name:'Used radiator',quantity:1,source:'customer'});
+ assert.equal(p.source,'Customer supplied');
+ assert.equal(t.requirements.length,0);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(c.invoiceTicket(d,t.id).total,1000);
 });
 
 test('parts requirements are informational and do not deduct stock', () => {
