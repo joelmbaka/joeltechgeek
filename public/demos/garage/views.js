@@ -235,8 +235,8 @@ return function(d,ui,c){
    panel("Payment & invoice",
     t.invoice?'<div class="success-line">Invoice '+e(t.invoice.id)+" · "+e(t.invoice.at)+'</div>'+
       (a.outstanding>0?btn("Record payment","modal","payment","primary"):tag("Fully paid"))+
-      '<div class="head-actions spaced">'+btn("Service invoice","show-document","services","outline")+
-       btn("Payment receipt","show-document","payment","outline")+'</div>':
+      '<div class="head-actions spaced">'+btn("View invoice","show-document","invoice","outline")+
+       (t.payments.length?btn("Payment receipt","show-document","payment","outline"):"")+'</div>':
      '<p class="hint">'+(canInvoice?"Invoice may be posted now. Parts must already be issued; approved service fees will be included even if the work is not yet marked complete.":
       "Record a customer decision and confirm or remove pending cart items before invoicing.")+'</p>'+
       (canInvoice?btn("Create invoice","invoice",t.id,"primary"):"")
@@ -245,7 +245,7 @@ return function(d,ui,c){
     table(["Item","Net issued quantity","Unit price","Discount / unit","Line total"],parts.map(i=>tablerow([
      e(i.name),e(i.netQty),kes(i.unitPrice),kes(i.discount),kes(i.netQty*(i.unitPrice-i.discount))
     ])).join(""))+'<div class="form-footer"><b>'+kes(a.parts)+'</b>'+
-    btn("View parts receipt","show-document","parts","outline")+'</div>':
+    '<span class="hint">Included in the combined invoice after posting.</span></div>':
     empty("No parts issued","The receipt contains only stock actually issued against this ticket."))+
    panel("Payment records",t.payments.length?table(["Recorded","Method","Amount"],t.payments.map(x=>tablerow([
     e(x.at),e(x.method),kes(x.amount)])).join("")):empty("No payment records","Record payments after invoicing."))+
@@ -402,6 +402,50 @@ return function(d,ui,c){
    rows=x.payments.map(p=>[e(p.at),e(p.method),kes(p.amount)]);
    total=bill.collected;
   }else return"";
+  if(kind==="invoice"){
+   if(!x.invoice)return "";
+   const inv=x.invoice;
+   const services=inv.services||[],parts=(inv.parts||[]).map(i=>{
+    const returned=x.returns.filter(r=>r.issueId===i.id).reduce((sum,r)=>sum+r.quantity,0);
+    return {...i,netQty:i.quantity-returned};
+   }).filter(i=>i.netQty>0);
+   const serviceTotal=services.reduce((sum,i)=>sum+(i.unitPrice-i.discount)*i.quantity,0);
+   const partsTotal=parts.reduce((sum,i)=>sum+(i.unitPrice-i.discount)*i.netQty,0);
+   const balance=Math.max(0,inv.total-bill.collected);
+   const paymentStatus=balance===0?"Paid in full":bill.collected>0?"Partially paid":"Unpaid";
+   const serviceRows=services.map(i=>tablerow([e(i.description),e(i.quantity),kes(i.unitPrice),
+    kes(i.discount),kes((i.unitPrice-i.discount)*i.quantity)])).join("");
+   const partRows=parts.map(i=>tablerow([e(i.name),e(i.netQty),kes(i.unitPrice),
+    kes(i.discount),kes((i.unitPrice-i.discount)*i.netQty)])).join("");
+   const paidRows=x.payments.map(p=>tablerow([e(p.at),e(p.method),kes(p.amount)])).join("");
+   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close invoice"></button>'+
+    '<section class="print-sheet" aria-label="Invoice '+e(inv.id)+'">'+
+    '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+    btn("Print / Save as PDF","print","","primary")+'</div>'+
+    '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+    '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+    '<div class="doc-heading"><span>INVOICE '+e(inv.id)+'</span><h1>Repair & Service Invoice</h1>'+
+    '<p>One invoice with separate service and inventory parts sections. Issued '+e(inv.at)+'.</p></div>'+
+    '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+    '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+    '<div><b>Ticket</b><span>'+e(x.id)+'</span><b>Payment status</b><span>'+e(paymentStatus)+'</span></div></div>'+
+    '<div class="invoice-section"><h2>1 · Services & labour</h2>'+
+    (services.length?table(["Service","Qty","Unit fee","Discount / unit","Amount"],serviceRows):
+     '<p class="hint">No service fees billed.</p>')+
+    '<div class="invoice-subtotal"><span>Services subtotal</span><strong>'+kes(serviceTotal)+'</strong></div></div>'+
+    '<div class="invoice-section"><h2>2 · Parts issued from inventory</h2>'+
+    (parts.length?table(["Part","Net issued qty","Unit price","Discount / unit","Amount"],partRows):
+     '<p class="hint">No inventory parts billed.</p>')+
+    '<div class="invoice-subtotal"><span>Parts subtotal</span><strong>'+kes(partsTotal)+'</strong></div></div>'+
+    '<div class="invoice-summary"><div><span>Invoice total</span><strong>'+kes(inv.total)+'</strong></div>'+
+    '<div><span>Amount paid</span><strong>'+kes(bill.collected)+'</strong></div>'+
+    '<div class="invoice-balance"><span>Balance due</span><strong>'+kes(balance)+'</strong></div>'+
+    '<p>'+e(paymentStatus)+'</p></div>'+
+    (x.payments.length?'<div class="invoice-section"><h2>Payments received</h2>'+
+     table(["Recorded","Method","Amount"],paidRows)+'</div>':"")+
+    '<p class="doc-notice">This is the complete invoice for the ticket. Outside-sourced parts are not charged by the garage. Payments are simulated.</p>'+
+    '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
+  }
   const notice=kind==="requirements"?
    "No sale is made, no stock is reserved and no invoice is created by this list.":
    kind==="parts"?"This receipt lists inventory issues only, not the full parts requirements.":
