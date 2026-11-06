@@ -21,7 +21,7 @@ const views = [
   {
     name: 'Property owner · Alex', Icon: Building2,
     heading: 'A clear daily record of your security service.',
-    details: 'Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, and read published daily, weekly or monthly reports.',
+    details: 'Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, then read full weekly or monthly reports with supporting evidence and the preparer's name.',
   },
   {
     name: 'Security supervisor · Grace', Icon: ClipboardList,
@@ -34,7 +34,7 @@ const capabilities = [
   { title: 'Duty schedules', desc: 'Browse any date, view overlapping night shifts and see who covered each post.', Icon: CalendarCheck2 },
   { title: 'Attendance clarity', desc: 'Record whether the assigned officer is on site or not on site, with an auditable update history.', Icon: Clock3 },
   { title: 'Client issue tracking', desc: 'Allow property owners to raise concerns and follow the response to resolution.', Icon: MessageSquareMore },
-  { title: 'Reports & updates', desc: 'Save a dated report for a selected property, attach evidence and make it available to the client.', Icon: FileText },
+  { title: 'Reports & updates', desc: 'Save weekly or monthly reports against a property, including its date range, named author and evidence. Clients can switch between sites and read the full report.', Icon: FileText },
 ];
 
 export default function SecurityDemoPage() {
