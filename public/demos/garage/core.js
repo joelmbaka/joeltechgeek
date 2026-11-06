@@ -256,7 +256,7 @@ function release(d,key){
  if(["cannot-repair","rejected"].includes(t.status)){
   if(charges(t).total>0)throw Error("Invoice and settle any diagnostic fee before release.");
  }else if(t.status!=="invoiced")throw Error("Finish the ticket before releasing the vehicle.");
- if(t.invoice&&!["rejected","cannot-repair"].includes(t.approval?.decision||"")&&t.diagnosis?.feasible&&!t.repairCompleted)
+ if(t.invoice&&t.approval?.decision==="Approved"&&t.diagnosis?.feasible&&!t.repairCompleted)
   throw Error("Complete repair before releasing the vehicle.");
  if(t.invoice&&charges(t).outstanding>0)throw Error("Settle outstanding balance before release.");
  if(t.cart.length)throw Error("Clear pending cart.");
