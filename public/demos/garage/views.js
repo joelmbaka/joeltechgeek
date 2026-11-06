@@ -117,15 +117,9 @@ return function(d,ui,c){
    '<span class="stage-lock-eyebrow">NEXT STEP REQUIRED</span><h2>'+e(lock.title)+'</h2><p>'+e(lock.reason)+'</p>'+
    '<button type="button" class="btn primary" data-tab="'+e(lock.target)+'">'+e(lock.cta)+'</button></section>';
  }
-  function actions(t){let a=[];
-  if(t.status==="open")a.push(btn("Record diagnosis","modal","diagnosis","primary"));
-  if(t.status==="estimating")a.push(btn("Request customer approval","request-approval",t.id,"primary"));
-  if(t.status==="awaiting-approval")a.push(btn("Customer approved","approve",t.id,"primary"),btn("Customer rejected","modal","reject","outline"));
-  if(t.status==="in-repair")a.push(btn("Complete repair","finish-repair",t.id,"primary"));
-  if(["ready-for-billing","rejected","cannot-repair"].includes(t.status))a.push(btn("Create invoice","invoice",t.id,"primary"));
-  if(["rejected","cannot-repair"].includes(t.status)&&c.charges(t).total===0)a.push(btn("Release vehicle","release",t.id,"outline"));
-  if(t.status==="invoiced")a.push(c.charges(t).outstanding>0?btn("Record payment","modal","payment","primary"):btn("Release vehicle","release",t.id,"primary"));
-  return a.join("");
+  function actions(t){
+  // Action controls belong to the relevant ticket section, not the shared header.
+  return "";
  }
  function overview(){const v=c.vehicleFor(d,t),o=c.customerFor(d,t),a=c.charges(t);
   return '<div class="columns two">'+panel("Vehicle & customer",pair("Registration",v.plate)+pair("Model",v.name)+
@@ -133,41 +127,31 @@ return function(d,ui,c){
    panel("Ticket financials",pair("Completed services",kes(a.services))+pair("Confirmed parts",kes(a.parts))+
     pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
     pair("Collected",kes(a.collected))+pair("Balance",t.invoice?kes(a.outstanding):"Not invoiced"))+'</div>'+
-   panel("Reported issue",'<p class="paragraph">'+e(t.complaint)+'</p>')+
-   panel("Next action",'<p class="hint">'+e({
-    open:"Inspect the vehicle and record diagnosis.",estimating:"Add service fees and required parts, then request approval.",
-    "awaiting-approval":"Contact the customer and record approval or rejection.",
-    "awaiting-parts":"Record customer-provided parts, or issue selected parts from available inventory.",
-    "in-repair":"Mark services completed and confirm any remaining inventory issues.",
-    "ready-for-billing":"Complete the invoice and payment.","cannot-repair":"Bill any agreed diagnosis fee or release directly.",
-    rejected:"Repairs declined. Settle any agreed diagnosis fee or release.","invoiced":"Collect outstanding payment before release.",
-    released:"Vehicle has been released and the ticket is read-only."
-   }[t.status])+'</p>'+actions(t))+panel("Recent ticket activity",history(t.id));
+   panel("Reported issue",'<p class="paragraph">'+e(t.complaint)+'</p>');
  }
- 
  function diagnosis(){
   const x=t.diagnosis;
   const first=panel("1 · Inspection findings",x?pair("Repair possible",x.feasible?"Yes":"No")+
    '<div class="note"><b>Findings</b><p>'+e(x.findings)+'</p></div>'+pair("Recorded",x.at):
-   '<p class="hint">Inspect the vehicle and record whether the workshop can perform the repair.</p>'+
-   btn("Record diagnosis","modal","diagnosis","primary"));
+   '<p class="hint">Inspection findings have not been recorded yet. Use the Record diagnosis button above.</p>');
   const estimate=services()+requirements()+
    (x&&!x.feasible?'<p class="hint">Repair unavailable: only an agreed diagnosis fee can be billed. Parts requirements are read-only.</p>':"");
   const decision=t.approval?.decision==="Approved"?'Customer approved the estimate. Authorized repair work can proceed.':
    t.approval?.decision==="Rejected"?'Customer rejected the proposed repair. Only agreed diagnosis fees may be billed.':
-   t.status==="awaiting-approval"?'Waiting for customer approval or rejection. Inventory cannot be issued until approved.':
-   t.status==="estimating"?'Add the proposed service and parts lines, then request customer approval.':
+   t.status==="awaiting-approval"?'Record the customer decision below. Inventory can only be issued after approval.':
+   t.status==="estimating"?'Record the customer decision below once the estimate is prepared.':
    t.status==="open"?'Record inspection findings to enable service and parts estimates.':
    ["cannot-repair"].includes(t.status)?'Repair unavailable; record the agreed diagnosis fee, if any, and proceed to billing or release.':
    'Approval and repair history remain attached to this ticket.';
-  const controls=t.status==="open"?'<button type="button" class="btn primary" disabled title="Record inspection findings first">Request customer approval</button>':
-   t.status==="estimating"?btn("Request customer approval","request-approval",t.id,"primary"):
-   t.status==="awaiting-approval"?btn("Customer approved","approve",t.id,"primary")+btn("Customer rejected","modal","reject","outline"):"";
-  const work=["awaiting-parts","in-repair"].includes(t.status)?
-   '<div class="stage-next"><b>Repair execution</b><p>Mark authorized services complete here. Use Parts Cart to record customer-provided parts and issue inventory.</p>'+
-   (t.status==="in-repair"?btn("Complete repair","finish-repair",t.id,"primary"):'<span>Waiting for required parts before repair can finish.</span>')+'</div>':"";
+  const canDecide=["estimating","awaiting-approval"].includes(t.status)&&
+   t.diagnosis?.feasible&&(t.services.some(s=>s.kind==="repair")||t.requirements.length);
+  const controls=canDecide?btn("Customer approved","approve",t.id,"primary")+
+   btn("Customer rejected","reject",t.id,"outline"):
+   ["open","estimating","awaiting-approval"].includes(t.status)?
+   '<button type="button" class="btn primary" disabled title="Record feasible diagnosis and add parts or a repair service">Customer approved</button>'+
+   '<button type="button" class="btn outline" disabled title="Record feasible diagnosis and add parts or a repair service">Customer rejected</button>':"";
   return '<div class="workflow-heading"><h2>Diagnosis & Estimate</h2><p>Inspection, service fees, parts requirements and customer decision in one place.</p></div>'+
-   first+estimate+panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>')+work;
+   first+estimate+panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>');
  }
  function requirements(){
   const editable=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing"].includes(t.status)&&!t.invoice;
@@ -187,26 +171,6 @@ return function(d,ui,c){
     empty("No parts requirements","Add catalogue parts or enter a custom part not in inventory."))+
    '<p class="footnote">This is an informational list, not an inventory issue or an invoice.</p>';
  }
- function requirementPicker(){
-  const allowed=["awaiting-parts","in-repair"].includes(t.status);
-  if(!allowed||!t.requirements.length)return "";
-  const rows=t.requirements.map(r=>{
-   const i=r.itemId?inv(r.itemId):null;
-   const missing=Math.max(0,r.quantity-r.customerProvided-(i?c.issuedQty(t,i.id):0));
-   if(missing===0)return tablerow([e(r.description),tag("Fulfilled"),"—"]);
-   const quantity=i?Math.min(i.quantity,missing):0;
-   const action=i&&quantity>0?
-    '<label class="req-check"><input type="checkbox" name="selected" value="'+e(r.id)+'" /> Select</label>'+
-    '<input class="quantity-mini" type="number" name="qty-'+e(r.id)+'" min="1" max="'+e(quantity)+'" value="'+e(quantity)+'" aria-label="Quantity for '+e(r.description)+'" />':
-    btn("Mark customer part received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"');
-   return tablerow(['<b>'+e(r.description)+'</b><small>'+e(missing)+' outstanding</small>',
-    tag(i?(i.quantity>0?i.quantity+" in stock":"Out of stock"):"Customer sourced"),action]);
-  }).join("");
-  return panel("Select from parts requirements",'<form id="requirements-cart">'+
-   table(["Required part","Availability","Action"],rows)+
-   '<div class="form-footer"><span>Only selected inventory items enter the cart. Customer-provided items do not affect stock.</span>'+
-   '<button type="submit" class="btn primary">Add selected to cart</button></div></form>');
- }
  function cart(){
   const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
   const pending=t.cart.map(row=>{
@@ -222,7 +186,7 @@ return function(d,ui,c){
   }).join("");
   return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Add from requirements, or directly from available inventory.</p></div>'+
    (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
-   requirementPicker()+panel("Pending cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
+   panel("Pending cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
     '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
      (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
     empty("No cart items","Check available requirements or select any inventory item, even one not on the list."))+
@@ -250,7 +214,22 @@ return function(d,ui,c){
    const returned=t.returns.filter(r=>r.issueId===i.id).reduce((sum,r)=>sum+r.quantity,0);
    return {...i,netQty:i.quantity-returned};
   }).filter(i=>i.netQty>0);
-  return '<div class="columns two">'+panel("Ticket financials",
+  const isRepair=!!t.diagnosis?.feasible&&t.approval?.decision==="Approved";
+  const complete=!!t.repairCompleted||t.status==="ready-for-billing"||t.status==="released";
+  const hasPartsOutstanding=c.missingRequirements(t).length>0;
+  const canComplete=["in-repair","invoiced"].includes(t.status)&&isRepair&&!complete;
+  const canInvoice=!t.invoice&&(["ready-for-billing","rejected","cannot-repair"].includes(t.status)||
+   (t.status==="in-repair"&&isRepair&&!hasPartsOutstanding&&!t.cart.length));
+  const canRelease=(t.status==="invoiced"&&a.outstanding<=0&&(!isRepair||complete))||
+   (["rejected","cannot-repair"].includes(t.status)&&a.total===0);
+  const canCompleteNow=canComplete&&!hasPartsOutstanding&&!t.cart.length&&t.services.every(x=>x.done);
+  const work=isRepair?panel("Repair completion",'<p class="hint">'+(complete?"Repair marked completed.":
+   hasPartsOutstanding?"Fulfil the parts requirements before completing repairs.":
+   t.cart.length?"Confirm or remove pending cart items before completion.":
+   t.services.some(x=>!x.done)?"Mark all services complete in Diagnosis & Estimate before completing the repair.":
+   "All work can be marked complete. You may create the invoice before or after repair completion.")+'</p>'+
+   (complete?tag("Completed"):canComplete?btn("Complete repair","finish-repair",t.id,"primary",""+(canCompleteNow?"":'disabled title="Finish parts and services first"')):"")):"";
+  return work+'<div class="columns two">'+panel("Ticket financials",
     pair("Completed services",kes(a.services))+pair("Confirmed parts sales",kes(a.parts))+
     pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
     pair("Invoice",t.invoice?t.invoice.id:"Not posted")+
@@ -261,8 +240,9 @@ return function(d,ui,c){
       (a.outstanding>0?btn("Record payment","modal","payment","primary"):tag("Fully paid"))+
       '<div class="head-actions spaced">'+btn("Service invoice","show-document","services","outline")+
        btn("Payment receipt","show-document","payment","outline")+'</div>':
-     '<p class="hint">Create an invoice after repairs complete, customer rejection or an unsuccessful diagnosis.</p>'+
-      (["ready-for-billing","rejected","cannot-repair"].includes(t.status)?btn("Create invoice","invoice",t.id,"primary"):"")
+     '<p class="hint">'+(canInvoice?"Invoice may be posted now. Parts must already be issued; approved service fees will be included even if the work is not yet marked complete.":
+      "Complete the diagnosis decision and fulfil required parts before posting the invoice.")+'</p>'+
+      (canInvoice?btn("Create invoice","invoice",t.id,"primary"):"")
     )+'</div>'+
    panel("Parts receipt · confirmed issues only",parts.length?
     table(["Item","Net issued quantity","Unit price","Discount / unit","Line total"],parts.map(i=>tablerow([
@@ -273,18 +253,16 @@ return function(d,ui,c){
    panel("Payment records",t.payments.length?table(["Recorded","Method","Amount"],t.payments.map(x=>tablerow([
     e(x.at),e(x.method),kes(x.amount)])).join("")):empty("No payment records","Record payments after invoicing."))+
    (t.status==="released"?'<div class="release-banner">✓ Vehicle released · '+e(t.release?.reason)+'</div>':
-   '<div class="release-bar">'+((t.status==="invoiced"&&a.outstanding<=0)||(["rejected","cannot-repair"].includes(t.status)&&a.total===0)?
-    btn("Release vehicle","release",t.id,"primary"):
-    '<button type="button" class="btn primary" disabled title="Settle the invoice or complete the applicable closure first">Release vehicle</button>')+
-   '<span>Vehicle release requires the appropriate ticket closure and payment settlement.</span></div>');
+   '<div class="release-bar">'+(canRelease?btn("Release vehicle","release",t.id,"primary"):
+    '<button type="button" class="btn primary" disabled title="Complete repair and settle the balance before release">Release vehicle</button>')+
+   '<span>Release requires completed repair (if applicable) and full payment.</span></div>');
  }
-
  function ticketView(){if(!t)return empty("Ticket unavailable","Select a ticket.");
   const v=c.vehicleFor(d,t),o=c.customerFor(d,t),lock=stageLock(ui.tab);
   return '<div class="breadcrumb">'+btn("← Tickets","back","","text")+e(t.id)+'</div>'+
    '<div class="ticket-hero"><div><span class="eyebrow">REPAIR TICKET · '+e(t.id)+'</span><h1>'+e(v.name)+'</h1>'+
     '<p>'+e(v.plate+" · "+o.name+" · "+o.phone)+'</p></div>'+tag(c.status(t))+'</div>'+
-   '<div class="ticket-actions">'+actions(t)+'</div>'+
+   (t.status==="open"?'<div class="ticket-actions">'+btn("Record diagnosis","modal","diagnosis","primary")+'</div>':"")+
    '<nav class="ticket-tabs" aria-label="Ticket sections">'+TABS.map(([id,label])=>
     '<button class="'+(ui.tab===id?"active":"")+(stageLock(id)?" locked-tab":"")+
     '" data-tab="'+id+'" aria-current="'+(ui.tab===id?"page":"false")+
