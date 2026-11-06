@@ -2,7 +2,7 @@
 const garageCore=(function(){
 "use strict";
 const NOW="2026-11-06 · 11:10 EAT";
-const STATES={open:"Diagnosis",estimating:"Preparing estimate","awaiting-approval":"Awaiting approval","awaiting-parts":"Awaiting customer parts","in-repair":"In repair","ready-for-billing":"Ready for billing",invoiced:"Awaiting payment",rejected:"Estimate rejected","cannot-repair":"Cannot repair",released:"Released"};
+const STATES={open:"Diagnosis",estimating:"Preparing estimate","awaiting-approval":"Awaiting approval","awaiting-parts":"In repair","in-repair":"In repair","ready-for-billing":"Ready for billing",invoiced:"Awaiting payment",rejected:"Estimate rejected","cannot-repair":"Cannot repair",released:"Released"};
 const get=(a,id,what)=>a.find(x=>x.id===id)||(()=>{throw Error(what+" not found.")})();
 const ticket=(d,id)=>get(d.tickets,id,"Ticket"),stock=(d,id)=>get(d.inventory,id,"Inventory item"),vehicle=(d,id)=>get(d.vehicles,id,"Vehicle"),customer=(d,id)=>get(d.customers,id,"Customer");
 const text=(v,name,min=1,max=320)=>{const s=String(v??"").trim();if(s.length<min||s.length>max)throw Error(name+" must be "+min+"–"+max+" characters.");return s};
@@ -15,7 +15,7 @@ const note=(d,t,message)=>{d.events.unshift({id:id(d,"EV"),ticketId:t.id,at:NOW,
 const edit=t=>{if(t.status==="released"||t.invoice)throw Error("This ticket is closed for changes.");};
 const line=(key,desc,unitPrice,kind="repair",done=false)=>({id:key,description:desc,quantity:1,unitPrice,discount:0,kind,done});
 const request=(key,desc,quantity,itemId=null)=>({id:key,description:desc,quantity,itemId,discount:0,customerProvided:0});
-const blank=(key,vehicleId,complaint,status="open")=>({id:key,vehicleId,complaint,status,openedAt:NOW,diagnosis:null,services:[],requirements:[],cart:[],issues:[],returns:[],approval:null,invoice:null,payments:[],repairCompleted:false,release:null,appointmentId:null});
+const blank=(key,vehicleId,complaint,status="open")=>({id:key,vehicleId,complaint,status,openedAt:NOW,diagnosis:null,services:[],requirements:[],cart:[],externalParts:[],issues:[],returns:[],approval:null,invoice:null,payments:[],repairCompleted:false,release:null,appointmentId:null});
 function seed(){
  const customers=[["CU-1","James Mwangi"],["CU-2","Susan Wanjiku"],["CU-3","Peter Otieno"],["CU-4","Mercy Chebet"],["CU-5","David Kamau"]].map(([id,name],i)=>({id,name,phone:"0700 111 00"+(i+1)}));
  const names=[["VH-1","CU-1","KDM 123A","Toyota Axio",2016,123400],["VH-2","CU-2","KDN 456B","Subaru Forester",2017,95800],["VH-3","CU-3","KDP 789C","Toyota Probox",2015,174000],["VH-4","CU-4","KDR 321D","Isuzu D-Max",2019,89000],["VH-5","CU-5","KDS 654E","Mazda Demio",2014,143200],["VH-6","CU-1","KDT 987F","Toyota Prado",2018,110400],["VH-7","CU-2","KDU 246G","Nissan Note",2016,114300],["VH-8","CU-3","KDV 135H","Toyota Vitz",2015,138800],["VH-9","CU-4","KDW 732J","Toyota Fielder",2018,80200]];
@@ -72,7 +72,7 @@ const status=t=>STATES[t.status]||t.status;
 const vehicleFor=(d,t)=>vehicle(d,t.vehicleId),customerFor=(d,t)=>customer(d,vehicleFor(d,t).customerId);
 const issuedQty=(t,itemId)=>t.issues.filter(x=>x.itemId===itemId).reduce((s,x)=>s+x.quantity,0)-t.returns.filter(x=>x.itemId===itemId).reduce((s,x)=>s+x.quantity,0);
 const missingRequirements=t=>t.requirements.map(r=>({...r,missing:Math.max(0,r.quantity-r.customerProvided-(r.itemId?issuedQty(t,r.itemId):0))})).filter(r=>r.missing>0);
-const syncParts=t=>{if(["awaiting-parts","in-repair"].includes(t.status))t.status=missingRequirements(t).length?"awaiting-parts":"in-repair"};
+const syncParts=t=>{if(t.status==="awaiting-parts")t.status="in-repair"};
 const feeLines=t=>t.services.filter(s=>s.done&&(s.kind==="diagnosis"||!["rejected","cannot-repair"].includes(t.status)));
 function charges(t){
  const services=round(feeLines(t).reduce((s,l)=>s+money(l.unitPrice,l.discount,l.quantity),0));
@@ -140,21 +140,21 @@ function addRequirement(d,key,p){
  const description=text(p.description,"Required part",2,140),quantity=qty(p.quantity);
  const itemId=p.itemId?stock(d,p.itemId).id:null,discount=round(num(p.discount??0,"Discount",0,itemId?stock(d,itemId).sellPrice:0));
  const r={id:id(d,"RQ"),description,quantity,itemId,discount,customerProvided:0};
- t.requirements.push(r);revise(d,t);syncParts(t);note(d,t,"Required part added · "+description);return r;
+ t.requirements.push(r);note(d,t,"Informational parts estimate updated · "+description);return r;
 }
 const requireInventory=(d,key,itemId,quantity,discount=0)=>addRequirement(d,key,{description:stock(d,itemId).name,quantity,itemId,discount});
 function requestApproval(d,key){
  const t=ticket(d,key);edit(t);
  if(!["estimating","awaiting-approval"].includes(t.status)||!t.diagnosis?.feasible)throw Error("Prepare an estimate after diagnosis.");
- if(!t.services.some(s=>s.kind==="repair")&&!t.requirements.length)throw Error("Add services or parts requirements first.");
+ if(!t.services.some(s=>s.kind==="repair"))throw Error("Add a repair service before approval.");
  t.status="awaiting-approval";t.approval=null;note(d,t,"Estimate awaiting customer approval");return t;
 }
 function approve(d,key,notes=""){
  const t=ticket(d,key);edit(t);
  if(!["estimating","awaiting-approval"].includes(t.status)||!t.diagnosis?.feasible)throw Error("Complete a feasible diagnosis before customer approval.");
- if(!t.services.some(s=>s.kind==="repair")&&!t.requirements.length)throw Error("Add services or parts requirements before approval.");
+ if(!t.services.some(s=>s.kind==="repair"))throw Error("Add a repair service before approval.");
  t.approval={decision:"Approved",notes:String(notes).trim().slice(0,280),at:NOW};
- t.status=missingRequirements(t).length?"awaiting-parts":"in-repair";note(d,t,"Estimate approved by customer");return t;
+ t.status="in-repair";note(d,t,"Estimate approved by customer");return t;
 }
 function reject(d,key,notes=""){
  const t=ticket(d,key);edit(t);
@@ -169,6 +169,17 @@ function receiveCustomerPart(d,key,reqId,count){
  const r=get(t.requirements,reqId,"Required part"),n=qty(count),fromStock=r.itemId?issuedQty(t,r.itemId):0;
  if(n>r.quantity-r.customerProvided-fromStock)throw Error("Received quantity exceeds outstanding requirements.");
  r.customerProvided+=n;syncParts(t);note(d,t,n+" × "+r.description+" received from customer");return r;
+}
+function recordOutsidePart(d,key,p){
+ const t=ticket(d,key);
+ if(!["awaiting-parts","in-repair"].includes(t.status)||t.approval?.decision!=="Approved")
+  throw Error("Customer approval required before recording received outside parts.");
+ const name=text(p.name,"Outside part name",2,140),quantity=qty(p.quantity);
+ const source=p.source==="external"?"Purchased outside":"Customer supplied";
+ const entry={id:id(d,"EXT"),name,quantity,source,at:NOW};
+ (t.externalParts??=[]).push(entry);
+ note(d,t,quantity+" × "+name+" recorded · "+source+" (no workshop stock or charge)");
+ return entry;
 }
 function addToCart(d,key,itemId,count,discount=0){
  const t=ticket(d,key);edit(t);
@@ -218,9 +229,8 @@ function completeService(d,key,serviceId){
 }
 function finishRepair(d,key){
  const t=ticket(d,key);
- if(!["in-repair","invoiced"].includes(t.status)||t.repairCompleted||t.approval?.decision!=="Approved")
+ if(!["awaiting-parts","in-repair","invoiced"].includes(t.status)||t.repairCompleted||t.approval?.decision!=="Approved")
   throw Error("Approved repair must be in progress before completion.");
- if(missingRequirements(t).length)throw Error("Fulfil parts requirements before completing repair.");
  if(t.cart.length)throw Error("Confirm or remove pending cart items.");
  if(t.services.some(s=>!s.done))throw Error("Mark all services complete first.");
  t.repairCompleted=true;
@@ -229,11 +239,11 @@ function finishRepair(d,key){
 }
 function invoiceTicket(d,key){
  const t=ticket(d,key);edit(t);
- if(!["in-repair","ready-for-billing","rejected","cannot-repair"].includes(t.status))throw Error("Ticket is not ready for billing.");
+ if(!["awaiting-parts","in-repair","ready-for-billing","rejected","cannot-repair"].includes(t.status))throw Error("Ticket is not ready for billing.");
  if(t.cart.length)throw Error("Clear pending cart first.");
- const repair=["in-repair","ready-for-billing"].includes(t.status);
- if(repair&&(!t.approval||t.approval.decision!=="Approved"||missingRequirements(t).length))
-  throw Error("Approve repair and fulfil required parts before invoicing.");
+ const repair=["awaiting-parts","in-repair","ready-for-billing"].includes(t.status);
+ if(repair&&(!t.approval||t.approval.decision!=="Approved"))
+  throw Error("Customer approval required before invoicing.");
  if(!repair&&t.issues.length)throw Error("Rejected repairs cannot include inventory issues.");
  const services=repair?t.services:feeLines(t);
  const lineItems=services.map(s=>({id:s.id,description:s.description,quantity:s.quantity,unitPrice:s.unitPrice,discount:s.discount}));
@@ -288,6 +298,6 @@ function metrics(d){
 }
 return {NOW,STATES,seed,valid,status,ticket,stock,vehicle,customer,vehicleFor,customerFor,issuedQty,missingRequirements,
  charges,createCustomer,createVehicle,createAppointment,createTicket,activeAppointment,diagnose,addService,addRequirement,requireInventory,
- requestApproval,approve,reject,receiveCustomerPart,addToCart,removeCart,issueCart,returnIssue,
+ requestApproval,approve,reject,receiveCustomerPart,recordOutsidePart,addToCart,removeCart,issueCart,returnIssue,
  completeService,finishRepair,invoiceTicket,payment,release,addInventory,stockIn,metrics};
 })();
