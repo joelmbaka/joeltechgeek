@@ -1,7 +1,7 @@
 export type Role = 'client' | 'manager';
 export type Attendance = 'scheduled' | 'unconfirmed' | 'reported' | 'confirmed' | 'absent' | 'completed';
 export type IssueStatus = 'open' | 'acknowledged' | 'responding' | 'resolved';
-export type ReportPeriod = 'daily' | 'weekly' | 'monthly';
+export type ReportPeriod = 'weekly' | 'monthly';
 export type AssetKind = 'image' | 'document';
 export type Staff = { id: string; name: string; phone: string; workContact?: string; active: boolean };
 export type Site = { id: string; name: string; area: string; client: string; contact: string };
@@ -23,17 +23,17 @@ export type Activity = {
 };
 export type Report = {
   id: string; siteId: string; period: ReportPeriod; periodFrom: string;
-  periodTo: string; publishedAt: string; title: string; summary: string; assets?: Asset[];
+  periodTo: string; publishedAt: string; title: string; summary: string; preparedBy: string; assets?: Asset[];
 };
 export type State = {
-  version: 3; anchorDate: string; sites: Site[]; staff: Staff[];
+  version: 4; anchorDate: string; sites: Site[]; staff: Staff[];
   shifts: Shift[]; issues: Issue[]; activity: Activity[]; reports: Report[];
 };
 export type TimelineItem = {
   id: string; at: string; kind: 'shift' | 'event'; title: string;
   detail: string; assets: Asset[]; shift?: Shift; issueId?: string;
 };
-export const STORAGE_KEY = 'jtg-security-client-service-v3';
+export const STORAGE_KEY = 'jtg-security-client-service-v4';
 
 export function kenyaToday(now: Date = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -98,9 +98,10 @@ export function seedDemo(day: string = kenyaToday()): State {
   const img: Asset = { id: 'photo-gate', kind: 'image', name: 'Gate inspection · sample photo', sample: true };
   const doc: Asset = { id: 'document-repair', kind: 'document', name: 'Repair confirmation · sample PDF', sample: true };
   return {
-    version: 3, anchorDate: day,
+    version: 4, anchorDate: day,
     sites: [
       { id: 'greenview', name: 'Greenview Apartments', area: 'Kilimani, Nairobi', client: 'Alex Kamau', contact: '07XX XXX 900' },
+      { id: 'riverside', name: 'Riverside Annex', area: 'Westlands, Nairobi', client: 'Alex Kamau', contact: '07XX XXX 900' },
       { id: 'karen', name: 'Karen Residence', area: 'Karen, Nairobi', client: 'Njeri Wambui', contact: '07XX XXX 900' },
       { id: 'westlands', name: 'Westlands Plaza', area: 'Westlands, Nairobi', client: 'Samira Hassan', contact: '07XX XXX 900' },
     ],
@@ -152,18 +153,39 @@ export function seedDemo(day: string = kenyaToday()): State {
         detail: 'External security lighting issue.', type: 'issue', clientVisible: true, assets: [doc], issueId: 'issue-light' },
     ],
     reports: [
-      { id: 'rep-day', siteId: 'greenview', period: 'daily', periodFrom: day, periodTo: day,
-        publishedAt: iso(day, '08:30'), title: 'Daily security service report',
-        summary: 'Night shift completed, daytime coverage confirmed, morning handover recorded.' },
-      { id: 'rep-yest', siteId: 'greenview', period: 'daily', periodFrom: previous, periodTo: previous,
-        publishedAt: iso(previous, '20:00'), title: 'Daily site report',
-        summary: 'Day-shift attendance and site observations recorded.' },
-      { id: 'rep-week', siteId: 'greenview', period: 'weekly', periodFrom: weekAgo, periodTo: previous,
-        publishedAt: iso(previous, '18:30'), title: 'Weekly service review',
-        summary: 'Summary of shift coverage, site visits, and reported concerns.' },
-      { id: 'rep-month', siteId: 'greenview', period: 'monthly', periodFrom: monthAgo, periodTo: previous,
-        publishedAt: iso(previous, '10:00'), title: 'Monthly service summary',
-        summary: 'Review of staffing, coverage exceptions, reports and issue resolutions.' },
+      {
+        id: 'rep-greenview-week', siteId: 'greenview', period: 'weekly',
+        periodFrom: weekAgo, periodTo: previous, publishedAt: iso(previous, '18:30'),
+        title: 'Weekly security service review',
+        preparedBy: 'Grace Wanjiku · Security Supervisor',
+        summary: '1. COVERAGE & ATTENDANCE\nThe assigned officers covered the day and overnight rotations at Greenview Apartments. Shift handovers and supervisor attendance checks were recorded in the daily roster.\n\n2. SITE OBSERVATIONS\nThe main entrance and visitor access procedures were reviewed. A concern regarding the rear access gate was referred for caretaker attention.\n\n3. ACTIONS & FOLLOW-UP\nThe supervisor will confirm that the rear gate closes securely during the next inspection. The site activity timeline contains the individual duty records and observations.',
+        assets: [img],
+      },
+      {
+        id: 'rep-greenview-month', siteId: 'greenview', period: 'monthly',
+        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(addDays(previous, -1), '15:15'),
+        title: 'Monthly property security review',
+        preparedBy: 'Grace Wanjiku · Security Supervisor',
+        summary: '1. SERVICE OVERVIEW\nCoverage was organized around day and overnight duty assignments, with attendance and handovers documented for review.\n\n2. PROPERTY SAFETY\nExternal security lighting and the rear-gate access point were reviewed. A previously reported lighting concern was resolved, while follow-up inspections continue for the access point.\n\n3. RECOMMENDATIONS\nContinue regular site inspections, document unusual visitor activity, and review property maintenance concerns with the caretaker.',
+        assets: [doc],
+      },
+      {
+        id: 'rep-riverside-week', siteId: 'riverside', period: 'weekly',
+        periodFrom: weekAgo, periodTo: previous, publishedAt: iso(previous, '16:20'),
+        title: 'Weekly entrance and perimeter review',
+        preparedBy: 'Beatrice Otieno · Site Supervisor',
+        summary: '1. STAFFING\nThe assigned entrance and evening coverage plan was reviewed for Riverside Annex. No emergency attendance exception was escalated in this fictional reporting period.\n\n2. OBSERVATIONS\nThe pedestrian entrance, visitor register and shared parking access were checked during the supervisory visit.\n\n3. FOLLOW-UP\nContinue verifying visitor sign-ins and inspecting the parking access gate during handover.',
+        assets: [{ id: 'riverside-photo', kind: 'image', name: 'Riverside entrance inspection · sample photo', sample: true }],
+      },
+      {
+        id: 'rep-riverside-month', siteId: 'riverside', period: 'monthly',
+        periodFrom: monthAgo, periodTo: previous, publishedAt: iso(addDays(previous,-3), '12:10'),
+        title: 'Monthly Riverside site performance report',
+        preparedBy: 'Grace Wanjiku · Security Supervisor',
+        summary: '1. COVERAGE SUMMARY\nRiverside Annex followed its scheduled coverage plan with an emphasis on residential access and visitor registration.\n\n2. SUPERVISION\nA periodic review of the main gate, perimeter lighting and shared parking areas was documented.\n\n3. RECOMMENDATIONS\nMaintain the visitor log, record unusual deliveries and continue monthly supervision reviews. Any individual events can be found in the daily activity roster.',
+        assets: [doc],
+      },
+
     ],
   };
 }
@@ -248,7 +270,7 @@ export function fillRollingWindow(state: State, today: string = kenyaToday()): S
 export function valid(data: unknown): data is State {
   if (!data || typeof data !== 'object') return false;
   const d = data as Partial<State>;
-  return d.version === 3 && typeof d.anchorDate === 'string' &&
+  return d.version === 4 && typeof d.anchorDate === 'string' &&
     Array.isArray(d.sites) && Array.isArray(d.staff) && Array.isArray(d.shifts) &&
     Array.isArray(d.issues) && Array.isArray(d.activity) && Array.isArray(d.reports);
 }
@@ -415,7 +437,7 @@ export function logVisit(state: State, siteId: string, note: string, attachSampl
 /** Save a report for one client property, an explicit inclusive date range and optional evidence. */
 export function publishReport(
   state: State, siteId: string, period: ReportPeriod, from: string, to: string,
-  summary: string, assets: Asset[] = [],
+  summary: string, assets: Asset[] = [], preparedBy = 'Grace Wanjiku · Security Supervisor',
 ): State {
   if (!state.sites.some(s => s.id === siteId)) throw new Error('Choose a valid site.');
   const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) &&
@@ -423,6 +445,8 @@ export function publishReport(
   if (!isDate(from) || !isDate(to) || from > to) throw new Error('Choose a valid From and To date range.');
   if (to > kenyaToday()) throw new Error('A published report cannot cover future dates.');
   if (summary.trim().length < 10) throw new Error('Enter a meaningful report summary.');
+  if (preparedBy.trim().length < 3) throw new Error('Enter who prepared the report.');
+  if (period !== 'weekly' && period !== 'monthly') throw new Error('Choose weekly or monthly reporting.');
   if (assets.length > 3) throw new Error('Attach no more than three evidence files.');
   const allowed = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
   if (assets.some(a => a.dataUrl && (!a.mimeType || !allowed.includes(a.mimeType) ||
@@ -431,7 +455,7 @@ export function publishReport(
   const title = period[0].toUpperCase() + period.slice(1) + ' security service report';
   const report: Report = {
     id: newId('report'), siteId, period, periodFrom: from, periodTo: to,
-    publishedAt: nowIso(), title, summary: summary.trim().slice(0, 1200), assets,
+    publishedAt: nowIso(), title, summary: summary.trim().slice(0, 4000), preparedBy: preparedBy.trim().slice(0, 120), assets,
   };
   return {
     ...state, reports: [report, ...state.reports],
