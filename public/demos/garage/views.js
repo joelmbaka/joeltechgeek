@@ -103,10 +103,10 @@ return function(d,ui,c){
   if(tab==="cart"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released"].includes(t.status)){
    return {title:"Customer approval required",reason:"Finish the diagnosis, prepare the service and parts estimate, and record the customer's approval before handling inventory.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
   }
-  if(tab==="billing"&&!["ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status)){
+  if(tab==="billing"&&!["in-repair","ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status)){
    if(t.status==="open"||t.status==="estimating"||t.status==="awaiting-approval")
     return {title:"Finish diagnosis and approval first",reason:"Complete the estimate and record the customer's decision before billing can begin.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
-   return {title:"Finish the repair first",reason:"Issue or receive the required parts, complete services and mark the repair finished before creating an invoice.",cta:"Go to Parts Cart",target:"cart"};
+   return {title:"Parts required before billing",reason:"Issue or receive the remaining parts before invoicing or completing the repair.",cta:"Go to Parts Cart",target:"cart"};
   }
   return null;
  }
