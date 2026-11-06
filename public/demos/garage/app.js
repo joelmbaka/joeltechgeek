@@ -121,9 +121,15 @@ document.addEventListener("click",event=>{
    return c.createTicket(w,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
   },"Ticket created from appointment.",res=>openState(res.id));return;
  }
- if(action==="request-approval")return void change(w=>c.requestApproval(w,id),"Estimate submitted for customer approval.");
- if(action==="approve")return void change(w=>c.approve(w,id),"Customer approval recorded.");
- if(action==="finish-repair")return void change(w=>c.finishRepair(w,id),"Repair completed · ready for billing.");
+ if(action==="approve"){
+  if(!window.confirm?.("Confirm that the customer approved the proposed services and parts estimate?"))return;
+  return void change(w=>c.approve(w,id),"Customer approval recorded.");
+ }
+ if(action==="reject"){
+  if(!window.confirm?.("Confirm that the customer rejected the proposed repairs? Only agreed diagnosis fees may still apply."))return;
+  return void change(w=>c.reject(w,id),"Customer rejection recorded.");
+ }
+ if(action==="finish-repair")return void change(w=>c.finishRepair(w,id),"Repair completed.");
  if(action==="invoice")return void change(w=>c.invoiceTicket(w,id),"Ticket invoice posted.");
  if(action==="release")return void change(w=>c.release(w,id),"Vehicle released.");
  if(action==="issue-cart")return void change(w=>c.issueCart(w,id),"Inventory issue confirmed. Stock quantities updated.");
