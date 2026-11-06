@@ -173,7 +173,7 @@ test('parts cart contains only independent pending, issued and externally source
  assert.ok(!html.includes('Select from parts requirements'));
  assert.ok(!html.includes('Parts still required before billing'));
  assert.ok(html.includes('Add from inventory'));
- assert.ok(html.includes('Record outside part'));
+ assert.ok(!html.includes('＋ Record outside part'));
  assert.ok(html.includes('Parts obtained outside the garage'));
 });
 test('billing can be visited before repair completion and hosts its only complete-repair action', () => {
