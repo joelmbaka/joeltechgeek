@@ -558,6 +558,28 @@ test('persisted fictional data validates and reset returns fresh state', () => {
   assert.equal(reset.tickets.length,8);
   assert.notEqual(reset.tickets.length,d.tickets.length);
 });
+test('garage panel gutters inset overview rows and payment actions consistently', () => {
+ const css=fs.readFileSync(path.join(demoDir,'styles.css'),'utf8');
+ for(const selector of ['.panel>.pair{','.panel>.success-line{','.panel>.payment-status{',
+  '.panel>.report-actions{','.panel>.payment-secondary{','.panel>.note{',
+  '.panel>.paragraph{','.panel>.empty{','.panel-head{']) {
+  assert.ok(css.includes(selector), 'Missing spacing rule '+selector);
+ }
+ assert.ok(css.includes('margin-inline:var(--panel-gutter)'));
+ assert.ok(css.includes('width:auto;'));
+ assert.ok(css.includes('@media(max-width:570px)'));
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\\n;garageViews',{});
+ const d=c.seed();
+ const ui={page:'tickets',ticketId:'T-1041',tab:'overview',search:'',filter:'all',modal:null,document:null};
+ const overview=makeViews(d,ui,c).main();
+ assert.ok(overview.includes('class="pair"'));
+ assert.ok(overview.includes('Ticket financials'));
+ const paid=d.tickets.find(t=>t.invoice);
+ const billing=makeViews(d,{...ui,ticketId:paid.id,tab:'billing'},c).main();
+ assert.ok(billing.includes('class="report-actions"'));
+ assert.ok(billing.includes('class="success-line"'));
+});
+
 test('demo HTML loads existing assets and never embeds a live payment gateway', () => {
   const html=fs.readFileSync(path.join(demoDir,'demo.html'),'utf8');
   for(const asset of ['styles.css','core.js','views.js','app.js'])assert.ok(html.includes('/demos/garage/'+asset));
