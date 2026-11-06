@@ -106,7 +106,13 @@ return function(d,ui,c){
   if(tab==="billing"&&!["in-repair","ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status)){
    if(t.status==="open"||t.status==="estimating"||t.status==="awaiting-approval")
     return {title:"Finish diagnosis and approval first",reason:"Complete the estimate and record the customer's decision before billing can begin.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
-   return {title:"Parts required before billing",reason:"Issue or receive the remaining parts before invoicing or completing the repair.",cta:"Go to Parts Cart",target:"cart"};
+   const missing=c.missingRequirements(t);
+   const pending=t.cart.length;
+   return {title:"Required parts not yet fulfilled",reason:
+    (missing.length?"Still required: "+missing.map(r=>r.missing+" × "+r.description).join(", ")+". ":"")+
+    (pending?"You also have "+pending+" unissued cart item"+(pending===1?"":"s")+". ":"")+
+    "Adding parts to the cart is not the same as issuing them. Confirm the inventory issue, or mark customer-supplied parts received, to fulfil these requirements.",
+    cta:"Go to Parts Cart",target:"cart"};
   }
   return null;
  }
@@ -173,6 +179,24 @@ return function(d,ui,c){
  }
  function cart(){
   const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
+  const missing=c.missingRequirements(t);
+  const pendingByItem=new Map();
+  for(const row of t.cart)pendingByItem.set(row.itemId,(pendingByItem.get(row.itemId)||0)+row.quantity);
+  const outstanding=missing.map(r=>{
+   const inventory=r.itemId?inv(r.itemId):null;
+   const queued=inventory?Math.min(pendingByItem.get(r.itemId)||0,r.missing):0;
+   if(inventory)pendingByItem.set(r.itemId,Math.max(0,(pendingByItem.get(r.itemId)||0)-queued));
+   const need=Math.max(0,r.missing-queued);
+   const detail=queued?queued+" in cart, not issued":inventory&&inventory.quantity>0?"Not in cart or issued":
+    inventory?"Currently out of stock":"Customer to provide";
+   const action=!allowed?"":inventory&&need>0&&inventory.quantity>0?
+    btn("Add required part","modal","cart","outline compact",'data-item-id="'+e(inventory.id)+'" data-quantity="'+e(Math.min(need,inventory.quantity))+'"'):
+    !inventory||inventory.quantity===0?btn("Mark received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"'):"";
+   return '<div class="outstanding-row"><div><b>'+e(r.missing)+" × "+e(r.description)+'</b><small>'+e(detail)+'</small></div>'+action+'</div>';
+  }).join("");
+  const outstandingNotice=missing.length?'<section class="outstanding-notice"><h3>Parts still required before billing</h3>'+
+   '<p>Only confirmed stock issues or customer-provided parts marked received count toward these requirements.</p>'+
+   outstanding+'</section>':'<div class="parts-ready">All listed parts requirements have been fulfilled.</div>';
   const customerParts=t.requirements.map(r=>{
    const pending=Math.max(0,r.quantity-r.customerProvided-(r.itemId?c.issuedQty(t,r.itemId):0));
    if(!pending)return "";
@@ -192,12 +216,12 @@ return function(d,ui,c){
     kes((row.quantity-returned)*(row.unitPrice-row.discount)),returnAllowed?
     btn("Return unused","modal","return","outline compact",'data-issue-id="'+e(row.id)+'"'):"—"]);
   }).join("");
-  return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Add from requirements, or directly from available inventory.</p></div>'+
+  return outstandingNotice+'<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Add parts to cart, then confirm issue to deduct inventory and fulfil requirements.</p></div>'+
    (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
    panel("Pending cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
     '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
      (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
-    empty("No cart items","Check available requirements or select any inventory item, even one not on the list."))+
+    empty("No cart items awaiting issue","Add a required part above, or choose any available inventory item. Confirm the issue to record it against the ticket."))+
    (customerParts?panel("Customer-provided parts",table(["Part","Still required",""],customerParts)):"")+
    panel("Confirmed inventory issues",issued?table(["Part","Net / issued quantity","Net unit price","Net total",""],issued):
     empty("No inventory issued","Only confirmed issues count as inventory consumption."))+
