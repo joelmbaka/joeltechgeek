@@ -219,6 +219,27 @@ test('client reports are sorted by publication and preserve reporting periods', 
   assert.equal(m.siteReports(next,'greenview').length,m.siteReports(data,'greenview').length);
 });
 
+test('client reports are site-first, newest-first and isolated from other clients', () => {
+  const today=m.kenyaToday();
+  const original=m.seedDemo(today);
+  const withSecondProperty=m.addSite(original,'Riverside Annex','Westlands, Nairobi','Alex Kamau','07XX XXX 900');
+  const annex=withSecondProperty.sites.find(s=>s.name==='Riverside Annex');
+  assert.ok(annex);
+  const withNewReport=m.publishReport(withSecondProperty,annex.id,'daily',today,today,
+    'An inspection of the new property found all entrances secure.');
+  const groups=m.clientSiteReports(withNewReport,'greenview');
+  assert.equal(groups.length,2);
+  assert.equal(groups[0].site.id,'greenview');
+  assert.deepEqual(groups.map(g=>g.site.client),['Alex Kamau','Alex Kamau']);
+  assert.ok(groups.some(g=>g.site.id===annex.id && g.reports.length===1));
+  assert.ok(groups.every(g=>g.reports.every(r=>r.siteId===g.site.id)));
+  assert.ok(groups.every(g=>g.reports.every((r,i,rs)=>i===0||Date.parse(rs[i-1].publishedAt)>=Date.parse(r.publishedAt))));
+  assert.equal(groups.some(g=>g.site.id==='karen'),false);
+  const karenView=m.clientSiteReports(withNewReport,'karen');
+  assert.deepEqual(karenView.map(g=>g.site.id),['karen']);
+  assert.deepEqual(m.clientSiteReports(withNewReport,'unknown'),[]);
+});
+
 test('client sees an approved duty contact separate from the staff directory number', () => {
   const d = m.seedDemo('2026-11-05');
   const officer = d.staff.find(s=>s.id==='kevin');
@@ -264,6 +285,9 @@ test('mobile interface has two role options, client roster default, and consiste
   assert.match(ui,/type="file"/);
   assert.match(ui,/reportFrom,reportTo,reportText,reportEvidence/);
   assert.match(ui,/rep\.assets\|\|\[\]/);
+  assert.match(ui,/clientSiteReports\(data,siteId\)/);
+  assert.match(ui,/clientReportGroups\.map/);
+  assert.match(ui,/reportList\(siteReportList, false\)/);
   assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
   assert.match(ui,/type="date"/);
   const details=read('app/demos/security/SecurityRosterDetail.tsx');
