@@ -103,17 +103,8 @@ return function(d,ui,c){
   if(tab==="cart"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released"].includes(t.status)){
    return {title:"Customer approval required",reason:"Finish the diagnosis, prepare the service and parts estimate, and record the customer's approval before handling inventory.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
   }
-  if(tab==="billing"&&!["in-repair","ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status)){
-   if(t.status==="open"||t.status==="estimating"||t.status==="awaiting-approval")
-    return {title:"Finish diagnosis and approval first",reason:"Complete the estimate and record the customer's decision before billing can begin.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
-   const missing=c.missingRequirements(t);
-   const pending=t.cart.length;
-   return {title:"Required parts not yet fulfilled",reason:
-    (missing.length?"Still required: "+missing.map(r=>r.missing+" × "+r.description).join(", ")+". ":"")+
-    (pending?"You also have "+pending+" unissued cart item"+(pending===1?"":"s")+". ":"")+
-    "Adding parts to the cart is not the same as issuing them. Confirm the inventory issue, or mark customer-supplied parts received, to fulfil these requirements.",
-    cta:"Go to Parts Cart",target:"cart"};
-  }
+  if(tab==="billing"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status))
+   return {title:"Customer decision required",reason:"Record customer approval or rejection on Diagnosis & Estimate before accessing billing.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
   return null;
  }
  function lockedStage(lock){
@@ -150,61 +141,33 @@ return function(d,ui,c){
    ["cannot-repair"].includes(t.status)?'Repair unavailable; record the agreed diagnosis fee, if any, and proceed to billing or release.':
    'Approval and repair history remain attached to this ticket.';
   const canDecide=["estimating","awaiting-approval"].includes(t.status)&&
-   t.diagnosis?.feasible&&(t.services.some(s=>s.kind==="repair")||t.requirements.length);
+   t.diagnosis?.feasible&&t.services.some(s=>s.kind==="repair");
   const controls=canDecide?btn("Customer approved","approve",t.id,"primary")+
    btn("Customer rejected","reject",t.id,"outline"):
    ["open","estimating","awaiting-approval"].includes(t.status)?
-   '<button type="button" class="btn primary" disabled title="Record feasible diagnosis and add parts or a repair service">Customer approved</button>'+
-   '<button type="button" class="btn outline" disabled title="Record feasible diagnosis and add parts or a repair service">Customer rejected</button>':"";
+   '<button type="button" class="btn primary" disabled title="Record a feasible diagnosis and a repair service">Customer approved</button>'+
+   '<button type="button" class="btn outline" disabled title="Record a feasible diagnosis and a repair service">Customer rejected</button>':"";
   return '<div class="workflow-heading"><h2>Diagnosis & Estimate</h2><p>Inspection, service fees, parts requirements and customer decision in one place.</p></div>'+
    first+estimate+panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>');
  }
  function requirements(){
   const editable=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing"].includes(t.status)&&!t.invoice;
   const rows=t.requirements.map(r=>{
-   const i=r.itemId?inv(r.itemId):null,issued=i?c.issuedQty(t,i.id):0;
-   const missing=Math.max(0,r.quantity-r.customerProvided-issued);
+   const i=r.itemId?inv(r.itemId):null;
    return tablerow(['<b>'+e(r.description)+'</b><small>'+e(r.id)+'</small>',e(r.quantity),
-    tag(i?(i.quantity>0?i.quantity+" in stock":"Out of stock"):"Customer to source"),
-    i?kes(i.sellPrice-r.discount):"—",
-    '<b>'+e(missing)+'</b><small>'+e(r.customerProvided)+" provided · "+e(issued)+" issued</small>"]);
+    tag(i?(i.quantity>0?i.quantity+" in stock":"Out of stock"):"Not in catalogue"),
+    i?kes(i.sellPrice-r.discount):"—"]);
   }).join("");
-  return '<div class="sub-head"><div><h2>3 · Parts Requirements & Price List</h2><p>What is needed, what the garage can offer and what the customer may provide.</p></div>'+
+  return '<div class="sub-head"><div><h2>3 · Parts Requirements & Price List</h2><p>Informational recommendations and optional price offers. This list does not control the cart or billing.</p></div>'+
    '<div class="head-actions">'+(editable?btn("＋ Add part","modal","requirement","outline"):t.status==="open"?'<button type="button" class="btn outline" disabled title="Record inspection findings first">＋ Add part</button>':"")+
    (t.requirements.length?btn("View / share list","show-document","requirements","primary"):"")+'</div></div>'+
-   panel("Required parts · "+t.requirements.length,t.requirements.length?
-    table(["Part","Needed","Availability","Our unit offer","Outstanding"],rows):
-    empty("No parts requirements","Add catalogue parts or enter a custom part not in inventory."))+
-   '<p class="footnote">This is an informational list, not an inventory issue or an invoice.</p>';
+   panel("Suggested parts · "+t.requirements.length,t.requirements.length?
+    table(["Part","Suggested qty","Catalogue availability","Optional unit offer"],rows):
+    empty("No suggestions","You can suggest parts here, including items not in the catalogue."))+
+   '<p class="footnote">Only confirmed cart issues affect workshop stock and charges. Parts bought outside are recorded separately in Parts Cart.</p>';
  }
  function cart(){
   const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
-  const missing=c.missingRequirements(t);
-  const pendingByItem=new Map();
-  for(const row of t.cart)pendingByItem.set(row.itemId,(pendingByItem.get(row.itemId)||0)+row.quantity);
-  const outstanding=missing.map(r=>{
-   const inventory=r.itemId?inv(r.itemId):null;
-   const queued=inventory?Math.min(pendingByItem.get(r.itemId)||0,r.missing):0;
-   if(inventory)pendingByItem.set(r.itemId,Math.max(0,(pendingByItem.get(r.itemId)||0)-queued));
-   const need=Math.max(0,r.missing-queued);
-   const detail=queued?queued+" in cart, not issued":inventory&&inventory.quantity>0?"Not in cart or issued":
-    inventory?"Currently out of stock":"Customer to provide";
-   const action=!allowed?"":inventory&&need>0&&inventory.quantity>0?
-    btn("Add required part","modal","cart","outline compact",'data-item-id="'+e(inventory.id)+'" data-quantity="'+e(Math.min(need,inventory.quantity))+'"'):
-    !inventory||inventory.quantity===0?btn("Mark received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"'):"";
-   return '<div class="outstanding-row"><div><b>'+e(r.missing)+" × "+e(r.description)+'</b><small>'+e(detail)+'</small></div>'+action+'</div>';
-  }).join("");
-  const outstandingNotice=missing.length?'<section class="outstanding-notice"><h3>Parts still required before billing</h3>'+
-   '<p>Only confirmed stock issues or customer-provided parts marked received count toward these requirements.</p>'+
-   outstanding+'</section>':'<div class="parts-ready">All listed parts requirements have been fulfilled.</div>';
-  const customerParts=t.requirements.map(r=>{
-   const pending=Math.max(0,r.quantity-r.customerProvided-(r.itemId?c.issuedQty(t,r.itemId):0));
-   if(!pending)return "";
-   const inventory=r.itemId?inv(r.itemId):null;
-   if(inventory&&inventory.quantity>0)return "";
-   return tablerow(['<b>'+e(r.description)+'</b>',e(pending),
-    allowed?btn("Mark received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"'):"—"]);
-  }).filter(Boolean).join("");
   const pending=t.cart.map(row=>{
    const i=inv(row.itemId);
    return tablerow([e(i.name),e(row.quantity),kes(row.unitPrice),kes(row.discount),
@@ -216,18 +179,21 @@ return function(d,ui,c){
     kes((row.quantity-returned)*(row.unitPrice-row.discount)),returnAllowed?
     btn("Return unused","modal","return","outline compact",'data-issue-id="'+e(row.id)+'"'):"—"]);
   }).join("");
-  return outstandingNotice+'<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Add parts to cart, then confirm issue to deduct inventory and fulfil requirements.</p></div>'+
-   (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
-   panel("Pending cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
+  const external=(t.externalParts||[]).map(x=>tablerow([e(x.name),e(x.quantity),e(x.source),e(x.at)])).join("");
+  return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Actual stock issues and externally obtained parts. Independent of suggested parts requirements.</p></div>'+
+   (allowed?'<div class="head-actions">'+btn("＋ Add from inventory","modal","cart","primary")+
+    btn("＋ Record outside part","modal","outside-part","outline")+'</div>':"")+'</div>'+
+   panel("Pending inventory cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
     '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
      (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
-    empty("No cart items awaiting issue","Add a required part above, or choose any available inventory item. Confirm the issue to record it against the ticket."))+
-   (customerParts?panel("Customer-provided parts",table(["Part","Still required",""],customerParts)):"")+
+    empty("No parts pending issue","Add any stocked item, whether or not it appears in the estimate."))+
    panel("Confirmed inventory issues",issued?table(["Part","Net / issued quantity","Net unit price","Net total",""],issued):
-    empty("No inventory issued","Only confirmed issues count as inventory consumption."))+
-   '<p class="footnote">Add to cart has no stock effect. Confirm Issue deducts inventory. Returns restore quantity and reverse charges before invoicing.</p>';
+    empty("No inventory issued","Only confirmed issues deduct stock and contribute parts charges."))+
+   panel("Parts obtained outside the garage",external?
+    table(["Part","Qty","Source","Recorded"],external):
+    empty("No outside parts recorded","Record parts already obtained outside the garage, without affecting workshop inventory or billing."))+
+   '<p class="footnote">Pending cart items are not issued yet. Outside parts are informational actual receipts, not garage stock or charges.</p>';
  }
- 
  function services(){
   const canAdd=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing","cannot-repair"].includes(t.status)&&!t.invoice;
   const canComplete=["awaiting-parts","in-repair","invoiced"].includes(t.status)&&!t.repairCompleted;
@@ -249,15 +215,14 @@ return function(d,ui,c){
   }).filter(i=>i.netQty>0);
   const isRepair=!!t.diagnosis?.feasible&&t.approval?.decision==="Approved";
   const complete=!!t.repairCompleted||t.status==="ready-for-billing"||t.status==="released";
-  const hasPartsOutstanding=c.missingRequirements(t).length>0;
-  const canComplete=["in-repair","invoiced"].includes(t.status)&&isRepair&&!complete;
+
+  const canComplete=["awaiting-parts","in-repair","invoiced"].includes(t.status)&&isRepair&&!complete;
   const canInvoice=!t.invoice&&(["ready-for-billing","rejected","cannot-repair"].includes(t.status)||
-   (t.status==="in-repair"&&isRepair&&!hasPartsOutstanding&&!t.cart.length));
+   (["awaiting-parts","in-repair"].includes(t.status)&&isRepair&&!t.cart.length));
   const canRelease=(t.status==="invoiced"&&a.outstanding<=0&&(!isRepair||complete))||
    (["rejected","cannot-repair"].includes(t.status)&&a.total===0);
-  const canCompleteNow=canComplete&&!hasPartsOutstanding&&!t.cart.length&&t.services.every(x=>x.done);
+  const canCompleteNow=canComplete&&!t.cart.length&&t.services.every(x=>x.done);
   const work=isRepair?panel("Repair completion",'<p class="hint">'+(complete?"Repair marked completed.":
-   hasPartsOutstanding?"Fulfil the parts requirements before completing repairs.":
    t.cart.length?"Confirm or remove pending cart items before completion.":
    t.services.some(x=>!x.done)?"Mark all services complete in Diagnosis & Estimate before completing the repair.":
    "All work can be marked complete. You may create the invoice before or after repair completion.")+'</p>'+
@@ -274,7 +239,7 @@ return function(d,ui,c){
       '<div class="head-actions spaced">'+btn("Service invoice","show-document","services","outline")+
        btn("Payment receipt","show-document","payment","outline")+'</div>':
      '<p class="hint">'+(canInvoice?"Invoice may be posted now. Parts must already be issued; approved service fees will be included even if the work is not yet marked complete.":
-      "Complete the diagnosis decision and fulfil required parts before posting the invoice.")+'</p>'+
+      "Record a customer decision and confirm or remove pending cart items before invoicing.")+'</p>'+
       (canInvoice?btn("Create invoice","invoice",t.id,"primary"):"")
     )+'</div>'+
    panel("Parts receipt · confirmed issues only",parts.length?
@@ -354,6 +319,12 @@ return function(d,ui,c){
     '<div id="requirement-discount">'+priceField("Discount per unit (KES)","discount",0)+'</div></div>'+
     '<p id="requirement-source-note" class="hint">Catalogue items can be offered from inventory or sourced by the customer. Items not in the catalogue remain informational and do not create inventory stock.</p>'+
     '<p class="hint">This list only informs the customer. Nothing is reserved or deducted.</p>';
+  }else if(kind==="outside-part"){
+   title="Record outside part";submit="Record part received";
+   body=field("Part name","name","","placeholder='e.g. Rear bumper' maxlength='140'")+
+    '<div class="form-grid">'+numberField("Quantity received","quantity",1)+
+    select("Source","source",[["customer","Customer supplied"],["external","Purchased outside"]],"customer")+'</div>'+
+    '<p class="hint">Records an actual outside part. No stock, garage parts charge or matching suggestion is required.</p>';
   }else if(kind==="cart"){
    title="Add part to ticket cart";submit="Add to cart";
    const itemId=m.itemId||d.inventory.find(i=>i.quantity>0)?.id;
