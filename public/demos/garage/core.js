@@ -18,7 +18,7 @@ const request=(key,desc,quantity,itemId=null)=>({id:key,description:desc,quantit
 const blank=(key,vehicleId,complaint,status="open")=>({id:key,vehicleId,complaint,status,openedAt:NOW,diagnosis:null,services:[],requirements:[],cart:[],issues:[],returns:[],approval:null,invoice:null,payments:[],release:null,appointmentId:null});
 function seed(){
  const customers=[["CU-1","James Mwangi"],["CU-2","Susan Wanjiku"],["CU-3","Peter Otieno"],["CU-4","Mercy Chebet"],["CU-5","David Kamau"]].map(([id,name],i)=>({id,name,phone:"0700 111 00"+(i+1)}));
- const names=[["VH-1","CU-1","KDM 123A","Toyota Axio",2016,123400],["VH-2","CU-2","KDN 456B","Subaru Forester",2017,95800],["VH-3","CU-3","KDP 789C","Toyota Probox",2015,174000],["VH-4","CU-4","KDR 321D","Isuzu D-Max",2019,89000],["VH-5","CU-5","KDS 654E","Mazda Demio",2014,143200],["VH-6","CU-1","KDT 987F","Toyota Prado",2018,110400],["VH-7","CU-2","KDU 246G","Nissan Note",2016,114300],["VH-8","CU-3","KDV 135H","Toyota Vitz",2015,138800]];
+ const names=[["VH-1","CU-1","KDM 123A","Toyota Axio",2016,123400],["VH-2","CU-2","KDN 456B","Subaru Forester",2017,95800],["VH-3","CU-3","KDP 789C","Toyota Probox",2015,174000],["VH-4","CU-4","KDR 321D","Isuzu D-Max",2019,89000],["VH-5","CU-5","KDS 654E","Mazda Demio",2014,143200],["VH-6","CU-1","KDT 987F","Toyota Prado",2018,110400],["VH-7","CU-2","KDU 246G","Nissan Note",2016,114300],["VH-8","CU-3","KDV 135H","Toyota Vitz",2015,138800],["VH-9","CU-4","KDW 732J","Toyota Fielder",2018,80200]];
  const vehicles=names.map(([id,customerId,plate,name,year,mileage])=>({id,customerId,plate,name,year,mileage}));
  const inventory=[["SKU-1","Brake fluid 1L",5,520,850],["SKU-2","Oil filter · Toyota",8,700,1200],["SKU-3","Engine oil 1L",17,520,800],["SKU-4","Air filter",6,610,990],["SKU-5","Wiper blades",4,450,750],["SKU-6","Car air freshener",12,180,350],["SKU-7","Brake pads · Front",0,1900,2900]].map(([id,name,quantity,buyPrice,sellPrice])=>({id,name,quantity,buyPrice,sellPrice}));
  const ts=[
@@ -60,7 +60,7 @@ function seed(){
  ts[7].release={at:NOW,reason:"Completed and paid"};
  const appointments=[{id:"APT-21",vehicleId:"VH-1",date:"2026-11-06",time:"09:00",concern:"Brake noise",status:"Arrived",ticketId:"T-1041"},
  {id:"APT-22",vehicleId:"VH-2",date:"2026-11-06",time:"11:00",concern:"Routine service",status:"Arrived",ticketId:"T-1042"},
- {id:"APT-23",vehicleId:"VH-6",date:"2026-11-07",time:"10:30",concern:"Suspension check",status:"Scheduled",ticketId:null}];
+ {id:"APT-23",vehicleId:"VH-9",date:"2026-11-07",time:"10:30",concern:"Suspension check",status:"Scheduled",ticketId:null}];
  return {version:1,sequence:2000,shop:"Summit Auto Service",date:"2026-11-06",customers,vehicles,inventory,tickets:ts,appointments,
   events:[{id:"EV-1",ticketId:"T-1044",at:NOW,message:"Brake fluid issued from inventory"},{id:"EV-2",ticketId:"T-1048",at:NOW,message:"Vehicle released after payment"}],
   movements:[{id:"MOV-1",itemId:"SKU-1",ticketId:"T-1044",kind:"Issue",quantity:-1,at:NOW},
@@ -100,13 +100,19 @@ function createAppointment(d,p){
  const a={id:id(d,"APT"),vehicleId:p.vehicleId,date,time,concern,status:"Scheduled",ticketId:null};
  d.appointments.push(a);return a;
 }
-function openTicket(d,p){
+const activeAppointment=a=>!a.ticketId&&["Scheduled","Arrived"].includes(a.status);
+function createTicket(d,p){
  vehicle(d,p.vehicleId);const complaint=text(p.complaint,"Reported issue",6,400);
  if(d.tickets.some(t=>t.vehicleId===p.vehicleId&&t.status!=="released"))throw Error("Vehicle already has an active ticket.");
+ const pending=d.appointments.filter(a=>a.vehicleId===p.vehicleId&&activeAppointment(a));
+ if(!p.appointmentId&&pending.length)throw Error("This vehicle has an active appointment. Create its ticket from Appointments.");
  const a=p.appointmentId?get(d.appointments,p.appointmentId,"Appointment"):null;
- if(a&&(a.vehicleId!==p.vehicleId||a.ticketId||a.status==="Cancelled"))throw Error("Appointment cannot be converted.");
+ if(a&&(a.vehicleId!==p.vehicleId||!activeAppointment(a)))throw Error("Appointment cannot be converted.");
+ if(a&&(pending.length!==1||pending[0].id!==a.id))throw Error("Resolve overlapping appointments before creating a ticket.");
  const t=blank(id(d,"T"),p.vehicleId,complaint);t.appointmentId=a?.id||null;
- d.tickets.unshift(t);if(a){a.status="Arrived";a.ticketId=t.id;}note(d,t,"Ticket opened at front desk");return t;
+ d.tickets.unshift(t);
+ if(a){a.status="Completed";a.ticketId=t.id;}
+ note(d,t,a?"Ticket created from appointment":"Ticket created for walk-in");return t;
 }
 function diagnose(d,key,p){
  const t=ticket(d,key);edit(t);if(t.status!=="open")throw Error("Diagnosis already recorded.");
@@ -262,7 +268,7 @@ function metrics(d){
   lowStock:d.inventory.filter(i=>i.quantity<=2).length};
 }
 return {NOW,STATES,seed,valid,status,ticket,stock,vehicle,customer,vehicleFor,customerFor,issuedQty,missingRequirements,
- charges,createCustomer,createVehicle,createAppointment,openTicket,diagnose,addService,addRequirement,requireInventory,
+ charges,createCustomer,createVehicle,createAppointment,createTicket,activeAppointment,diagnose,addService,addRequirement,requireInventory,
  requestApproval,approve,reject,receiveCustomerPart,addToCart,removeCart,issueCart,returnIssue,
  completeService,finishRepair,invoiceTicket,payment,release,addInventory,stockIn,metrics};
 })();
