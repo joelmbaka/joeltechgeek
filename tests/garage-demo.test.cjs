@@ -105,7 +105,7 @@ test('ticket back navigation retains Reports as the origin instead of always usi
  const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
  assert.ok(app.includes('ui.returnPage=ui.ticketId?(ui.returnPage||"tickets"):(ui.page||"tickets")'));
  assert.ok(app.includes('navigate(ui.returnPage||"tickets")'));
- const makeViews=vm.runInNewContext(views+'\\n;garageViews',{});
+ const makeViews=vm.runInNewContext(views+'\n;garageViews',{});
  const data=c.seed(),ticket=data.tickets.find(t=>t.invoice);
  const base={page:'tickets',ticketId:ticket.id,tab:'overview',search:'',filter:'all',modal:null,document:null};
  const reportTicket=makeViews(data,{...base,returnPage:'reports'},c).main();
