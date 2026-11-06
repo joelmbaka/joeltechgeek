@@ -43,13 +43,21 @@ export default function ProfileScreen() {
       <View style={{ height: 1, backgroundColor: theme.border }}/>
       <DetailRow title="Phone" value={user.phone || 'Not provided'}/>
     </View>
-    <Text style={styles.label}>PRIVACY</Text>
+    <Text style={styles.label}>LEGAL & PRIVACY</Text>
     <View style={[styles.card, { padding: 0 }]}>
       <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
         .catch(() => showDialog({ title: 'Privacy Policy unavailable', message: 'Unable to open the link. You can read the policy at joeltechgeek.com/privacy.' }))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ fontWeight: '700', color: theme.primaryDark }}>Privacy Policy</Text>
+        <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
+      </Pressable>
+      <View style={{ height: 1, backgroundColor: theme.border }}/>
+      <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/terms')
+        .catch(() => showDialog({ title: 'Terms of Service unavailable', message: 'Unable to open the link. You can read the terms at joeltechgeek.com/terms.' }))}
+        style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
+          justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontWeight: '700', color: theme.primaryDark }}>Terms of Service</Text>
         <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
       <View style={{ height: 1, backgroundColor: theme.border }}/>

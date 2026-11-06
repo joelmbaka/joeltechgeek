@@ -28,6 +28,7 @@
     "test:crm-reminder-defaults": "node --experimental-strip-types --test tests/agent-crm-reminder-defaults.test.cjs",
     "test:crm-reminder-content": "node --experimental-strip-types --test tests/agent-crm-reminder-content.test.cjs",
     "test:crm-inbox": "node --experimental-strip-types --test tests/agent-crm-notification-inbox.test.cjs",
+    "test:legal-terms": "node --test tests/legal-terms.test.cjs",
     "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs",
     "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs"
   },

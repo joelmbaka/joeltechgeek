@@ -40,9 +40,14 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t border-gray-200 pt-5 text-xs dark:border-gray-800">
-          <Link href="/privacy" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
-            Privacy Policy
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

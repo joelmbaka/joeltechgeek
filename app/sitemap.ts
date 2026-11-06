@@ -32,6 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/demos/vehicle-tracking`, lastModified: new Date('2026-11-03'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/contact`, lastModified: CAREERS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.88 },
     { url: `${base}/privacy`, lastModified: new Date('2026-11-03'), changeFrequency: 'yearly', priority: 0.4 },
+    { url: `${base}/terms`, lastModified: new Date('2026-11-06'), changeFrequency: 'yearly', priority: 0.4 },
   ];
 
   const serviceRoutes: MetadataRoute.Sitemap = services.map((service) => ({
