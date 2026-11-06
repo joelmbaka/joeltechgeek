@@ -4,9 +4,9 @@ import { ArrowRight, ShieldCheck, ClipboardCheck, ShoppingCart, PackageCheck, Tr
 
 export const metadata: Metadata = {
   title: 'Interactive Software Demos | Joeltech Geek Systems',
-  description: 'Explore eleven interactive business software concepts, including vehicle tracking and security operations with a property-owner portal, field services, logistics, school finance, rent management, healthcare, fire safety, construction and retail.',
+  description: 'Explore interactive business software concepts, including vehicle tracking and security operations with a property-owner portal, field services, logistics, school finance, rent management, healthcare, fire safety, construction and retail.',
   alternates: { canonical: '/demos' },
-  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore eleven industry software concepts with fictional data and interactive business workflows.' },
+  openGraph: { type: 'website', url: '/demos', title: 'Interactive Software Demos | Joeltech Geek Systems', description: 'Explore industry software concepts with fictional data and interactive business workflows.' },
 };
 
 export default function DemosPage() {
@@ -24,6 +24,40 @@ export default function DemosPage() {
       </header>
       <section aria-labelledby="available-demos" className="mt-12">
         <h2 id="available-demos" className="text-2xl font-bold text-gray-900 dark:text-white">Available demos</h2>
+        <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="grid lg:grid-cols-[1fr_1.05fr]">
+            <div className="flex flex-col p-7 sm:p-10">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><Wrench className="h-6 w-6" aria-hidden /></span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Automotive workshop · Web application concept</span>
+              </div>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Garage Management System</h3>
+              <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Manage repair tickets, inspections, customer approvals, parts requirements, stock issues and returns, invoices and workshop earnings in a desktop-first workspace.</p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Tickets &amp; diagnosis</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Inventory &amp; receipts</span>
+                <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">No live payments</span>
+              </div>
+              <Link href="/demos/garage" className="mt-8 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-palm-green px-6 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm-green">
+                Explore garage demo <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+            </div>
+            <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
+              <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
+                <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
+                  <div className="flex items-center gap-2"><Wrench className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Summit Auto Service · Workshop overview</span></div>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Fictional concept</span>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white/10 p-4"><ClipboardList className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Tickets &amp; approvals</p><p className="mt-1 text-xs text-white/70">Diagnosis through release</p></div>
+                  <div className="rounded-xl bg-white/10 p-4"><PackageCheck className="h-5 w-5 text-emerald-200" aria-hidden /><p className="mt-3 text-sm font-semibold">Parts &amp; reports</p><p className="mt-1 text-xs text-white/70">Confirmed issues and costs</p></div>
+                </div>
+                <p className="mt-5 text-xs leading-6 text-white/80">Customer parts lists are informational. Stock changes only after issue confirmation.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
         <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="grid lg:grid-cols-[1fr_1.05fr]">
             <div className="flex flex-col p-7 sm:p-10">
