@@ -100,6 +100,21 @@ test('appointment conversion cannot use another vehicle or a completed booking',
   assert.equal(t.appointmentId,a.id);
   assert.throws(()=>c.createTicket(d,{vehicleId:'VH-8',complaint:'Routine inspection required today',appointmentId:a.id}),/cannot be converted/i);
 });
+test('ticket back navigation retains Reports as the origin instead of always using Tickets', () => {
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ assert.ok(app.includes('ui.returnPage=ui.ticketId?(ui.returnPage||"tickets"):(ui.page||"tickets")'));
+ assert.ok(app.includes('navigate(ui.returnPage||"tickets")'));
+ const makeViews=vm.runInNewContext(views+'\\n;garageViews',{});
+ const data=c.seed(),ticket=data.tickets.find(t=>t.invoice);
+ const base={page:'tickets',ticketId:ticket.id,tab:'overview',search:'',filter:'all',modal:null,document:null};
+ const reportTicket=makeViews(data,{...base,returnPage:'reports'},c).main();
+ assert.ok(reportTicket.includes('← Reports'));
+ const ordinaryTicket=makeViews(data,{...base,returnPage:'tickets'},c).main();
+ assert.ok(ordinaryTicket.includes('← Tickets'));
+ const dashboardTicket=makeViews(data,{...base,returnPage:'dashboard'},c).main();
+ assert.ok(dashboardTicket.includes('← Dashboard'));
+});
 test('sidebar and labels distinguish create from open', () => {
   const source=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
   const nav=source.slice(source.indexOf('const NAV='),source.indexOf('const btn='));
