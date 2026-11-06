@@ -60,6 +60,9 @@ export default function HomeScreen() {
   const [closedStatus, setClosedStatus] = useState('all');
   const [industry, setIndustry] = useState('all');
   const [alphabetical, setAlphabetical] = useState(false);
+  // Snapshot the exact API view and ordering the user is looking at.
+  const apiView = view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
+    view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view;
   const [data, setData] = useState<LeadList | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -98,8 +101,7 @@ export default function HomeScreen() {
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
       q: debounced,
-      view: view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
-        view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view,
+      view: apiView,
       industry, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
@@ -117,7 +119,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, offset, debounced, view, closedStatus, industry, alphabetical]);
+  }, [user?.id, offset, debounced, apiView, industry]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -142,6 +144,12 @@ export default function HomeScreen() {
     fetchPage(new AbortController().signal);
   };
   const openLead = (id: string) => {
+    // Snapshot before clearing the list: a save may reorder or remove this lead.
+    const queueIds = (data?.leads || []).map(row => row.id);
+    const queueOffset = offset;
+    const queueMore = data?.has_more === true;
+    const queueQuery = debounced;
+    const queueView = apiView;
     // Prepare the list's loading state BEFORE navigating. The underlying
     // screen remains mounted in the stack; when Android Back returns, users
     // immediately see skeleton cards, not stale results or an empty viewport.
@@ -151,7 +159,11 @@ export default function HomeScreen() {
     // Returning from a searched lead should show the ordinary lead list.
     setSearch('');
     setOffset(0);
-    router.push({ pathname: '/leads/[id]', params: { id, view, industry } });
+    router.push({ pathname: '/leads/[id]', params: {
+      id, view, industry, queueIds: queueIds.join(','),
+      queueOffset: String(queueOffset), queueMore: queueMore ? '1' : '0',
+      queueView, queueQuery,
+    } });
   };
 
   const openReview = async () => {
@@ -361,49 +373,66 @@ export default function HomeScreen() {
 function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
   const theme = useTheme();
   const styles = useUIStyles();
+  const lastActivity = lead.last_outcome
+    ? 'Last ' + activityChannelLabel(lead.last_activity_channel, lead.last_outcome) +
+      ': ' + outcomeLabel(lead.last_outcome)
+    : 'Not contacted';
+  const dueTime = lead.next_action_at ? formatFollowupDue(lead) : null;
+  const due = lead.work_state === 'due';
+  const statusText: Record<string,string> = {
+    done_today:'Done today', cooldown:'Retry cooldown',
+    fix_contact:'Correct contact details', review:'Retry needs review',
+    needs_next_step:'Needs next step', closed:'Closed',
+  };
+  const extraStatus = statusText[lead.work_state || ''];
   return <Pressable accessibilityRole="button"
-    accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')} onPress={onPress} style={styles.card}>
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.company_name || lead.contact_name || 'Unnamed lead'}</Text>
+    accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')}
+    onPress={onPress} style={styles.card}>
+    <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+      <Text style={[styles.value,{flex:1,fontSize:16}]}>
+        {lead.company_name || lead.contact_name || 'Unnamed lead'}
+      </Text>
       <PriorityChip priority={lead.priority}/>
     </View>
-    <Text style={styles.subtitle}>
+    <Text style={styles.subtitle} numberOfLines={2}>
       {lead.company_name ? (lead.contact_name || 'No contact') : (lead.contact_role || 'No company')}
       {lead.industry ? ' · ' + lead.industry : ''}
     </Text>
     {lead.lead_brief || lead.problem_summary ? <Text numberOfLines={2}
-      style={{ color: theme.ink, fontSize: 13, lineHeight: 19 }}>
+      style={{color:theme.ink,fontSize:13,lineHeight:19}}>
       {lead.lead_brief || lead.problem_summary}
     </Text> : null}
-    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
-      backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,
-      borderWidth: 1, borderRadius: 20 }}>
-      <Text style={[styles.label, { color: lead.stage === 'competitor' ? theme.warning : theme.muted, textTransform: 'capitalize' }]}>
-        {lead.stage.replace(/_/g, ' ')}
+    <View style={{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7}}>
+      <View style={{paddingHorizontal:9,paddingVertical:5,
+        backgroundColor:theme.surfaceMuted,
+        borderColor:lead.stage==='competitor'?theme.warning:theme.border,
+        borderWidth:1,borderRadius:20}}>
+        <Text style={[styles.label,{
+          color:lead.stage==='competitor'?theme.warning:theme.muted,
+          textTransform:'capitalize',
+        }]}>{lead.stage.replace(/_/g,' ')}</Text>
+      </View>
+      <Text style={[styles.subtitle,{flexShrink:1,fontSize:12}]} numberOfLines={2}>
+        {lastActivity}
       </Text>
+      {extraStatus && !lead.next_action_at ? <Text style={{
+        color:extraStatus==='Correct contact details'?theme.warning:theme.muted,
+        fontSize:12,fontWeight:'700',
+      }}>· {extraStatus}</Text> : null}
     </View>
-    <Text numberOfLines={1} style={styles.subtitle}>
-      {lead.last_outcome
-        ? 'Last ' + activityChannelLabel(lead.last_activity_channel, lead.last_outcome) +
-          ': ' + outcomeLabel(lead.last_outcome)
-        : 'Not contacted'}
-    </Text>
-    {lead.next_action ? <Text numberOfLines={2}
-      style={{ color: theme.primaryDark, fontWeight: '700', fontSize: 13 }}>
-      Next: {lead.next_action}
-    </Text> : null}
-    {lead.next_action_at ? <Text style={styles.subtitle}>
-      {formatFollowupDue(lead) ? 'Reminder due: ' + formatFollowupDue(lead) : ''}
-    </Text> : lead.retry_eligible_at && lead.work_state === 'cooldown'
-      ? <Text style={styles.subtitle}>Retry eligible: {lead.retry_eligible_at}</Text>
-      : null}
-    {lead.work_state && lead.work_state !== 'ready' ? <Text style={styles.subtitle}>
-      {({
-        due: 'Due now', scheduled: 'Scheduled', done_today: 'Done today',
-        cooldown: 'Retry cooldown', fix_contact: 'Correct contact details',
-        review: 'Retry needs review', needs_next_step: 'Needs next step',
-        closed: 'Closed',
-      } as Record<string,string>)[lead.work_state] || lead.work_state}
-    </Text> : null}
+    {lead.next_action ? <View style={{gap:5,marginTop:2}}>
+      <Text numberOfLines={2} style={{color:theme.primaryDark,fontWeight:'700',fontSize:13}}>
+        Next: {lead.next_action}
+      </Text>
+      {dueTime ? <View style={{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7}}>
+        <Text style={[styles.subtitle,{fontSize:12}]}>◷ {dueTime}</Text>
+        {due ? <View style={{borderRadius:15,borderWidth:1,
+          borderColor:theme.warning,backgroundColor:theme.surfaceMuted,
+          paddingHorizontal:8,paddingVertical:4}}>
+          <Text style={{color:theme.warning,fontWeight:'800',fontSize:11}}>Due now</Text>
+        </View> : null}
+      </View> : null}
+    </View> : lead.retry_eligible_at && lead.work_state==='cooldown' ?
+      <Text style={styles.subtitle}>Retry eligible: {lead.retry_eligible_at}</Text> : null}
   </Pressable>;
 }

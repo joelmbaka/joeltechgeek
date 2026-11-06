@@ -76,7 +76,8 @@ test('one atomic mobile save supports Save & Stay and Save & Next',()=>{
   assert.match(screen,/const saveUnified = async/);
   assert.match(screen,/await apiFetch<\{ok:true;lead:Lead\}>/);
   assert.match(screen,/if\(advance\)/);
-  assert.match(screen,/next\.leads\.find/);
+  assert.match(screen,/nextSnapshotId\(ids, response\.lead\.id\)/);
+  assert.match(screen,/nextPageAfterSnapshot\(/);
   assert.match(sheet,/Save & Stay/);
   assert.match(sheet,/Save & Next/);
   assert.match(api,/await client\.query\('BEGIN'\)/);
@@ -105,8 +106,9 @@ test('For You search discovers active records but never closed or excluded',()=>
 });
 test('Save & Next preserves its selected active work view',()=>{
   const screen=read('mobile-app/src/app/leads/[id].tsx');
-  assert.match(screen,/const target = view && view !== 'closed' \? view : 'for_you'/);
-  assert.match(screen,/params:\{id:item\.id,view:target/);
+  assert.match(screen,/const selectedView = view && view !== 'closed' \? view : 'for_you'/);
+  assert.match(screen,/queueView:apiView,queueQuery:queueQuery\|\|''/);
+  assert.match(screen,/queueIds:nextIds\.join\(','\)/);
 });
 
 test('changing a failed phone number makes the contact eligible to retry',()=>{

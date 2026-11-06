@@ -63,7 +63,7 @@ export function RecordUpdateSheet({
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
   const dialog = useAppDialog();
-  const [channel, setChannel] = useState('');
+  const [channel, setChannel] = useState('call');
   const [outcome, setOutcome] = useState('');
   const [notes, setNotes] = useState('');
   const [disposition, setDisposition] = useState<'keep'|'do_not_contact'|'competitor'>('keep');
@@ -80,7 +80,7 @@ export function RecordUpdateSheet({
   const primary = contacts.find((c)=>c.is_primary)?.id || contacts[0]?.id || '';
   useEffect(() => {
     if (!visible) return;
-    setChannel('');setOutcome('');setNotes('');setStage('');setError('');
+    setChannel('call');setOutcome('');setNotes('');setStage('');setError('');
     setDisposition('keep');setIncludeFollowup(true);
     setNextAction(lead.next_action || '');
     setActionType(lead.next_action_type || 'call');
@@ -100,8 +100,10 @@ export function RecordUpdateSheet({
   // Closed dispositions and outcomes must never create an outreach reminder.
   const completingSale = stage === 'won' || stage === 'lost' ||
     outcome === 'onboarding_completed' || outcome === 'not_interested';
-  const scheduling = includeFollowup && disposition === 'keep' && !completingSale;
-  const validOutcome = !hasInteraction || !!outcome;
+  const followupOpen = includeFollowup && disposition === 'keep' && !completingSale;
+  // An expanded, untouched follow-up is not mandatory for a note-only or
+  // outcome-only update. Validate and save it only once any field is filled.
+  const scheduling = followupOpen && !!(nextAction.trim() || date || time);
   const validSchedule = !scheduling || (!!nextAction.trim() && !!date);
   const changedFollowup = scheduling && (
     nextAction.trim() !== (lead.next_action || '') ||
@@ -112,7 +114,7 @@ export function RecordUpdateSheet({
   );
   const hasChange = !!(hasInteraction && outcome) || !!notes.trim() ||
     changedFollowup || disposition !== 'keep';
-  const canSave = !savingKind && validOutcome && validSchedule && hasChange &&
+  const canSave = !savingKind && validSchedule && hasChange &&
     !(disposition === 'competitor' && hasInteraction);
   const submit = async (advance: boolean, confirmed = false) => {
     if (!canSave) return;
@@ -127,12 +129,12 @@ export function RecordUpdateSheet({
     }
     setError('');
     const payload: UnifiedUpdate = {
-      channel: channel ? channel as ActivityChannel : null,
-      outcome: channel ? outcome : null,
+      channel: channel && outcome ? channel as ActivityChannel : null,
+      outcome: channel && outcome ? outcome : null,
       notes: notes.trim(),
       contact_id: interactionContact || null,
       disposition,
-      ...(stage && channel ? {stage} : {}),
+      ...(stage && channel && outcome ? {stage} : {}),
       followup: {
         mode: scheduling ? 'set' : 'keep',
         ...(scheduling ? {
@@ -175,36 +177,36 @@ export function RecordUpdateSheet({
             {hasInteraction ? <>
               {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
                 options={choices} searchable onChange={setInteractionContact}/> : null}
-              <SelectSheet title="Outcome (required for an interaction)" value={outcome}
+              <SelectSheet title="Outcome (optional for note or follow-up only)" value={outcome}
                 placeholder="Choose outcome"
                 options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({value,label}))}
-                onChange={setOutcome}/>
-              <SelectSheet title="Lead stage (optional)" value={stage}
+                onChange={(value)=>{setOutcome(value);setStage('');}}/>
+              {outcome ? <SelectSheet title="Lead stage (optional)" value={stage}
                 options={[{value:'',label:'Suggested automatically'},
                   ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
-                onChange={setStage}/>
+                onChange={setStage}/> : null}
             </> : null}
             <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
               placeholder="Conversation details, research, or a standalone note" multiline/>
           </View>
           <View style={styles.card}>
             <Pressable accessibilityRole="checkbox"
-              accessibilityState={{checked:includeFollowup,disabled:disposition!=='keep'||completingSale}}
+              accessibilityState={{checked:followupOpen,disabled:disposition!=='keep'||completingSale}}
               disabled={!!savingKind || disposition!=='keep' || completingSale}
               onPress={()=>setIncludeFollowup(value=>!value)}
               style={{flexDirection:'row',alignItems:'center',gap:10,minHeight:44}}>
               <Text style={{fontSize:22,color:theme.primaryDark}}>
-                {scheduling ? '☑' : '☐'}
+                {followupOpen ? '☑' : '☐'}
               </Text>
               <View style={{flex:1,gap:3}}>
                 <Text style={[styles.value,{fontSize:17}]}>2 · Schedule follow-up</Text>
                 <Text style={styles.subtitle}>
                   {lead.next_action ? 'Edit the next task, or turn off to keep the existing reminder.'
-                    : 'Plan your next action. Turn off for an outcome or note only.'}
+                    : 'Plan your next action, or leave these fields blank to save only an outcome or note.'}
                 </Text>
               </View>
             </Pressable>
-            {scheduling ? <>
+            {followupOpen ? <>
               {contacts.length>1 ? <SelectSheet title="Follow-up contact"
                 value={followupContact} options={choices} searchable onChange={setFollowupContact}/> : null}
               <SelectSheet title="Action type" value={actionType}

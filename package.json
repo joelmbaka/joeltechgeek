@@ -31,6 +31,7 @@
     "test:legal-terms": "node --test tests/legal-terms.test.cjs",
     "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs",
     "test:crm-unified": "node --test tests/agent-crm-unified-updates.test.cjs",
+    "test:crm-queue": "node --experimental-strip-types --test tests/mobile-lead-queue.test.cjs",
     "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs"
   },
   "dependencies": {

@@ -19,6 +19,9 @@ import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { reconcileReminders } from '@/lib/notifications';
 import { formatFollowupDue } from '@/lib/followup-display';
 import { activityChannelLabel, outcomeLabel } from '@/lib/types';
+import {
+  QUEUE_PAGE_SIZE, nextSnapshotId, nextPageAfterSnapshot, parseQueueIds,
+} from '@/lib/lead-queue';
 import type { Lead, LeadContact, LeadDetails, LeadEvent, LeadList } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
@@ -51,7 +54,13 @@ export default function LeadScreen() {
   const theme = useTheme();
   const dialog = useAppDialog();
   const router = useRouter();
-  const {id,view,industry} = useLocalSearchParams<{id:string;view?:string;industry?:string}>();
+  const {
+    id, view, industry, queueIds:queueIdsParam, queueOffset:queueOffsetParam,
+    queueMore, queueView, queueQuery,
+  } = useLocalSearchParams<{
+    id:string;view?:string;industry?:string;queueIds?:string;
+    queueOffset?:string;queueMore?:string;queueView?:string;queueQuery?:string;
+  }>();
   const {user} = useAuth();
   const [lead,setLead] = useState<Lead|null>(null);
   const [contacts,setContacts] = useState<LeadContact[]>([]);
@@ -155,18 +164,67 @@ export default function LeadScreen() {
           'Update saved, but history could not refresh. Tap Refresh details.');
       }
       if(advance) {
-        try {
-          const target = view && view !== 'closed' ? view : 'for_you';
-          const apiView = target === 'all' ? 'all_active' : target;
-          const params=new URLSearchParams({
-            view:apiView,industry:industry||'all',tz:timezone,limit:'25',offset:'0',
-          });
-          const next=await apiFetch<LeadList>('/api/agent-crm/leads?'+params);
-          const item=next.leads.find(row=>row.id!==id);
-          if(item) router.replace({pathname:'/leads/[id]',
-            params:{id:item.id,view:target,industry:industry||'all'}});
-          else router.replace('/');
-        } catch {router.replace('/');}
+        // Continue through the snapshot in the order seen on the original list.
+        // A save may remove or reorder the current lead in the live query.
+        const ids = view === 'closed' ? [] : parseQueueIds(queueIdsParam);
+        const savedIndex = ids.indexOf(response.lead.id);
+        const selectedView = view && view !== 'closed' ? view : 'for_you';
+        const selectedIndustry = industry || 'all';
+        const apiView = view === 'closed' ? 'for_you' :
+          (queueView || (selectedView === 'all' ? 'all_active' : selectedView));
+        const originalOffset = Number(queueOffsetParam);
+        const offset = Number.isSafeInteger(originalOffset) &&
+          originalOffset >= 0 ? originalOffset : 0;
+        const openNext = (
+          nextId: string, nextIds: string[], nextOffset: number, hasMore: boolean,
+        ) => {
+          setLead(null);
+          setContacts([]);
+          setHistory([]);
+          setLoading(true);
+          router.replace({pathname:'/leads/[id]',params:{
+            id:nextId,view:selectedView,industry:selectedIndustry,
+            queueIds:nextIds.join(','),queueOffset:String(nextOffset),
+            queueMore:hasMore?'1':'0',queueView:apiView,queueQuery:queueQuery||'',
+          }});
+        };
+        const nextId = nextSnapshotId(ids, response.lead.id);
+        if (nextId) {
+          openNext(nextId, ids, offset, queueMore === '1');
+        } else if (savedIndex !== -1 && queueMore !== '1') {
+          router.replace('/');
+        } else {
+          try {
+            // At page boundaries, overlap with the preceding page: saving can
+            // remove a record from a filtered queue and shift OFFSET results.
+            const queryOffset = savedIndex !== -1 ?
+              Math.max(0, offset - QUEUE_PAGE_SIZE) : 0;
+            const params = new URLSearchParams({
+              view:apiView, industry:selectedIndustry, q:queueQuery||'',
+              tz:timezone, limit:String(QUEUE_PAGE_SIZE*3), offset:String(queryOffset),
+            });
+            const next = await apiFetch<LeadList>('/api/agent-crm/leads?'+params);
+            if (savedIndex !== -1) {
+              const page = nextPageAfterSnapshot(
+                ids,next.leads.map(row=>row.id),queryOffset,next.has_more,
+              );
+              if (page) openNext(page.ids[0],page.ids,page.offset,page.hasMore);
+              else router.replace('/');
+            } else {
+              // Deep-linked lead: no prior ordering snapshot was available.
+              // Start at the first eligible item in the selected work view.
+              const pageIds = next.leads.map(row=>row.id)
+                .filter(leadId=>leadId!==response.lead.id).slice(0,QUEUE_PAGE_SIZE);
+              if (pageIds.length) openNext(pageIds[0],pageIds,0,
+                next.has_more || next.leads.length>QUEUE_PAGE_SIZE);
+              else router.replace('/');
+            }
+          } catch {
+            // Save already committed: never retry the mutation or navigate
+            // to an arbitrary lead after a failed directory refresh.
+            router.replace('/');
+          }
+        }
       }
     } finally {
       savingRef.current=false;
