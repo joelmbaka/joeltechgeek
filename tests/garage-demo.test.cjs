@@ -108,6 +108,41 @@ test('sidebar and labels distinguish create from open', () => {
   assert.ok(source.includes('Open ticket'));
   assert.ok(source.includes('filter(a=>c.activeAppointment(a))'));
 });
+
+test('custom part requirements never create stock or parts revenue', () => {
+ const d=c.seed(),t=c.ticket(d,'T-1042'),before=d.inventory.length;
+ const requirement=c.addRequirement(d,t.id,{description:'Imported custom steering linkage',quantity:2,itemId:null,discount:0});
+ assert.equal(requirement.itemId,null);
+ assert.equal(requirement.description,'Imported custom steering linkage');
+ assert.equal(d.inventory.length,before);
+ assert.equal(c.charges(t).parts,0);
+});
+test('catalogue name and source are separate controls with a custom-name choice', () => {
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ const form=views.slice(views.indexOf('}else if(kind==="requirement"){'),views.indexOf('}else if(kind==="cart"){'));
+ assert.ok(form.includes('select("Part name","partChoice"'));
+ assert.ok(form.includes('Not in catalogue — enter part name'));
+ assert.ok(form.includes('select("Source","source"'));
+ assert.ok(form.indexOf('select("Part name"')<form.indexOf('select("Source"'));
+ assert.ok(form.includes('custom-part-field'));
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('function syncRequirementForm(form)'));
+ assert.ok(app.includes('custom?p.description:chosen.name'));
+});
+test('premature ticket tabs remain navigable previews without enabled stock actions', () => {
+ const core=fs.readFileSync(path.join(demoDir,'core.js'),'utf8');
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ const makeViews=vm.runInNewContext(views+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'cart',search:'',filter:'all',modal:null,document:null};
+ const rendered=makeViews(d,ui,c).main();
+ assert.ok(rendered.includes('data-tab="cart"'));
+ assert.ok(rendered.includes('Preview only'));
+ assert.ok(!rendered.includes('data-action="issue-cart"'));
+ assert.ok(!rendered.includes('data-action="remove-cart"'));
+ assert.ok(views.includes('class="workflow-hint"'));
+ assert.ok(core.includes('Customer approval is required before issuing stock.'));
+});
+
 test('parts requirements are informational and do not deduct stock', () => {
   const {d,t}=createDiagnosed();
   const initial=c.stock(d,'SKU-1').quantity;
