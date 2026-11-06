@@ -35,12 +35,10 @@ return function(d,ui,c){
    '<small>'+e(x.at)+" · "+e(x.ticketId)+'</small></div></div>').join(""):empty("No activity","Recorded actions appear here.");
  }
  function dashboard(){const m=c.metrics(d),active=d.tickets.filter(t=>t.status!=="released");
-  return heading("Garage overview","Vehicles, repairs and revenue · fictional operating records.",btn("＋ Open ticket","modal","ticket","primary"))+
+  return heading("Garage overview","Vehicles and repairs · fictional workshop records.",btn("＋ Open ticket","modal","ticket","primary"))+
    '<div class="metrics">'+metric("Vehicles in workshop",m.active,"Open tickets")+metric("Awaiting approval",m.awaitingApproval,"Customer decision pending")+
     metric("Awaiting parts",m.awaitingParts,"Items customer needs to bring")+metric("Repairs in progress",m.inRepair,"Authorized work")+'</div>'+
-   '<div class="metrics three">'+metric("Invoiced revenue",kes(m.revenue),"Confirmed invoices")+
-    metric("Money collected",kes(m.collected),"Recorded payments")+metric("Gross contribution",kes(m.contribution),"Before rent and wages")+'</div>'+
-   '<div class="columns two">'+panel("Workshop tickets",ticketTable(active.slice(0,6)))+panel("Recent activity",history())+'</div>';
+   panel("Workshop tickets",ticketTable(active.slice(0,6)));
  }
  function tickets(){let rows=d.tickets;
   if(ui.filter&&ui.filter!=="all")rows=rows.filter(x=>x.status===ui.filter);
