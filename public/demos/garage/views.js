@@ -3,7 +3,7 @@ const garageViews=(function(){
 "use strict";
 const e=v=>String(v??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
 const kes=v=>"KES "+Number(v||0).toLocaleString("en-KE",{maximumFractionDigits:2});
-const NAV=[["dashboard","Dashboard","◫"],["tickets","Tickets","▤"],["appointments","Appointments","◷"],["vehicles","Customers & Vehicles","▰"],["inventory","Inventory","▣"],["reports","Reports","◩"]];
+const NAV=[["dashboard","Dashboard","◫"],["appointments","Appointments","◷"],["tickets","Tickets","▤"],["vehicles","Customers & Vehicles","▰"],["inventory","Inventory","▣"],["reports","Reports","◩"]];
 const btn=(label,action,id="",style="",extra="")=>'<button type="button" class="btn '+style+'" data-action="'+e(action)+'" '+(id?'data-id="'+e(id)+'"':"")+' '+extra+'>'+label+'</button>';
 const tag=v=>'<span class="tag '+String(v).toLowerCase().replace(/[^a-z0-9]+/g,"-")+'">'+e(v)+'</span>';
 const panel=(heading,body)=>'<section class="panel"><header class="panel-head"><h2>'+e(heading)+'</h2></header>'+body+'</section>';
@@ -35,7 +35,7 @@ return function(d,ui,c){
    '<small>'+e(x.at)+" · "+e(x.ticketId)+'</small></div></div>').join(""):empty("No activity","Recorded actions appear here.");
  }
  function dashboard(){const m=c.metrics(d),active=d.tickets.filter(t=>t.status!=="released");
-  return heading("Garage overview","Vehicles and repairs · fictional workshop records.",btn("＋ Open ticket","modal","ticket","primary"))+
+  return heading("Garage overview","Vehicles and repairs · fictional workshop records.",btn("＋ Create ticket","modal","ticket","primary"))+
    '<div class="metrics">'+metric("Vehicles in workshop",m.active,"Open tickets")+metric("Awaiting approval",m.awaitingApproval,"Customer decision pending")+
     metric("Awaiting parts",m.awaitingParts,"Items customer needs to bring")+metric("Repairs in progress",m.inRepair,"Authorized work")+'</div>'+
    panel("Workshop tickets",ticketTable(active.slice(0,6)));
@@ -44,19 +44,19 @@ return function(d,ui,c){
   if(ui.filter&&ui.filter!=="all")rows=rows.filter(x=>x.status===ui.filter);
   if(ui.search){const q=ui.search.toLowerCase();rows=rows.filter(x=>
    [x.id,x.complaint,c.vehicleFor(d,x).plate,c.vehicleFor(d,x).name,c.customerFor(d,x).name].some(v=>String(v).toLowerCase().includes(q)));}
-  return heading("Repair tickets","Manage each vehicle from reception through release.",btn("＋ Open ticket","modal","ticket","primary"))+
+  return heading("Repair tickets","Manage each vehicle from reception through release.",btn("＋ Create ticket","modal","ticket","primary"))+
    '<div class="toolbar"><label class="field search"><span>Search</span><input id="ticket-search" placeholder="Ticket, registration or customer" value="'+e(ui.search||"")+'"/></label>'+
     select("Status","ticket-filter",[["all","All statuses"],...Object.entries(c.STATES).map(([k,v])=>[k,v])],ui.filter||"all")+'</div>'+
    panel(rows.length+" tickets",ticketTable(rows));
  }
- function appointments(){const ap=d.appointments.slice().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  return heading("Appointments","Staff enter customer phone and WhatsApp requests manually.",btn("＋ New appointment","modal","appointment","primary"))+
-   panel("Service bookings",table(["Date · Time","Vehicle","Reported service need","Status",""],ap.map(a=>{
+ function appointments(){const ap=d.appointments.filter(a=>c.activeAppointment(a)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  return heading("Appointments","Upcoming bookings awaiting arrival and ticket creation.",btn("＋ New appointment","modal","appointment","primary"))+
+   panel("Active appointments",ap.length?table(["Date · Time","Vehicle","Reported service need","Status",""],ap.map(a=>{
     const v=veh(a.vehicleId);
     return tablerow(['<b>'+e(a.date+" · "+a.time)+'</b>','<b>'+e(v.plate)+'</b><small>'+e(v.name)+'</small>',
-      e(a.concern),tag(a.status),a.ticketId?btn("Open ticket","open-ticket",a.ticketId,"outline compact"):
-      btn("Open ticket","convert-appointment",a.id,"primary compact")]);
-   }).join("")))+'<p class="footnote">Appointments do not reserve mechanics, bays or staff shifts.</p>';
+      e(a.concern),tag(a.status),btn("Create ticket","convert-appointment",a.id,"primary compact")]);
+   }).join("")):empty("No active appointments","New bookings appear here until a ticket is created."))+
+   '<p class="footnote">Creating a ticket removes the appointment from this active list; the booking remains linked to the ticket for history.</p>';
  }
  function vehicles(){return heading("Customers & vehicles","Register customers first, then assign vehicles to an existing customer.")+
   '<div class="section-heading"><h2>Customers <span class="section-count">'+d.customers.length+'</span></h2>'+btn("＋ Add customer","modal","customer","primary")+'</div>'+
@@ -262,10 +262,12 @@ return function(d,ui,c){
     numberField("Year","year",2016,'type="number" min="1970" max="2030" step="1"')+
     numberField("Mileage (km)","mileage",80000,'type="number" min="0" step="1"')+'</div>';
   }else if(kind==="ticket"){
-   title="Open repair ticket";submit="Create ticket";
-   const options=d.vehicles.map(v=>[v.id,vehicleName(v)]);
-   body=select("Vehicle","vehicleId",options,m.vehicleId||options[0]?.[0])+
-    area("Customer complaint","complaint");
+   title="Create repair ticket";submit="Create ticket";
+   const options=d.vehicles.filter(v=>!d.tickets.some(t=>t.vehicleId===v.id&&t.status!=="released")&&
+    !d.appointments.some(a=>a.vehicleId===v.id&&c.activeAppointment(a))).map(v=>[v.id,vehicleName(v)]);
+   body=options.length?select("Vehicle","vehicleId",options,m.vehicleId||options[0]?.[0])+
+    area("Customer complaint","complaint"):
+    '<p class="hint">No vehicles are available for a new ticket. Vehicles with active appointments must be handled from Appointments; vehicles with active tickets cannot be added again.</p>';
   }else if(kind==="appointment"){
    title="New appointment";submit="Save appointment";
    body=select("Vehicle","vehicleId",d.vehicles.map(v=>[v.id,vehicleName(v)]),d.vehicles[0]?.id)+
