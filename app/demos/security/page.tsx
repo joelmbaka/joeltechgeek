@@ -21,7 +21,7 @@ const views = [
   {
     name: 'Property owner · Alex', Icon: Building2,
     heading: 'A clear daily record of your security service.',
-    details: 'Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, then read full weekly or monthly reports with supporting evidence and the preparer's name.',
+    details: "Choose any date to see the duty roster, attendance, site activities and linked evidence. Follow open and resolved issues, then read full weekly or monthly reports with supporting evidence and the preparer's name.",
   },
   {
     name: 'Security supervisor · Grace', Icon: ClipboardList,
