@@ -10,12 +10,14 @@ const find = (xs, id) => xs.find(x => x.id === id);
 test('seed represents client properties, manager staff, dated shifts and reporting history', () => {
   const data = m.seedDemo('2026-11-05');
   assert.ok(m.valid(data));
-  assert.equal(data.version, 3);
-  assert.equal(data.sites.length, 3);
-  assert.equal(data.staff.length, 5);
+  assert.equal(data.version, 4);
+  assert.equal(data.sites.length, 4);
+  assert.equal(data.staff.length, 7);
   assert.ok(data.shifts.some(s => s.attendance === 'reported'));
   assert.ok(data.issues.some(i => i.status === 'resolved'));
-  assert.deepEqual([...new Set(data.reports.map(r => r.period))].sort(), ['daily','monthly','weekly']);
+  assert.deepEqual([...new Set(data.reports.map(r => r.period))].sort(), ['monthly','weekly']);
+  assert.equal(data.reports.every(r=>r.preparedBy.length>3 && r.summary.length>100), true);
+  assert.deepEqual(m.clientSiteReports(data,'greenview').map(g=>g.site.id),['greenview','riverside']);
 });
 
 test('Kenya calendar utilities handle midnight and month/year rollover', () => {
@@ -76,7 +78,7 @@ test('rolling window covers the last thirty days and the next thirty days', () =
   assert.equal(data.anchorDate,center);
   for(let offset=-30;offset<=30;offset++){
     const day=m.addDays(center,offset);
-    for(const site of ['greenview','karen','westlands']){
+    for(const site of ['greenview','riverside','karen','westlands']){
       assert.ok(m.timelineForDay(data,day,site).some(row=>row.kind==='shift'),
         'Missing planned or historical shift for '+site+' on '+day);
     }
@@ -174,6 +176,8 @@ test('report enforces explicit site/date range, meaningful summary and safe atta
   const validPdf={id:'pdf',kind:'document',name:'Proof.pdf',mimeType:'application/pdf',dataUrl:'data:application/pdf;base64,AA=='};
   const saved=m.publishReport(data,'karen','weekly',from,today,'Report for Karen with staff and coverage records.',[validPdf]);
   assert.equal(saved.reports[0].assets[0].name,'Proof.pdf');
+  assert.throws(()=>m.publishReport(data,'karen','daily',from,today,'Sample daily report text.'),/weekly or monthly/);
+  assert.throws(()=>m.publishReport(data,'karen','weekly',from,today,'Sample weekly report text.',[],' '),/who prepared/);
   assert.equal(m.siteReports(saved,'greenview').length,m.siteReports(data,'greenview').length);
   assert.equal(m.siteReports(saved,'karen')[0].siteId,'karen');
 });
@@ -214,30 +218,36 @@ test('client reports are sorted by publication and preserve reporting periods', 
   assert.equal(report.periodTo,today);
   assert.equal(report.assets.length,1);
   assert.equal(report.assets[0].name,'Site review evidence');
+  assert.match(report.preparedBy,/Security Supervisor/);
   assert.equal(next.activity[0].siteId,'karen');
   assert.ok(report.periodFrom <= report.periodTo);
   assert.equal(m.siteReports(next,'greenview').length,m.siteReports(data,'greenview').length);
 });
 
-test('client reports are site-first, newest-first and isolated from other clients', () => {
+test('Alex switches between two seeded sites with separate weekly/monthly reports', () => {
   const today=m.kenyaToday();
   const original=m.seedDemo(today);
-  const withSecondProperty=m.addSite(original,'Riverside Annex','Westlands, Nairobi','Alex Kamau','07XX XXX 900');
-  const annex=withSecondProperty.sites.find(s=>s.name==='Riverside Annex');
-  assert.ok(annex);
-  const withNewReport=m.publishReport(withSecondProperty,annex.id,'daily',today,today,
-    'An inspection of the new property found all entrances secure.');
-  const groups=m.clientSiteReports(withNewReport,'greenview');
+  const groups=m.clientSiteReports(original,'greenview');
   assert.equal(groups.length,2);
-  assert.equal(groups[0].site.id,'greenview');
-  assert.deepEqual(groups.map(g=>g.site.client),['Alex Kamau','Alex Kamau']);
-  assert.ok(groups.some(g=>g.site.id===annex.id && g.reports.length===1));
-  assert.ok(groups.every(g=>g.reports.every(r=>r.siteId===g.site.id)));
+  assert.deepEqual(groups.map(g=>g.site.id),['greenview','riverside']);
+  assert.ok(groups.every(g=>g.site.client==='Alex Kamau'));
+  assert.ok(groups.every(g=>g.reports.length>=2 && g.reports.every(r=>r.siteId===g.site.id)));
   assert.ok(groups.every(g=>g.reports.every((r,i,rs)=>i===0||Date.parse(rs[i-1].publishedAt)>=Date.parse(r.publishedAt))));
+  assert.ok(groups.every(g=>g.reports.every(r=>['weekly','monthly'].includes(r.period))));
+  assert.ok(groups.some(g=>g.reports.some(r=>(r.assets||[]).length>0)));
   assert.equal(groups.some(g=>g.site.id==='karen'),false);
-  const karenView=m.clientSiteReports(withNewReport,'karen');
+  const riverside=m.clientSiteReports(original,'riverside');
+  assert.equal(riverside[0].site.id,'riverside');
+  const updated=m.publishReport(original,'riverside','weekly',m.addDays(today,-6),today,
+    'Site condition and visitor entries were reviewed for the entire reporting period.',
+    [],'Beatrice Otieno · Site Supervisor');
+  const newest=m.siteReports(updated,'riverside')[0];
+  assert.equal(newest.preparedBy,'Beatrice Otieno · Site Supervisor');
+  assert.equal(newest.siteId,'riverside');
+  assert.ok(m.siteReports(updated,'greenview').every(r=>r.id!==newest.id));
+  const karenView=m.clientSiteReports(updated,'karen');
   assert.deepEqual(karenView.map(g=>g.site.id),['karen']);
-  assert.deepEqual(m.clientSiteReports(withNewReport,'unknown'),[]);
+  assert.deepEqual(m.clientSiteReports(updated,'unknown'),[]);
 });
 
 test('client sees an approved duty contact separate from the staff directory number', () => {
@@ -285,9 +295,17 @@ test('mobile interface has two role options, client roster default, and consiste
   assert.match(ui,/type="file"/);
   assert.match(ui,/reportFrom,reportTo,reportText,reportEvidence/);
   assert.match(ui,/rep\.assets\|\|\[\]/);
-  assert.match(ui,/clientSiteReports\(data,siteId\)/);
+  assert.match(ui,/clientSiteReports\(data,'greenview'\)/);
   assert.match(ui,/clientReportGroups\.map/);
-  assert.match(ui,/reportList\(siteReportList, false\)/);
+  assert.match(ui,/clientReportSite\.reports,false/);
+  assert.match(ui,/Choose property for reports/);
+  assert.match(ui,/setClientReportSiteId/);
+  assert.match(ui,/function reportDetail/);
+  assert.match(ui,/Prepared by:/);
+  assert.match(ui,/Full report/);
+  assert.match(ui,/Evidence & attachments/);
+  assert.match(ui,/reportPreparedBy/);
+  assert.doesNotMatch(ui,/<option value="daily">/);
   assert.doesNotMatch(ui,/<option value="supervisor"|<option value="operations"/);
   assert.match(ui,/type="date"/);
   const details=read('app/demos/security/SecurityRosterDetail.tsx');
