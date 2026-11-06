@@ -388,7 +388,7 @@ return function(d,ui,c){
    head=["Recorded","Method","Amount"];
    rows=x.payments.map(p=>[e(p.at),e(p.method),kes(p.amount)]);
    total=bill.collected;
-  }else return"";
+  }
   if(kind==="invoice"){
    if(!x.invoice)return "";
    const inv=x.invoice;
@@ -433,6 +433,7 @@ return function(d,ui,c){
     '<p class="doc-notice">This is the complete invoice for the ticket. Outside-sourced parts are not charged by the garage. Payments are simulated.</p>'+
     '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
   }
+  if(kind!=="requirements"&&kind!=="payment")return "";
   const notice=kind==="requirements"?
    "No sale is made, no stock is reserved and no invoice is created by this list.":
    "Payment records are simulated. This document has no real-world financial validity.";
