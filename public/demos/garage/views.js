@@ -148,7 +148,9 @@ return function(d,ui,c){
    '<button type="button" class="btn primary" disabled title="Record a feasible diagnosis and a repair service">Customer approved</button>'+
    '<button type="button" class="btn outline" disabled title="Record a feasible diagnosis and a repair service">Customer rejected</button>':"";
   return '<div class="workflow-heading"><h2>Diagnosis & Estimate</h2><p>Inspection, service fees, parts requirements and customer decision in one place.</p></div>'+
-   first+estimate+panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>');
+   first+estimate+(x?'<div class="report-actions">'+btn("View diagnosis report","show-document","diagnosis","outline")+
+    btn("Share diagnosis report","share-diagnosis",t.id,"primary")+'</div>':"")+
+   panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>');
  }
  function requirements(){
   const editable=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing"].includes(t.status)&&!t.invoice;
@@ -160,7 +162,7 @@ return function(d,ui,c){
   }).join("");
   return '<div class="sub-head"><div><h2>3 · Parts Requirements & Price List</h2><p>Informational recommendations and optional price offers. This list does not control the cart or billing.</p></div>'+
    '<div class="head-actions">'+(editable?btn("＋ Add part","modal","requirement","outline"):t.status==="open"?'<button type="button" class="btn outline" disabled title="Record inspection findings first">＋ Add part</button>':"")+
-   (t.requirements.length?btn("View / share list","show-document","requirements","primary"):"")+'</div></div>'+
+   '</div></div>'+
    panel("Suggested parts · "+t.requirements.length,t.requirements.length?
     table(["Part","Suggested qty","Catalogue availability","Optional unit offer"],rows):
     empty("No suggestions","You can suggest parts here, including items not in the catalogue."))+
@@ -232,9 +234,10 @@ return function(d,ui,c){
     pair("Collected",kes(a.collected))+pair("Outstanding",t.invoice?kes(a.outstanding):"—"))+
    panel("Payment & invoice",
     t.invoice?'<div class="success-line">Invoice '+e(t.invoice.id)+" · "+e(t.invoice.at)+'</div>'+
-      (a.outstanding>0?btn("Record payment","modal","payment","primary"):tag("Fully paid"))+
-      '<div class="head-actions spaced">'+btn("View invoice","show-document","invoice","outline")+
-       (t.payments.length?btn("Payment receipt","show-document","payment","outline"):"")+'</div>':
+      (a.outstanding<=0?'<div class="payment-status">'+tag("Fully paid")+'</div>':"")+
+      '<div class="report-actions">'+(a.outstanding>0?btn("Record payment","modal","payment","primary"):"")+
+       btn("View invoice","show-document","invoice","outline")+'</div>'+
+      (t.payments.length?'<div class="payment-secondary">'+btn("Payment receipt","show-document","payment","outline")+'</div>':""):
      '<p class="hint">'+(canInvoice?"Invoice may be posted now. Parts must already be issued; approved service fees will be included even if the work is not yet marked complete.":
       "Record a customer decision and confirm or remove pending cart items before invoicing.")+'</p>'+
       (canInvoice?btn("Create invoice","invoice",t.id,"primary"):"")
@@ -372,15 +375,37 @@ return function(d,ui,c){
   if(!x)return"";
   const v=c.vehicleFor(d,x),owner=c.customerFor(d,x),kind=ui.document.kind,bill=c.charges(x);
   let name="",description="",head=[],rows=[],total=null;
-  if(kind==="requirements"){
-   name="Parts Requirements & Price List";
-   description="Informational document · customer decides which available items to purchase or source independently.";
-   head=["Required part","Qty","Availability","Our unit price","Discount / unit","Net unit offer"];
-   rows=x.requirements.map(r=>{
-    const i=r.itemId?inv(r.itemId):null;
-    return [e(r.description),e(r.quantity),e(i?(i.quantity>0?i.quantity+" available":"Unavailable"):"Customer to source"),
-     i?kes(i.sellPrice):"—",i?kes(r.discount):"—",i?kes(i.sellPrice-r.discount):"—"];
-   });
+  if(kind==="diagnosis"){
+   if(!x.diagnosis)return "";
+   const services=x.services||[],parts=x.requirements||[];
+   const serviceTotal=services.reduce((n,i)=>n+(i.unitPrice-i.discount)*i.quantity,0);
+   const serviceRows=services.map(i=>tablerow([e(i.description),e(i.quantity),kes(i.unitPrice),kes(i.discount),kes((i.unitPrice-i.discount)*i.quantity)])).join("");
+   const partRows=parts.map(i=>{
+    const stocked=i.itemId?d.inventory.find(z=>z.id===i.itemId):null;
+    return tablerow([e(i.description),e(i.quantity),e(stocked?(stocked.quantity>0?stocked.quantity+" available":"Out of stock"):"Customer to source"),
+     stocked?kes(stocked.sellPrice-i.discount):"—"]);
+   }).join("");
+   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close report"></button>'+
+    '<section class="print-sheet" aria-label="Diagnosis Report for '+e(x.id)+'">'+
+    '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+    btn("Share to WhatsApp","share-diagnosis",x.id,"outline")+btn("Print / Save as PDF","print","","primary")+'</div>'+
+    '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+    '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+    '<div class="doc-heading"><span>REPORT FOR TICKET '+e(x.id)+'</span><h1>Diagnosis Report</h1>'+
+    '<p>Inspection findings, proposed services and suggested parts. Not an invoice.</p></div>'+
+    '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+    '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+    '<div><b>Recorded</b><span>'+e(x.diagnosis.at)+'</span></div></div>'+
+    '<div class="invoice-section"><h2>1 · Diagnosis</h2>'+
+    '<p class="paragraph"><b>Repair feasible:</b> '+e(x.diagnosis.feasible?"Yes":"No")+'</p>'+
+    '<p class="diagnosis-findings">'+e(x.diagnosis.findings)+'</p></div>'+
+    '<div class="invoice-section"><h2>2 · Services & labour estimate</h2>'+
+    (services.length?table(["Service","Qty","Unit fee","Discount / unit","Amount"],serviceRows):'<p class="hint">No services proposed.</p>')+
+    '<div class="invoice-subtotal"><span>Proposed service fees</span><strong>'+kes(serviceTotal)+'</strong></div></div>'+
+    '<div class="invoice-section"><h2>3 · Suggested parts & price list</h2>'+
+    (parts.length?table(["Part","Qty","Availability","Optional unit offer"],partRows):'<p class="hint">No suggested parts.</p>')+'</div>'+
+    '<p class="doc-notice">Suggested parts are informational, do not reserve stock, and do not affect the invoice or inventory cart.</p>'+
+    '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
   }else if(kind==="payment"){
    name="Payment Receipt";description="Recorded fictional customer payments; not a real transaction confirmation.";
    head=["Recorded","Method","Amount"];
@@ -428,17 +453,18 @@ return function(d,ui,c){
     '<p>'+e(paymentStatus)+'</p></div>'+
     (x.payments.length?'<div class="invoice-section"><h2>Payments received</h2>'+
      table(["Recorded","Method","Amount"],paidRows)+'</div>':"")+
+    (x.diagnosis?'<div class="invoice-section invoice-diagnosis"><h2>Diagnosis</h2>'+
+     '<p class="paragraph"><b>Repair feasible:</b> '+e(x.diagnosis.feasible?"Yes":"No")+'</p>'+
+     '<p class="diagnosis-findings">'+e(x.diagnosis.findings)+'</p></div>':"")+
     '<p class="doc-notice">This is the complete invoice for the ticket. Outside-sourced parts are not charged by the garage. Payments are simulated.</p>'+
     '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
   }
-  if(kind!=="requirements"&&kind!=="payment")return "";
-  const notice=kind==="requirements"?
-   "No sale is made, no stock is reserved and no invoice is created by this list.":
-   "Payment records are simulated. This document has no real-world financial validity.";
+  if(kind!=="payment")return "";
+  const notice="Payment records are simulated. This document has no real-world financial validity.";
   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close document"></button>'+
    '<section class="print-sheet">'+
    '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
-   (kind==="requirements"?btn("Share to WhatsApp","whatsapp",x.id,"outline"):"")+
+
    btn("Print / Save as PDF","print","","primary")+'</div>'+
    '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
    '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
