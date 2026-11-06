@@ -17,6 +17,7 @@ const ACTION_TYPES = [
   { value: 'meeting', label: 'Meeting' },
   { value: 'other', label: 'Other' },
 ] as const;
+type ActionType = typeof ACTION_TYPES[number]['value'];
 
 export function InlineFollowupEditor({
   lead, contacts, mode, onSave, onCancel,
@@ -29,7 +30,9 @@ export function InlineFollowupEditor({
 }) {
   const styles = useUIStyles();
   const [action, setAction] = useState(lead.next_action || '');
-  const [actionType, setActionType] = useState(lead.next_action_type || 'call');
+  const [actionType, setActionType] = useState<ActionType>(
+    (lead.next_action_type as ActionType | null) || 'call',
+  );
   const [date, setDate] = useState(lead.next_action_at || '');
   const [time, setTime] = useState(lead.next_action_time?.slice(0, 5) || '');
   const [contactId, setContactId] = useState(
@@ -96,7 +99,9 @@ export function InlineFollowupEditor({
       {contacts.length > 1 ? <SelectSheet title="Contact" value={contactId}
         options={choices} searchable disabled={busy} onChange={setContactId}/> : null}
       <SelectSheet title="Action type" value={actionType} options={ACTION_TYPES}
-        disabled={busy} onChange={setActionType}/>
+        disabled={busy} onChange={value=>{
+          if (ACTION_TYPES.some(option=>option.value===value)) setActionType(value as ActionType);
+        }}/>
       <Field label="Next action" value={action} onChangeText={setAction}
         placeholder="e.g. Call to confirm requirements"/>
       <View style={{flexDirection:'row',gap:12}}>

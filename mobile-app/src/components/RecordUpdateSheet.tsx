@@ -148,7 +148,7 @@ export function RecordUpdateSheet({
   return <Modal visible={visible} animationType="slide" presentationStyle="fullScreen"
     statusBarTranslucent={false}
     onRequestClose={() => { if (!savingKind) onClose(); }}>
-    <StatusBar style={dark ? 'light' : 'dark'} hidden={false} backgroundColor={theme.background}/>
+    <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
     <SafeAreaView style={{flex:1,backgroundColor:theme.background}}>
       <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
         <View style={{paddingHorizontal:18,paddingVertical:13,

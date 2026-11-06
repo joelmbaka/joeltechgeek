@@ -117,7 +117,7 @@ test('Record Update modal keeps status bar visible in both themes',()=>{
   assert.match(modal,/useColorScheme/);
   assert.match(modal,/statusBarTranslucent=\{false\}/);
   assert.match(modal,/<StatusBar style=\{dark \? 'light' : 'dark'\} hidden=\{false\}/);
-  assert.match(modal,/backgroundColor=\{theme.background\}/);
+  assert.match(modal,/SafeAreaView style=\{\{flex:1,backgroundColor:theme.background\}\}/);
 });
 test('Record Update starts with follow-up form open, but keeps outcome-only possible',()=>{
   const editor=read('mobile-app/src/components/RecordUpdateSheet.tsx');
