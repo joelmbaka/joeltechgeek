@@ -195,13 +195,12 @@ return function(d,ui,c){
  }
  function services(){
   const canAdd=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing","cannot-repair"].includes(t.status)&&!t.invoice;
-  const canComplete=["awaiting-parts","in-repair","invoiced"].includes(t.status)&&!t.repairCompleted;
   const rows=t.services.map(l=>tablerow([
    '<b>'+e(l.description)+'</b><small>'+e(l.kind==="diagnosis"?"Diagnosis fee":"Repair service")+'</small>',
    e(l.quantity),kes(l.unitPrice),kes(l.discount),kes((l.unitPrice-l.discount)*l.quantity),
-   l.done?tag("Completed"):canComplete?btn("Mark complete","complete-service",l.id,"outline compact"):tag("Proposed")
+   l.done?tag("Completed"):tag("Estimated")
   ])).join("");
-  return '<div class="sub-head"><div><h2>2 · Services & labour estimate</h2><p>Add repair and inspection fees. Mark services complete only after approval.</p></div>'+
+  return '<div class="sub-head"><div><h2>2 · Services & labour estimate</h2><p>Add proposed repair and inspection fees. Complete all authorized work together in Billing.</p></div>'+
    (canAdd?btn("＋ Add service fee","modal","service","primary"):t.status==="open"?'<button type="button" class="btn primary" disabled title="Record inspection findings first">＋ Add service fee</button>':"")+'</div>'+
    panel("Service lines · "+t.services.length,t.services.length?table(["Service","Qty","Fee / unit","Discount","Amount","State"],rows):
     empty("No service fees yet","Add the proposed repair services or a diagnostic fee."))+
@@ -220,12 +219,11 @@ return function(d,ui,c){
    (["awaiting-parts","in-repair"].includes(t.status)&&isRepair&&!t.cart.length));
   const canRelease=(t.status==="invoiced"&&a.outstanding<=0&&(!isRepair||complete))||
    (["rejected","cannot-repair"].includes(t.status)&&a.total===0);
-  const canCompleteNow=canComplete&&!t.cart.length&&t.services.every(x=>x.done);
-  const work=isRepair?panel("Repair completion",'<p class="hint">'+(complete?"Repair marked completed.":
-   t.cart.length?"Confirm or remove pending cart items before completion.":
-   t.services.some(x=>!x.done)?"Mark all services complete in Diagnosis & Estimate before completing the repair.":
-   "All work can be marked complete. You may create the invoice before or after repair completion.")+'</p>'+
-   (complete?tag("Completed"):canComplete?btn("Complete repair","finish-repair",t.id,"primary",""+(canCompleteNow?"":'disabled title="Finish parts and services first"')):"")):"";
+  const canCompleteNow=canComplete&&!t.cart.length;
+  const work=isRepair?panel("Repair completion",'<p class="hint">'+(complete?"Repair completed. All authorized services are marked complete.":
+   t.cart.length?"Confirm or remove pending cart items before completing the repair.":
+   "When the physical work is finished, complete the repair here. All authorized services will be marked complete together, whether invoiced or not.")+'</p>'+
+   (complete?tag("Completed"):canComplete?btn("Complete repair","finish-repair",t.id,"primary",""+(canCompleteNow?"":'disabled title="Confirm or remove pending cart items"')):"")):"";
   return work+'<div class="columns two">'+panel("Ticket financials",
     pair("Completed services",kes(a.services))+pair("Confirmed parts sales",kes(a.parts))+
     pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
