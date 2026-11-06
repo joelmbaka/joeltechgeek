@@ -60,12 +60,20 @@ return function(d,ui,c){
       btn("Open ticket","convert-appointment",a.id,"primary compact")]);
    }).join("")))+'<p class="footnote">Appointments do not reserve mechanics, bays or staff shifts.</p>';
  }
- function vehicles(){return heading("Customers & vehicles","Vehicle history organized by registration number.",btn("＋ New customer & vehicle","modal","customer","primary"))+
-  panel(d.vehicles.length+" vehicles",table(["Registration","Customer","Contact","Previous tickets"],d.vehicles.map(v=>{
+ function vehicles(){return heading("Customers & vehicles","Register customers first, then assign vehicles to an existing customer.")+
+  '<div class="section-heading"><h2>Customers <span class="section-count">'+d.customers.length+'</span></h2>'+btn("＋ Add customer","modal","customer","primary")+'</div>'+
+  panel("Customer directory",d.customers.length?table(["Customer","Phone","Vehicles owned"],d.customers.map(o=>{
+   const owned=d.vehicles.filter(v=>v.customerId===o.id);
+   return tablerow(['<b>'+e(o.name)+'</b>',e(o.phone),e(owned.length)+
+    (owned.length?'<small>'+owned.map(v=>e(v.plate)).join(", ")+'</small>':"")]);
+  }).join("")):empty("No customers yet","Add a customer before registering a vehicle."))+
+  '<div class="section-heading"><h2>Vehicles <span class="section-count">'+d.vehicles.length+'</span></h2>'+
+   btn("＋ Add vehicle","modal","vehicle","primary",d.customers.length?"":'disabled title="Add a customer first"')+'</div>'+
+  panel("Registered vehicles",d.vehicles.length?table(["Registration","Owner","Contact","Previous tickets"],d.vehicles.map(v=>{
    const o=d.customers.find(x=>x.id===v.customerId),ts=d.tickets.filter(x=>x.vehicleId===v.id);
    return tablerow(['<b>'+e(v.plate)+'</b><small>'+e(v.name+" · "+v.year+" · "+v.mileage.toLocaleString()+" km")+'</small>',
-    e(o.name),e(o.phone),ts.length?ts.map(x=>btn(x.id,"open-ticket",x.id,"outline compact")).join(" "):"—"]);
-  }).join("")));}
+    e(o?.name||"Unknown owner"),e(o?.phone||"—"),ts.length?ts.map(x=>btn(x.id,"open-ticket",x.id,"outline compact")).join(" "):"—"]);
+  }).join("")):empty("No vehicles yet","Add a vehicle and choose its owner from registered customers."));}
  function inventory(){const m=c.metrics(d);return heading("Inventory","Minimal inventory: stock intake, issue to ticket, and returns.",
   '<div class="head-actions">'+btn("＋ New item","modal","item","outline")+btn("＋ Stock in","modal","stock-in","primary")+'</div>')+
   '<div class="metrics three">'+metric("Parts registered",d.inventory.length,"Inventory items")+
@@ -245,19 +253,21 @@ return function(d,ui,c){
   if(!ui.modal)return"";
   const m=ui.modal,kind=m.kind;let title="",body="",submit="Save";
   if(kind==="customer"){
-   title="New customer & vehicle";submit="Save vehicle";
-   body='<div class="form-grid">'+field("Customer name","name")+
-   field("Phone","phone","","placeholder=\"07XX XXX XXX\"")+field("Registration","plate","","placeholder=\"KDW 700J\"")+
-   field("Make and model","model","","placeholder=\"Toyota Fielder\"")+
-   numberField("Year","year",2016,'type="number" min="1970" max="2030" step="1"')+
-   numberField("Mileage (km)","mileage",80000,'type="number" min="0" step="1"')+'</div>';
+   title="Add customer";submit="Save customer";
+   body=field("Customer name","name")+
+    field("Phone","phone","","placeholder=\"07XX XXX XXX\"");
+  }else if(kind==="vehicle"){
+   title="Add vehicle";submit="Save vehicle";
+   body=select("Owner","customerId",d.customers.map(o=>[o.id,o.name+" · "+o.phone]),m.customerId||d.customers[0]?.id)+
+    '<div class="form-grid">'+field("Registration","plate","","placeholder=\"KDW 700J\"")+
+    field("Make and model","model","","placeholder=\"Toyota Fielder\"")+
+    numberField("Year","year",2016,'type="number" min="1970" max="2030" step="1"')+
+    numberField("Mileage (km)","mileage",80000,'type="number" min="0" step="1"')+'</div>';
   }else if(kind==="ticket"){
    title="Open repair ticket";submit="Create ticket";
    const options=d.vehicles.map(v=>[v.id,vehicleName(v)]);
    body=select("Vehicle","vehicleId",options,m.vehicleId||options[0]?.[0])+
-    area("Customer complaint","complaint")+
-    '<p class="hint">Select an existing vehicle or add a new customer and vehicle first.</p>'+
-    btn("＋ Add customer & vehicle","open-customer","","outline");
+    area("Customer complaint","complaint");
   }else if(kind==="appointment"){
    title="New appointment";submit="Save appointment";
    body=select("Vehicle","vehicleId",d.vehicles.map(v=>[v.id,vehicleName(v)]),d.vehicles[0]?.id)+
