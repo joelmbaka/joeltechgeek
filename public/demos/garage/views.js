@@ -173,6 +173,14 @@ return function(d,ui,c){
  }
  function cart(){
   const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
+  const customerParts=t.requirements.map(r=>{
+   const pending=Math.max(0,r.quantity-r.customerProvided-(r.itemId?c.issuedQty(t,r.itemId):0));
+   if(!pending)return "";
+   const inventory=r.itemId?inv(r.itemId):null;
+   if(inventory&&inventory.quantity>0)return "";
+   return tablerow(['<b>'+e(r.description)+'</b>',e(pending),
+    allowed?btn("Mark received","modal","receive","outline compact",'data-requirement-id="'+e(r.id)+'"'):"—"]);
+  }).filter(Boolean).join("");
   const pending=t.cart.map(row=>{
    const i=inv(row.itemId);
    return tablerow([e(i.name),e(row.quantity),kes(row.unitPrice),kes(row.discount),
@@ -190,6 +198,7 @@ return function(d,ui,c){
     '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
      (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
     empty("No cart items","Check available requirements or select any inventory item, even one not on the list."))+
+   (customerParts?panel("Customer-provided parts",table(["Part","Still required",""],customerParts)):"")+
    panel("Confirmed inventory issues",issued?table(["Part","Net / issued quantity","Net unit price","Net total",""],issued):
     empty("No inventory issued","Only confirmed issues count as inventory consumption."))+
    '<p class="footnote">Add to cart has no stock effect. Confirm Issue deducts inventory. Returns restore quantity and reverse charges before invoicing.</p>';
@@ -197,7 +206,7 @@ return function(d,ui,c){
  
  function services(){
   const canAdd=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing","cannot-repair"].includes(t.status)&&!t.invoice;
-  const canComplete=["awaiting-parts","in-repair"].includes(t.status);
+  const canComplete=["awaiting-parts","in-repair","invoiced"].includes(t.status)&&!t.repairCompleted;
   const rows=t.services.map(l=>tablerow([
    '<b>'+e(l.description)+'</b><small>'+e(l.kind==="diagnosis"?"Diagnosis fee":"Repair service")+'</small>',
    e(l.quantity),kes(l.unitPrice),kes(l.discount),kes((l.unitPrice-l.discount)*l.quantity),
