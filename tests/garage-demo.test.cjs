@@ -568,7 +568,7 @@ test('garage panel gutters inset overview rows and payment actions consistently'
  assert.ok(css.includes('margin-inline:var(--panel-gutter)'));
  assert.ok(css.includes('width:auto;'));
  assert.ok(css.includes('@media(max-width:570px)'));
- const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\\n;garageViews',{});
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
  const d=c.seed();
  const ui={page:'tickets',ticketId:'T-1041',tab:'overview',search:'',filter:'all',modal:null,document:null};
  const overview=makeViews(d,ui,c).main();
