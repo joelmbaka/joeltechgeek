@@ -111,6 +111,8 @@ export function seedDemo(day: string = kenyaToday()): State {
       { id: 'peter', name: 'Peter Kariuki', phone: '07XX XXX 203', active: true },
       { id: 'mary', name: 'Mary Achieng', phone: '07XX XXX 204', active: true },
       { id: 'daniel', name: 'Daniel Mwangi', phone: '07XX XXX 205', active: true },
+      { id: 'samuel', name: 'Samuel Maina', phone: '07XX XXX 206', active: true },
+      { id: 'joyce', name: 'Joyce Atieno', phone: '07XX XXX 207', active: true },
     ],
     shifts: [
       { id: 's-prior', siteId: 'greenview', staffId: 'brian', startAt: iso(previous, '18:00'), endAt: iso(day, '06:00'), attendance: 'completed', arrivalAt: iso(previous, '18:03'), departureAt: iso(day, '06:02'), method: 'Supervisor confirmation', confirmedBy: 'Grace' },
@@ -208,6 +210,8 @@ export function fillRollingWindow(state: State, today: string = kenyaToday()): S
   const templates = [
     { site: 'greenview', staff: 'kevin', key: 'day', from: '06:00', to: '18:00' },
     { site: 'greenview', staff: 'brian', key: 'night', from: '18:00', to: '06:00' },
+    { site: 'riverside', staff: 'samuel', key: 'day', from: '06:00', to: '18:00' },
+    { site: 'riverside', staff: 'joyce', key: 'night', from: '18:00', to: '06:00' },
     { site: 'karen', staff: 'peter', key: 'day', from: '06:00', to: '18:00' },
     { site: 'westlands', staff: 'mary', key: 'day', from: '06:00', to: '18:00' },
     { site: 'westlands', staff: 'daniel', key: 'night', from: '18:00', to: '06:00' },
@@ -240,7 +244,7 @@ export function fillRollingWindow(state: State, today: string = kenyaToday()): S
       });
     }
     if (!history || offset < -HISTORY_DAYS) continue;
-    for (const site of state.sites.filter(s => ['greenview', 'karen', 'westlands'].includes(s.id))) {
+    for (const site of state.sites.filter(s => ['greenview', 'riverside', 'karen', 'westlands'].includes(s.id))) {
       const id = 'sample-activity-' + site.id + '-' + day;
       if (existingActivities.has(id)) continue;
       const variation = (Math.abs(offset) + site.id.length) % 4;
