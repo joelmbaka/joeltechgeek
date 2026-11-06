@@ -183,7 +183,11 @@ export function RecordUpdateSheet({
             <Text style={[styles.value,{fontSize:17}]}>Follow-up</Text>
             <SelectSheet title="Next step" value={mode} options={options}
               disabled={disposition !== 'keep'}
-              onChange={setMode}/>
+              onChange={(value) => {
+                if (value === 'keep' || value === 'set' || value === 'complete' || value === 'cancel') {
+                  setMode(value);
+                }
+              }}/>
             {mode === 'set' && disposition === 'keep' ? <>
               {contacts.length>1 ? <SelectSheet title="Follow-up contact" value={followupContact}
                 options={choices} searchable onChange={setFollowupContact}/> : null}
