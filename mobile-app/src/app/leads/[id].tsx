@@ -20,6 +20,7 @@ import { activityChannelLabel, outcomeLabel } from '@/lib/types';
 import type { Lead, LeadContact, LeadDetails, LeadEvent, LeadList } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 const excluded = (lead: Lead) => lead.do_not_contact ||
   ['won','lost','competitor','do_not_contact'].includes(lead.stage);
 function websiteUrl(raw: string | null): string | null {
@@ -62,6 +63,8 @@ export default function LeadScreen() {
   const [updateMode,setUpdateMode] = useState<FollowupChoice>('keep');
   const [savingKind,setSavingKind] = useState<'stay'|'next'|null>(null);
   const savingRef = useRef(false);
+  // Discard older detail GETs when focus, a save, and foreground refresh overlap.
+  const detailsRequestVersion = useRef(0);
   const [otherSaving,setOtherSaving] = useState<'identity'|'context'|'reopen'|null>(null);
   const [identityEditing,setIdentityEditing] = useState(false);
   const [companyDraft,setCompanyDraft] = useState('');
@@ -74,18 +77,43 @@ export default function LeadScreen() {
 
   const load = useCallback((signal:AbortSignal) => {
     if (!id || !user) return;
+    const version = ++detailsRequestVersion.current;
     setLoading(true);
     setError(null);
     void apiFetch<LeadDetails>('/api/agent-crm/leads/'+encodeURIComponent(id),{signal})
       .then(data=>{
-        if (signal.aborted) return;
+        if (signal.aborted || version !== detailsRequestVersion.current) return;
         setLead(data.lead);setContacts(data.contacts);setHistory(data.history);
       }).catch(reason=>{
-        if (!signal.aborted) setError(reason instanceof Error?reason.message:'Unable to load lead.');
-      }).finally(()=>{if(!signal.aborted)setLoading(false);});
+        if (!signal.aborted && version === detailsRequestVersion.current)
+          setError(reason instanceof Error?reason.message:'Unable to load lead.');
+      }).finally(()=>{
+        if (!signal.aborted && version === detailsRequestVersion.current) setLoading(false);
+      });
   },[id,user?.id]);
   useFreshOnFocus(load,[load]);
   const reload = () => load(new AbortController().signal);
+  // Await this after a successful write so the current screen displays fresh history
+  // before Save & Stay is considered fully settled. Never repeat the write on GET failure.
+  const refreshDetails = async (leadId: string): Promise<boolean> => {
+    const version = ++detailsRequestVersion.current;
+    try {
+      const details = await apiFetch<LeadDetails>(
+        '/api/agent-crm/leads/'+encodeURIComponent(leadId),
+      );
+      if (version !== detailsRequestVersion.current) return false;
+      if (details.lead.id !== leadId) return false;
+      setLead(details.lead);
+      setContacts(details.contacts);
+      setHistory(details.history);
+      setError(null);
+      setLoading(false);
+      return true;
+    } catch {
+      if (version === detailsRequestVersion.current) setLoading(false);
+      return false;
+    }
+  };
   const activeLead = lead && lead.id === id ? lead : null;
   const primaryId = contacts.find(c=>c.is_primary)?.id || contacts[0]?.id || '';
   const chosenContactId = contactId!==null && contacts.some(c=>c.id===contactId)
@@ -111,11 +139,18 @@ export default function LeadScreen() {
         '/api/agent-crm/leads/'+encodeURIComponent(id)+'/updates',{
           method:'POST',body:JSON.stringify(payload),
         });
+      // The mutation response is authoritative; show its lead state immediately.
+      // Only fetch history once the POST has committed, protecting against stale GETs.
+      ++detailsRequestVersion.current;
       setLead(response.lead);
       setUpdateOpen(false);
       setNotice('Update saved');
-      reload();
       void reconcileReminders(user).catch(()=>{});
+      if (!advance) {
+        const fresh = await refreshDetails(response.lead.id);
+        setNotice(fresh ? 'Update saved' :
+          'Update saved, but history could not refresh. Tap Refresh details.');
+      }
       if(advance) {
         try {
           const target = view && view !== 'closed' ? view : 'for_you';
@@ -184,16 +219,34 @@ export default function LeadScreen() {
   };
   const reopenCompetitor = () => {
     if (!activeLead || activeLead.stage!=='competitor' || otherSaving) return;
+    // Use the validated ID returned by the lead API, not transient router params.
+    const leadId = activeLead.id;
+    if (!UUID.test(leadId)) {
+      setError('Unable to reopen: this lead has an invalid identifier.');
+      return;
+    }
+    const path = '/api/agent-crm/leads/'+encodeURIComponent(leadId)+'/classification';
     dialog({title:'Reopen competitor as prospect?',
       message:'This business will return to active outreach. Confirm that contacting it is appropriate.',
       cancelLabel:'Cancel',confirmLabel:'Reopen',
       onConfirm:()=> {
         setOtherSaving('reopen');
-        void apiFetch('/api/agent-crm/leads/'+encodeURIComponent(id)+'/classification',{
+        setError(null);
+        void apiFetch<{ok:true;lead:Lead}>(path,{
           method:'PATCH',body:JSON.stringify({status:'new'}),
-        }).then(()=>{reload();setNotice('Reopened as prospect');})
-          .catch(e=>setError(e instanceof Error?e.message:'Could not reopen lead.'))
-          .finally(()=>setOtherSaving(null));
+        }).then(async response=>{
+          ++detailsRequestVersion.current;
+          setLead(response.lead);
+          const fresh = await refreshDetails(leadId);
+          setNotice(fresh ? 'Reopened as prospect' :
+            'Reopened as prospect; history refresh unavailable. Tap Refresh details.');
+          if(user)void reconcileReminders(user).catch(()=>{});
+        }).catch(e=>{
+          if (__DEV__) console.warn('[CRM_REOPEN]', {
+            endpoint:path, leadId, message:e instanceof Error?e.message:String(e),
+          });
+          setError(e instanceof Error?e.message:'Could not reopen lead.');
+        }).finally(()=>setOtherSaving(null));
       },
     });
   };
@@ -205,7 +258,12 @@ export default function LeadScreen() {
       <Text style={styles.error}>{error}</Text>
       {!activeLead ? <Button secondary onPress={reload}>Retry loading lead</Button> : null}
     </View> : null}
-    {notice ? <Text style={{color:theme.primaryDark,fontWeight:'700'}}>{notice}</Text> : null}
+    {notice ? <View style={{gap:6}}>
+      <Text style={{color:theme.primaryDark,fontWeight:'700'}}>{notice}</Text>
+      {notice.includes('refresh') ? <Button secondary onPress={()=>void refreshDetails(activeLead?.id || String(id))}>
+        Refresh details
+      </Button> : null}
+    </View> : null}
     {activeLead ? <>
       <View style={{gap:4}}>
         <Text style={styles.title}>{activeLead.company_name||activeLead.contact_name||'Unnamed lead'}</Text>

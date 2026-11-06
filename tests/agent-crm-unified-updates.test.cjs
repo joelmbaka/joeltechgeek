@@ -81,3 +81,33 @@ test('native time selection is 12-hour AM/PM while keeping 24-hour API storage',
   assert.match(picker,/timeLabel\(value\)/);
   assert.match(picker,/two\(value\.getHours\(\)\)/);
 });
+
+test('Save & Stay refreshes lead and activity history after the committed write',()=>{
+  const screen=read('mobile-app/src/app/leads/[id].tsx');
+  assert.match(screen,/detailsRequestVersion = useRef\(0\)/);
+  assert.match(screen,/version !== detailsRequestVersion\.current/);
+  assert.match(screen,/const refreshDetails = async \(leadId: string\)/);
+  assert.match(screen,/setHistory\(details\.history\)/);
+  assert.match(screen,/const fresh = await refreshDetails\(response\.lead\.id\)/);
+  assert.match(screen,/Update saved, but history could not refresh/);
+  assert.match(screen,/Refresh details/);
+  assert.doesNotMatch(
+    screen.slice(screen.indexOf('const saveUnified'),screen.indexOf('const openWebsite')),
+    /reload\(\)/,
+  );
+});
+
+test('competitor reopen validates the fetched lead ID and reports diagnostics only on dev',()=>{
+  const screen=read('mobile-app/src/app/leads/[id].tsx');
+  const route=read('app/api/agent-crm/leads/[id]/classification/route.ts');
+  const start=screen.indexOf('const reopenCompetitor');
+  const end=screen.indexOf('if(!user)return',start);
+  const reopen=screen.slice(start,end);
+  assert.match(reopen,/const leadId = activeLead\.id/);
+  assert.match(reopen,/UUID\.test\(leadId\)/);
+  assert.match(reopen,/encodeURIComponent\(leadId\)/);
+  assert.match(reopen,/apiFetch<\{ok:true;lead:Lead\}>\(path/);
+  assert.match(reopen,/refreshDetails\(leadId\)/);
+  assert.match(reopen,/if \(__DEV__\) console\.warn/);
+  assert.match(route,/if \(!UUID\.test\(id\)\) return fail\('Invalid lead\.', 400\)/);
+});
