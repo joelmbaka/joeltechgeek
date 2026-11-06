@@ -131,8 +131,23 @@ document.addEventListener("click",event=>{
  if(action==="remove-cart")return void change(w=>c.removeCart(w,ui.ticketId,id),"Cart item removed.");
 });
 function openState(id){ui.ticketId=id;ui.page="tickets";ui.tab="overview";}
+function syncRequirementForm(form){
+ const part=form.elements.namedItem("partChoice"),source=form.elements.namedItem("source");
+ if(!part||!source)return;
+ const custom=part.value==="custom",field=form.querySelector("#custom-part-field");
+ const input=form.elements.namedItem("description"),discount=form.querySelector("#requirement-discount");
+ if(custom)source.value="manual";
+ source.disabled=custom;
+ if(field)field.hidden=!custom;
+ if(input){input.disabled=!custom;input.required=custom;if(!custom)input.value="";}
+ if(discount)discount.hidden=custom||source.value!=="inventory";
+}
 document.addEventListener("change",event=>{
- if(event.target.name==="ticket-filter"&&!ui.ticketId){ui.filter=event.target.value;render();}
+ if(event.target.name==="ticket-filter"&&!ui.ticketId){ui.filter=event.target.value;render();return;}
+ if(["partChoice","source"].includes(event.target.name)){
+  const form=event.target.closest("#garage-form");
+  if(form?.dataset.kind==="requirement")syncRequirementForm(form);
+ }
 });
 document.addEventListener("input",event=>{
  if(event.target.id!=="ticket-search"||ui.ticketId)return;
@@ -169,9 +184,14 @@ document.addEventListener("submit",event=>{
  if(kind==="diagnosis")return void change(w=>c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.");
  if(kind==="service")return void change(w=>c.addService(w,ui.ticketId,p),"Service fee added to ticket.");
  if(kind==="requirement"){
-  if(p.source==="manual")return void change(w=>c.addRequirement(w,ui.ticketId,{description:p.description,
-   quantity:p.quantity,itemId:null,discount:0}),"Customer-sourced requirement recorded.");
-  return void change(w=>c.requireInventory(w,ui.ticketId,p.itemId,p.quantity,p.discount),"Inventory-linked requirement added.");
+  const custom=p.partChoice==="custom",manual=custom||p.source==="manual";
+  if(manual){
+   const chosen=custom?null:d.inventory.find(i=>i.id===p.partChoice);
+   if(!custom&&!chosen){setToast("Choose a valid catalogue part.");return;}
+   return void change(w=>c.addRequirement(w,ui.ticketId,{description:custom?p.description:chosen.name,
+    quantity:p.quantity,itemId:null,discount:0}),"Customer-sourced requirement added.");
+  }
+  return void change(w=>c.requireInventory(w,ui.ticketId,p.partChoice,p.quantity,p.discount),"Inventory-linked requirement added.");
  }
  if(kind==="cart")return void change(w=>c.addToCart(w,ui.ticketId,p.itemId,p.quantity,p.discount),"Inventory item added to ticket cart.");
  if(kind==="receive")return void change(w=>c.receiveCustomerPart(w,ui.ticketId,form.dataset.requirementId,p.quantity),"Customer-provided part received.");
