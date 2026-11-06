@@ -181,8 +181,7 @@ return function(d,ui,c){
   }).join("");
   const external=(t.externalParts||[]).map(x=>tablerow([e(x.name),e(x.quantity),e(x.source),e(x.at)])).join("");
   return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Actual stock issues and externally obtained parts. Independent of suggested parts requirements.</p></div>'+
-   (allowed?'<div class="head-actions">'+btn("＋ Add from inventory","modal","cart","primary")+
-    btn("＋ Record outside part","modal","outside-part","outline")+'</div>':"")+'</div>'+
+   (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
    panel("Pending inventory cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
     '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
      (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
