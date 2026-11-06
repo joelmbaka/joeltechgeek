@@ -42,22 +42,27 @@ function openModal(kind,attrs={}){
  issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null,quantity:attrs.quantity||null};ui.toast="";render();
 }
 function openDocument(kind){
- if(!ui.ticketId||!["requirements","invoice","payment"].includes(kind))return;
+ if(!ui.ticketId||!["diagnosis","invoice","payment"].includes(kind))return;
+ if(kind==="diagnosis"&&!d.tickets.find(t=>t.id===ui.ticketId)?.diagnosis)return;
  if(kind==="invoice"&&!d.tickets.find(t=>t.id===ui.ticketId)?.invoice)return;
  ui.modal=null;ui.document={ticketId:ui.ticketId,kind};ui.toast="";render();
 }
-function whatsappText(t){
+function diagnosisReportText(t){
  const v=c.vehicleFor(d,t),p=c.customerFor(d,t);
- const rows=t.requirements.map((r,index)=>{
-  const i=r.itemId?d.inventory.find(x=>x.id===r.itemId):null;
-  const price=i&&i.quantity>0?"KES "+(i.sellPrice-r.discount).toLocaleString("en-KE")+
-   (r.discount?" (discount KES "+r.discount+")":""):"Not available / customer to source";
-  return (index+1)+". "+r.description+" · "+r.quantity+" required · "+price;
- });
- return "SUMMIT AUTO SERVICE (DEMO)\nParts Requirements & Price List\n"+
-  "Ticket: "+t.id+"\nVehicle: "+v.plate+" — "+v.name+"\nCustomer: "+p.name+"\n\n"+
-  rows.join("\n")+"\n\nAvailable parts are optional purchases. You may bring your own parts."+
-  "\nThis is an informational list, not a receipt or an invoice.";
+ const dx=t.diagnosis;
+ if(!dx)return "";
+ const services=t.services.map((s,i)=>(i+1)+". "+s.description+" · "+s.quantity+" × KES "+(s.unitPrice-s.discount).toLocaleString("en-KE")).join("\n");
+ const parts=t.requirements.map((r,i)=>{
+  const item=r.itemId?d.inventory.find(x=>x.id===r.itemId):null;
+  const offer=item?" · Optional offer KES "+(item.sellPrice-r.discount).toLocaleString("en-KE"):" · Customer to source";
+  return (i+1)+". "+r.description+" · "+r.quantity+" suggested"+offer;
+ }).join("\n");
+ return "SUMMIT AUTO SERVICE (DEMO)\nDiagnosis Report\nTicket: "+t.id+
+  "\nVehicle: "+v.plate+" — "+v.name+"\nCustomer: "+p.name+
+  "\n\nDIAGNOSIS\n"+dx.findings+"\nRepair feasible: "+(dx.feasible?"Yes":"No")+
+  "\n\nSERVICES & FEES\n"+(services||"None proposed")+
+  "\n\nSUGGESTED PARTS\n"+(parts||"None suggested")+
+  "\n\nRecommendations are informational. This is not an invoice.";
 }
 function render(){
  const key=[ui.page,ui.ticketId,ui.tab].join(":"),
@@ -103,12 +108,11 @@ document.addEventListener("click",event=>{
  if(action==="show-document"){openDocument(id);return;}
  if(action==="close-document"){ui.document=null;render();return;}
  if(action==="print"){window.print?.();return;}
- if(action==="whatsapp"){
+ if(action==="share-diagnosis"){
   const current=d.tickets.find(t=>t.id===id);
-  if(!current)return;
-  const text=whatsappText(current);
-  window.open?.("https://wa.me/?text="+encodeURIComponent(text),"_blank","noopener,noreferrer");
-  setToast("WhatsApp message prepared. Choose a recipient and send it yourself.");return;
+  if(!current?.diagnosis)return;
+  window.open?.("https://wa.me/?text="+encodeURIComponent(diagnosisReportText(current)),"_blank","noopener,noreferrer");
+  setToast("Diagnosis report message prepared. Choose a recipient and send it yourself.");return;
  }
  if(action==="reset"){
   if(!window.confirm?.("Restore all fictional garage records?"))return;
