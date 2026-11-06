@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useRef, type ReactNode, type FormEvent, type ChangeEvent } from 'react';
+import Link from 'next/link';
 import {
   ArrowLeft, Building2, CalendarDays, Camera, Check, ChevronLeft, ChevronRight,
   Clock3, FileText, Info, MapPin, MessageSquare, Plus, RotateCcw, Send,
-  ShieldCheck, Users, X
+  ShieldCheck, X
 } from 'lucide-react';
 import styles from './SecurityExperience.module.css';
 import SecurityRosterDetail from './SecurityRosterDetail';
@@ -89,7 +90,6 @@ export default function SecurityExperience() {
   const [activeIssueId,setActiveIssueId] = useState<string | null>(null);
   const [activeTimelineId,setActiveTimelineId] = useState<string | null>(null);
   const [selectedSiteId,setSelectedSiteId] = useState<string | null>(null);
-  const [selectedClient,setSelectedClient] = useState<string | null>(null);
   const [showAddSite,setShowAddSite] = useState(false);
   const [showAddStaff,setShowAddStaff] = useState(false);
   const [showShiftForm,setShowShiftForm] = useState(false);
@@ -151,7 +151,6 @@ export default function SecurityExperience() {
   const windowStart = addDays(kenyaToday(),-HISTORY_DAYS);
   const windowEnd = addDays(kenyaToday(),PLANNING_DAYS);
   const issues = siteIssues(data,siteId);
-  const reports = siteReports(data,siteId);
   const clientReportGroups = clientSiteReports(data,siteId);
   const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
   const tabs = role === 'client'
@@ -163,11 +162,11 @@ export default function SecurityExperience() {
     catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to update sample data.'); }
   }
   function switchRole(next: Role) {
-    setRole(next); setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setNotice('');
+    setRole(next); setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function moveTab(next: string) {
-    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setNotice('');
+    setTab(next);setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setNotice('');
     if(scrollRef.current)scrollRef.current.scrollTop=0;
   }
   function openTimeline(id: string) {
@@ -190,7 +189,7 @@ export default function SecurityExperience() {
   function reset() {
     if(typeof window !== 'undefined' && !window.confirm('Reset all fictional security service data?')) return;
     const next = fillRollingWindow(seedDemo());setData(next);setDate(next.anchorDate);setSiteId('greenview');
-    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setSelectedClient(null);setReportEvidence([]);setNotice('Sample data restored.');
+    setRole('client');setTab('roster');setActiveIssueId(null);setActiveTimelineId(null);setSelectedSiteId(null);setReportEvidence([]);setNotice('Sample data restored.');
   }
   function submitIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -310,7 +309,7 @@ export default function SecurityExperience() {
       </details>}
     </Card>;
   }
-  function reportList(recs: typeof reports, showSiteName = true) {
+  function reportList(recs: ReturnType<typeof siteReports>, showSiteName = true) {
     return recs.length ? <div className="space-y-3">{recs.map(rep=><Card key={rep.id}>
       <div className="flex items-center justify-between gap-2">
         <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
@@ -657,12 +656,12 @@ export default function SecurityExperience() {
       <p className={styles.kicker}>JOELTECHGEEK · SECURITY DEMO</p>
       <h1>Stay on top of every site.</h1>
       <p>Explore shift coverage, daily site records, client concerns, evidence and service reporting in a connected mobile experience.</p>
-      <a href="/demos/security">← About this solution</a>
+      <Link href="/demos/security">← About this solution</Link>
     </aside>
     <section className={styles.phone} aria-label="Security management mobile app demo">
       <div className={styles.statusbar} aria-hidden="true"><span>9:41</span><span>●●● ◕ ▰</span></div>
       <header className={styles.appHeader}>
-        <a href="/demos/security" className={styles.logo} aria-label="Back to security demo overview"><ShieldCheck className="h-6 w-6"/></a>
+        <Link href="/demos/security" className={styles.logo} aria-label="Back to security demo overview"><ShieldCheck className="h-6 w-6"/></Link>
         <div className={styles.brand}><strong>Security Operations</strong><span>CONNECTED SERVICE · DEMO</span></div>
         <label className={styles.roleLabel} htmlFor="security-role-select">Switch role
           <select id="security-role-select" className={styles.roleSelect} value={role} onChange={e=>switchRole(e.target.value as Role)}>

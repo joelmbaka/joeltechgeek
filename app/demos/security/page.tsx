@@ -109,7 +109,7 @@ export default function SecurityDemoPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Simple attendance checks, clear client updates.</h2>
           <p className="mt-3 leading-8 text-gray-600 dark:text-gray-300">
-            The supervisor can review each site's assignments and mark whether an officer is on site. Client-visible records show the result, while site visits, issue responses and dated reports help the property owner follow the service received. Additional attendance capture methods can be integrated later.
+            The supervisor can review each site&apos;s assignments and mark whether an officer is on site. Client-visible records show the result, while site visits, issue responses and dated reports help the property owner follow the service received. Additional attendance capture methods can be integrated later.
           </p>
         </div>
       </section>
