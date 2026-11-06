@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { AppState, Pressable, Text, View } from 'react-native';
 import { useAuth } from '@/lib/AuthProvider';
@@ -42,7 +42,9 @@ export function NotificationBell() {
   return <Pressable accessibilityRole="button"
     accessibilityLabel={count > 0 ? `Notifications, ${count} unread` : 'Notifications'}
     hitSlop={8}
-    onPress={() => router.push('/notifications')}
+    // This screen exists in src/app and the Stack; Expo's generated route types
+    // can lag until Metro regenerates .expo/types after a new route is added.
+    onPress={() => router.push('/notifications' as Href)}
     style={{ width: 42, height: 42, marginRight: 4,
       alignItems: 'center', justifyContent: 'center' }}>
     <SymbolView

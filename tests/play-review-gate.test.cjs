@@ -5,7 +5,6 @@ const { join } = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-// No production DB needed. Compile just the pure server gate helper.
 const source = readFileSync(join(__dirname, '../lib/agent-crm/play-review.ts'), 'utf8');
 function load(sourceText, env = {}) {
   const javascript = ts.transpileModule(sourceText, {
@@ -15,27 +14,31 @@ function load(sourceText, env = {}) {
   vm.runInNewContext(javascript, context, { filename: 'play-review.js' });
   return context.exports;
 }
-test('review access stays enabled without environment variables or an expiration date', () => {
-  const gate = load(source);
-  assert.equal(gate.PLAY_REVIEW_ACCESS_ENABLED, true);
-  assert.equal(gate.playReviewEnabled(), true);
-  assert.equal(load(source, { CRM_PLAY_REVIEW_ENABLED: 'false',
-    CRM_PLAY_REVIEW_UNTIL: '2000-01-01T00:00:00Z' }).playReviewEnabled(), true);
+
+test('production Review Access stays disabled by default, regardless of QA flag', () => {
+  assert.equal(load(source).PLAY_REVIEW_ACCESS_ENABLED, false);
+  assert.equal(load(source).playReviewEnabled(), false);
+  assert.equal(load(source, { NODE_ENV: 'production',
+    CRM_ENABLE_LOCAL_REVIEW_ACCESS: 'true' }).playReviewEnabled(), false);
 });
-test('disabling in server code rejects existing review sessions at the auth gate', () => {
-  const disabledSource = source.replace(
-    'export const PLAY_REVIEW_ACCESS_ENABLED = true;',
-    'export const PLAY_REVIEW_ACCESS_ENABLED = false;',
-  );
-  assert.notEqual(disabledSource, source);
-  assert.equal(load(disabledSource).playReviewEnabled(), false);
+
+test('local Review Access requires explicit opt-in on development backend', () => {
+  assert.equal(load(source, { NODE_ENV: 'development' }).playReviewEnabled(), false);
+  assert.equal(load(source, { NODE_ENV: 'development',
+    CRM_ENABLE_LOCAL_REVIEW_ACCESS: 'false' }).playReviewEnabled(), false);
+  assert.equal(load(source, { NODE_ENV: 'development',
+    CRM_ENABLE_LOCAL_REVIEW_ACCESS: 'true' }).playReviewEnabled(), true);
+  assert.equal(load(source, { NODE_ENV: 'test',
+    CRM_ENABLE_LOCAL_REVIEW_ACCESS: 'true' }).playReviewEnabled(), false);
 });
-test('the review identity is a synthetic, non-routable inbox, not Joel', () => {
-  const gate = load(source);
-  assert.equal(gate.PLAY_REVIEW_AGENT_EMAIL, 'play-review@joeltechgeek.invalid');
-  assert.equal(gate.PLAY_REVIEW_AGENT_EMAIL.endsWith('.invalid'), true);
+
+test('review identity remains a separate synthetic user, never a real agent', () => {
+  assert.equal(load(source).PLAY_REVIEW_USER_EMAIL, 'play-review@joeltechgeek.invalid');
+  assert.equal(load(source).PLAY_REVIEW_USER_EMAIL.endsWith('.invalid'), true);
 });
-test('gate implementation has no runtime environment or date dependence', () => {
-  assert.equal(source.includes('process.env'), false);
-  assert.equal(source.includes('Date.now'), false);
+
+test('mobile app only offers review button when server confirms access', () => {
+  const screen = readFileSync(join(__dirname, '../mobile-app/src/app/index.tsx'), 'utf8');
+  assert.match(screen, /SHOW_REVIEW_ACCESS_BUTTON = true/);
+  assert.match(screen, /body\?\.enabled === true/);
 });
