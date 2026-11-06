@@ -302,7 +302,7 @@ return function(d,ui,c){
   }else if(kind==="requirement"){
    title="Add parts requirement";submit="Add required part";
    body=select("Part name","partChoice",d.inventory.map(i=>[i.id,i.name]).concat([["custom","Not in catalogue — enter part name"]]),d.inventory[0]?.id||"custom")+
-    '<div id="custom-part-field" hidden>'+field("New part name","description","","placeholder=\\"e.g. Rear bumper\\" maxlength=\\"140\\" disabled")+'</div>'+
+    '<div id="custom-part-field" hidden>'+field("New part name","description","","placeholder='e.g. Rear bumper' maxlength='140' disabled")+'</div>'+
     select("Source","source",[["inventory","From garage inventory"],["manual","Customer to source / provide"]],"inventory")+
     '<div class="form-grid">'+numberField("Quantity required","quantity",1)+
     '<div id="requirement-discount">'+priceField("Discount per unit (KES)","discount",0)+'</div></div>'+
