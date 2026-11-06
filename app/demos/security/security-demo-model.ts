@@ -275,6 +275,20 @@ export function siteIssues(state: State, siteId: string): Issue[] {
 export function siteReports(state: State, siteId: string): Report[] {
   return state.reports.filter(r => r.siteId === siteId).sort((a,b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 }
+/**
+ * Client reporting hierarchy: client -> owned sites -> dated site reports.
+ * Only a site's exact reports appear under that site, never under the entire client.
+ * The selected property is shown first for ease of navigation in the demo.
+ */
+export function clientSiteReports(state: State, selectedSiteId: string): { site: Site; reports: Report[] }[] {
+  const selected = state.sites.find(site => site.id === selectedSiteId);
+  if (!selected) return [];
+  return state.sites
+    .filter(site => site.client === selected.client)
+    .sort((a, b) => (a.id === selectedSiteId ? -1 : b.id === selectedSiteId ? 1 : a.name.localeCompare(b.name)))
+    .map(site => ({ site, reports: siteReports(state, site.id) }));
+}
+
 export function assignShift(state: State, shiftId: string, staffId: string): State {
   const shift = state.shifts.find(s => s.id === shiftId), staff = state.staff.find(p => p.id === staffId && p.active);
   if (!shift || !staff) throw new Error('Select a valid shift and active officer.');
