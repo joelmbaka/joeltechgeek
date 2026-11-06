@@ -332,11 +332,6 @@ return function(d,ui,c){
     '<div class="form-grid">'+numberField("Quantity","quantity",m.quantity||1)+
     priceField("Discount / unit (KES)","discount",m.discount||0)+'</div>'+
     '<p class="hint">The inventory quantity changes only after confirming the issue.</p>';
-  }else if(kind==="receive"){
-   const r=t?.requirements.find(x=>x.id===m.requirementId);if(!r)return"";
-   title="Customer-provided parts";submit="Record received quantity";
-   body='<p class="form-caption">'+e(r.description)+" · "+e(r.quantity)+" required</p>"+
-    numberField("Quantity received","quantity",1);
   }else if(kind==="reject"){
    title="Record estimate rejection";submit="Confirm rejection";
    body=area("Reason","notes","Customer declined proposed repairs.");
