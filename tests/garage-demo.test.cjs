@@ -410,6 +410,56 @@ test('complete repair, invoice, partial payment and release only after settlemen
   assert.equal(t.status,'released');
   assert.equal(c.charges(t).outstanding,0);
 });
+
+test('a posted invoice is one document with services and parts sections', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const doc=makeViews(d,ui,c).documentView();
+ assert.ok(doc.includes('Repair & Service Invoice'));
+ assert.ok(doc.includes('1 · Services & labour'));
+ assert.ok(doc.includes('2 · Parts issued from inventory'));
+ assert.ok(doc.includes('Replace worn pads'));
+ assert.ok(doc.includes('Brake fluid 1L'));
+ assert.ok(doc.includes('2,950'));
+ assert.ok(doc.includes('Unpaid'));
+ assert.ok(doc.includes('Invoice total'));
+ assert.ok(doc.includes('Balance due'));
+ const billing=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(billing.includes('View invoice'));
+ assert.ok(!billing.includes('Service invoice'));
+ assert.ok(!billing.includes('View parts receipt'));
+ assert.ok(!billing.includes('data-action="show-document" data-id="parts"'));
+});
+test('one invoice remains viewable with correct balances before partial and full settlement', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ const invoice=c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const show=()=>makeViews(d,ui,c).documentView();
+ assert.ok(show().includes('Unpaid'));
+ c.payment(d,t.id,{amount:1000,method:'Cash'});
+ assert.ok(show().includes('Partially paid'));
+ assert.ok(show().includes('1,950'));
+ assert.ok(show().includes('Payments received'));
+ assert.ok(makeViews(d,{...ui,document:null},c).main().includes('View invoice'));
+ c.payment(d,t.id,{amount:1950,method:'M-Pesa (sample)'});
+ assert.equal(c.charges(t).outstanding,0);
+ assert.ok(show().includes('Paid in full'));
+ assert.equal(invoice.id,t.invoice.id);
+ assert.ok(makeViews(d,{...ui,document:null},c).main().includes('View invoice'));
+});
+test('invoice view refuses to create a document before an invoice is posted', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:'T-1041',tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:'T-1041',kind:'invoice'}};
+ assert.equal(makeViews(d,ui,c).documentView(),'');
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('kind==="invoice"&&!d.tickets.find'));
+});
+
 test('invoice and released tickets cannot be mutated', () => {
   const d=c.seed(),t=c.ticket(d,'T-1048');
   assert.throws(()=>c.addToCart(d,t.id,'SKU-1',1),/closed/i);
