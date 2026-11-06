@@ -257,7 +257,9 @@ return function(d,ui,c){
  }
  function ticketView(){if(!t)return empty("Ticket unavailable","Select a ticket.");
   const v=c.vehicleFor(d,t),o=c.customerFor(d,t),lock=stageLock(ui.tab);
-  return '<div class="breadcrumb">'+btn("← Tickets","back","","text")+e(t.id)+'</div>'+
+  const origin=ui.returnPage==="reports"?"Reports":ui.returnPage==="dashboard"?"Dashboard":
+   ui.returnPage==="appointments"?"Appointments":"Tickets";
+  return '<div class="breadcrumb">'+btn("← "+origin,"back","","text")+e(t.id)+'</div>'+
    '<div class="ticket-hero"><div><span class="eyebrow">REPAIR TICKET · '+e(t.id)+'</span><h1>'+e(v.name)+'</h1>'+
     '<p>'+e(v.plate+" · "+o.name+" · "+o.phone)+'</p></div>'+tag(c.status(t))+'</div>'+
    (t.status==="open"?'<div class="ticket-actions">'+btn("Record diagnosis","modal","diagnosis","primary")+'</div>':"")+
