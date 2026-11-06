@@ -9,7 +9,10 @@ export type CrmInboxNotification = {
   read_at: string | null;
 };
 
+export type InboxSection = 'unread' | 'read';
+
 export type InboxPage = {
+  section: InboxSection;
   ok: true;
   notifications: CrmInboxNotification[];
   has_more: boolean;
@@ -26,9 +29,14 @@ export function subscribeInboxChanges(listener: () => void): () => void {
 export function notifyInboxChanged(): void {
   subscribers.forEach((listener) => listener());
 }
-export function listCrmNotifications(limit = 50, offset = 0): Promise<InboxPage> {
-  const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  return apiFetch<InboxPage>('/api/agent-crm/notifications?' + query);
+/** Each section is independently paged; the API owns the read-at 7-day cutoff. */
+export function listCrmNotifications(
+  section: InboxSection, limit = 25, offset = 0, signal?: AbortSignal,
+): Promise<InboxPage> {
+  const query = new URLSearchParams({
+    section, limit: String(limit), offset: String(offset),
+  });
+  return apiFetch<InboxPage>('/api/agent-crm/notifications?' + query, { signal });
 }
 export function getCrmUnreadCount(): Promise<number> {
   return apiFetch<{ok: true; count: number}>('/api/agent-crm/notifications/unread-count')

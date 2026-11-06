@@ -86,3 +86,49 @@ test('Android notification receipt and tap update server-backed inbox state', ()
   assert.match(feed, /notificationId} AS notification_id/);
   assert.match(feed, /n\.user_id = l\.user_id/);
 });
+
+test('unread reminders have no age cap; recently read uses read_at for a rolling seven days', () => {
+  const api = read('app/api/agent-crm/notifications/route.ts');
+  const count = read('app/api/agent-crm/notifications/unread-count/route.ts');
+  assert.match(api, /section === 'unread'/);
+  assert.match(api, /read_at IS NULL AND canceled_at IS NULL/);
+  assert.match(api, /read_at IS NOT NULL AND read_at >= now\(\) - INTERVAL '7 days'/);
+  assert.match(api, /AND due_at <= now\(\)/);
+  assert.match(api, /'due_at ASC, id ASC'/);
+  assert.match(api, /'read_at DESC, id DESC'/);
+  assert.doesNotMatch(api, /due_at >= now\(\) - INTERVAL '7 days'/);
+  assert.match(count, /canceled_at IS NULL AND read_at IS NULL/);
+  assert.doesNotMatch(api, /DELETE FROM|TRUNCATE/i);
+});
+
+test('notification sections use independent pagination with no maximum record count', () => {
+  const api = read('app/api/agent-crm/notifications/route.ts');
+  const client = read('mobile-app/src/lib/notification-inbox.ts');
+  const screen = read('mobile-app/src/app/notifications.tsx');
+  assert.match(api, /section !== 'unread' && section !== 'read'/);
+  assert.match(api, /limit \+ 1, offset/);
+  assert.match(api, /rows\.rows\.slice\(0, limit\)/);
+  assert.match(api, /has_more: rows\.rows\.length > limit/);
+  assert.doesNotMatch(api, /offset > 100000/);
+  assert.match(client, /section: InboxSection, limit = 25, offset = 0/);
+  assert.match(client, /new URLSearchParams\(\{/);
+  assert.match(client, /section, limit: String\(limit\), offset: String\(offset\)/);
+  assert.match(screen, /const PAGE_SIZE = 25/);
+  assert.match(screen, /fetchPage\('unread', unreadItems\.length\)/);
+  assert.match(screen, /fetchPage\('read', readItems\.length\)/);
+  assert.match(screen, /appendUnique\(current, result\.notifications\)/);
+});
+
+test('recently read is collapsed by default; unread is visible and virtualized', () => {
+  const screen = read('mobile-app/src/app/notifications.tsx');
+  assert.match(screen, /useState\(false\)/);
+  assert.match(screen, /setReadExpanded\(expanded => !expanded\)/);
+  assert.match(screen, /if \(readExpanded\) \{/);
+  assert.match(screen, /<FlatList/);
+  assert.match(screen, /<Page scroll=\{false\}>/);
+  assert.match(screen, /Recently read/);
+  assert.match(screen, /Oldest due first/);
+  assert.match(screen, /markCrmNotificationRead\(item\.id\)/);
+  assert.match(screen, /router\.push\(\{ pathname: '\/leads\/\[id\]'/);
+  assert.match(screen, /setUnreadItems\(current => current\.filter/);
+});
