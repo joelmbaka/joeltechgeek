@@ -315,18 +315,62 @@ export default function SecurityExperience() {
       </details>}
     </Card>;
   }
-  function reportList(recs: ReturnType<typeof siteReports>, showSiteName = true) {
-    return recs.length ? <div className="space-y-3">{recs.map(rep=><Card key={rep.id}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
-        <span className="text-[10px] text-[#7c9489]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
-      </div>
-      <h3 className="mt-3 text-sm font-extrabold text-[#264637]">{rep.title}</h3>
-      {showSiteName&&<p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>}
-      <p className="mt-2 text-[11px] leading-5 text-[#779186]">From {formatDay(rep.periodFrom)} to {formatDay(rep.periodTo)}</p>
-      <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[#4c695a]">{rep.summary}</p>
-      {(rep.assets?.length||0)>0&&<div className="mt-3"><p className="text-[11px] font-bold text-[#456f5b]">Attached evidence</p><Assets assets={rep.assets||[]}/></div>}
-    </Card>)}</div> : <Card><p className={textMuted}>No published reports yet.</p></Card>;
+  function openReport(id: string) {
+    setSelectedReportId(id);
+    if(scrollRef.current)scrollRef.current.scrollTop=0;
+  }
+  function reportList(recs: Report[], showSiteName = true) {
+    return recs.length ? <div className="space-y-3">
+      {recs.map(rep=><button type="button" key={rep.id} onClick={()=>openReport(rep.id)}
+        aria-label={'Read '+rep.title+' for '+(data.sites.find(s=>s.id===rep.siteId)?.name||'property')}
+        className={panel+' block w-full text-left transition hover:border-[#98cdb0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#059669]'}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
+          <span className="text-[10px] text-[#7c9489]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
+        </div>
+        <h3 className="mt-3 text-sm font-extrabold text-[#264637]">{rep.title}</h3>
+        {showSiteName && <p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>}
+        <p className="mt-1 text-[11px] leading-5 text-[#779186]">{formatDay(rep.periodFrom)} – {formatDay(rep.periodTo)}</p>
+        <p className="mt-3 line-clamp-2 text-xs leading-5 text-[#4c695a]">{rep.summary.replace(/\s+/g,' ').slice(0,180)}</p>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#e3eee6] pt-3">
+          <p className="min-w-0 truncate text-[10px] text-[#668575]">Prepared by: {rep.preparedBy}</p>
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-emerald-700">Read <ChevronRight className="h-4 w-4"/></span>
+        </div>
+      </button>)}
+    </div> : <Card><p className={textMuted}>No weekly or monthly reports published for this property yet.</p></Card>;
+  }
+  function reportDetail(rep: Report, back: ()=>void) {
+    const site=data.sites.find(s=>s.id===rep.siteId);
+    return <div className="space-y-4">
+      <button type="button" className="inline-flex min-h-10 items-center gap-2 text-xs font-bold text-emerald-700"
+        onClick={()=>{back();if(scrollRef.current)scrollRef.current.scrollTop=0;}}>
+        <ArrowLeft className="h-4 w-4"/> Back to reports
+      </button>
+      <Card>
+        <div className="flex items-center justify-between gap-2">
+          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period} report</span>
+          <span className="text-[10px] text-[#81998c]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
+        </div>
+        <h2 className="mt-3 text-lg font-extrabold text-[#244a36]">{rep.title}</h2>
+        <p className="mt-2 break-all text-[10px] font-semibold text-[#8b9e91]">Report ID: {rep.id}</p>
+        <div className="mt-4 space-y-2 rounded-xl bg-[#f1f8f3] p-3 text-[11px] leading-5 text-[#4d6b5b]">
+          <p><strong>Site:</strong> {site?.name||'Unknown property'}</p>
+          <p><strong>Client:</strong> {site?.client||'Unknown client'}</p>
+          <p><strong>From:</strong> {formatDay(rep.periodFrom)}</p>
+          <p><strong>To:</strong> {formatDay(rep.periodTo)}</p>
+          <p><strong>Prepared by:</strong> {rep.preparedBy}</p>
+          <p><strong>Published:</strong> {formatDay(dayOfInstant(rep.publishedAt))} · {formatClock(rep.publishedAt)} EAT</p>
+        </div>
+      </Card>
+      <Card>
+        <SectionTitle title="Full report" note="The complete report submitted for this property and reporting period."/>
+        <p className="whitespace-pre-wrap text-xs leading-7 text-[#3c5e4c]">{rep.summary}</p>
+      </Card>
+      <Card>
+        <SectionTitle title="Evidence & attachments" note="Supporting photos and documents supplied with the report."/>
+        {(rep.assets||[]).length ? <Assets assets={rep.assets||[]}/> : <p className={textMuted}>No attachments were included.</p>}
+      </Card>
+    </div>;
   }
   async function readReportFiles(event: ChangeEvent<HTMLInputElement>) {
     const files=Array.from(event.target.files||[]);
