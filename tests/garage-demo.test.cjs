@@ -10,9 +10,10 @@ const c = vm.runInNewContext(source + '\n;garageCore', {});
 
 function createDiagnosed() {
   const d = c.seed();
-  const vehicle = c.createCustomerVehicle(d, {
-    name: 'Demo Client', phone: '0712345678', plate: 'KDW 900Q',
-    model: 'Toyota Fielder', year: 2018, mileage: 84000,
+  const owner = c.createCustomer(d, { name: 'Demo Client', phone: '0712345678' });
+  const vehicle = c.createVehicle(d, {
+    customerId: owner.id, plate: 'KDW 900Q', model: 'Toyota Fielder',
+    year: 2018, mileage: 84000,
   });
   const t = c.openTicket(d, {vehicleId: vehicle.id, complaint: 'Brake noise while stopping'});
   c.diagnose(d, t.id, {findings: 'Front brake pads worn and fluid needs replacement', feasible: 'yes'});
@@ -39,8 +40,42 @@ test('new customer and vehicle create an open ticket without duplicate registrat
   const {d,t}=createDiagnosed();
   assert.equal(t.status,'estimating');
   assert.equal(c.customerFor(d,t).name,'Demo Client');
-  assert.throws(()=>c.createCustomerVehicle(d,{name:'Other',phone:'0711223344',plate:'KDW 900Q',model:'Mazda Demio',year:2017,mileage:1}),/Registration already exists/);
+  assert.throws(()=>c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDW 900Q',model:'Mazda Demio',year:2017,mileage:1}),/Registration already exists/);
 });
+
+test('customer can exist without a vehicle and can own multiple vehicles', () => {
+  const d=c.seed(), before=d.vehicles.length;
+  const owner=c.createCustomer(d,{name:'Amina Njeri',phone:'0712345678'});
+  assert.equal(d.vehicles.length,before);
+  assert.equal(d.customers.find(x=>x.id===owner.id).name,'Amina Njeri');
+  const one=c.createVehicle(d,{customerId:owner.id,plate:'KDW 123A',model:'Toyota Axio',year:2017,mileage:53000});
+  const two=c.createVehicle(d,{customerId:owner.id,plate:'KDW 456B',model:'Honda Fit',year:2018,mileage:72000});
+  assert.equal(one.customerId,owner.id);
+  assert.equal(two.customerId,owner.id);
+  assert.equal(d.vehicles.filter(x=>x.customerId===owner.id).length,2);
+});
+test('vehicle registration requires an existing customer and rejects duplicate plates', () => {
+  const d=c.seed();
+  assert.throws(()=>c.createVehicle(d,{customerId:'MISSING',plate:'KDW 123A',model:'Toyota Axio',year:2017,mileage:53000}),/Customer not found/);
+  assert.throws(()=>c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDM 123A',model:'Toyota Axio',year:2017,mileage:53000}),/Registration already exists/);
+});
+test('new ticket requires a registered vehicle and does not create customers', () => {
+  const d=c.seed(), count=d.customers.length;
+  assert.throws(()=>c.openTicket(d,{vehicleId:'MISSING',complaint:'Brake inspection needed'}),/Vehicle not found/);
+  const vehicle=c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDW 777X',model:'Toyota Corolla',year:2016,mileage:67000});
+  const ticket=c.openTicket(d,{vehicleId:vehicle.id,complaint:'Brake inspection needed'});
+  assert.equal(ticket.vehicleId,vehicle.id);
+  assert.equal(d.customers.length,count);
+});
+test('customer and vehicle actions are kept out of new ticket dialog', () => {
+  const source=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+  const dialog=source.split('}else if(kind==="ticket"){')[1].split('}else if(kind==="appointment"){')[0];
+  assert.ok(!dialog.includes('Add customer'));
+  assert.ok(!dialog.includes('Add vehicle'));
+  assert.ok(!dialog.includes('open-customer'));
+  assert.ok(dialog.includes('Customer complaint'));
+});
+
 test('parts requirements are informational and do not deduct stock', () => {
   const {d,t}=createDiagnosed();
   const initial=c.stock(d,'SKU-1').quantity;
