@@ -15,7 +15,7 @@ const note=(d,t,message)=>{d.events.unshift({id:id(d,"EV"),ticketId:t.id,at:NOW,
 const edit=t=>{if(t.status==="released"||t.invoice)throw Error("This ticket is closed for changes.");};
 const line=(key,desc,unitPrice,kind="repair",done=false)=>({id:key,description:desc,quantity:1,unitPrice,discount:0,kind,done});
 const request=(key,desc,quantity,itemId=null)=>({id:key,description:desc,quantity,itemId,discount:0,customerProvided:0});
-const blank=(key,vehicleId,complaint,status="open")=>({id:key,vehicleId,complaint,status,openedAt:NOW,diagnosis:null,services:[],requirements:[],cart:[],issues:[],returns:[],approval:null,invoice:null,payments:[],release:null,appointmentId:null});
+const blank=(key,vehicleId,complaint,status="open")=>({id:key,vehicleId,complaint,status,openedAt:NOW,diagnosis:null,services:[],requirements:[],cart:[],issues:[],returns:[],approval:null,invoice:null,payments:[],repairCompleted:false,release:null,appointmentId:null});
 function seed(){
  const customers=[["CU-1","James Mwangi"],["CU-2","Susan Wanjiku"],["CU-3","Peter Otieno"],["CU-4","Mercy Chebet"],["CU-5","David Kamau"]].map(([id,name],i)=>({id,name,phone:"0700 111 00"+(i+1)}));
  const names=[["VH-1","CU-1","KDM 123A","Toyota Axio",2016,123400],["VH-2","CU-2","KDN 456B","Subaru Forester",2017,95800],["VH-3","CU-3","KDP 789C","Toyota Probox",2015,174000],["VH-4","CU-4","KDR 321D","Isuzu D-Max",2019,89000],["VH-5","CU-5","KDS 654E","Mazda Demio",2014,143200],["VH-6","CU-1","KDT 987F","Toyota Prado",2018,110400],["VH-7","CU-2","KDU 246G","Nissan Note",2016,114300],["VH-8","CU-3","KDV 135H","Toyota Vitz",2015,138800],["VH-9","CU-4","KDW 732J","Toyota Fielder",2018,80200]];
@@ -79,7 +79,8 @@ function charges(t){
  const parts=round(t.issues.reduce((s,l)=>s+money(l.unitPrice,l.discount,l.quantity),0)-t.returns.reduce((s,r)=>s+r.reversalTotal,0));
  const cost=round(t.issues.reduce((s,l)=>s+l.unitCost*l.quantity,0)-t.returns.reduce((s,r)=>s+r.costTotal,0));
  const collected=round(t.payments.reduce((s,p)=>s+p.amount,0));
- return {services,parts,cost,total:round(services+parts),contribution:round(services+parts-cost),collected,outstanding:round((t.invoice?.total||0)-collected)};
+ const total=t.invoice?.total??round(services+parts);
+ return {services,parts,cost,total,contribution:round(total-cost),collected,outstanding:round((t.invoice?.total||0)-collected)};
 }
 function createCustomer(d,p){
  const name=text(p.name,"Customer name",2,80),phone=text(p.phone,"Phone",7,30);
@@ -149,12 +150,15 @@ function requestApproval(d,key){
  t.status="awaiting-approval";t.approval=null;note(d,t,"Estimate awaiting customer approval");return t;
 }
 function approve(d,key,notes=""){
- const t=ticket(d,key);edit(t);if(t.status!=="awaiting-approval")throw Error("Ticket is not awaiting approval.");
+ const t=ticket(d,key);edit(t);
+ if(!["estimating","awaiting-approval"].includes(t.status)||!t.diagnosis?.feasible)throw Error("Complete a feasible diagnosis before customer approval.");
+ if(!t.services.some(s=>s.kind==="repair")&&!t.requirements.length)throw Error("Add services or parts requirements before approval.");
  t.approval={decision:"Approved",notes:String(notes).trim().slice(0,280),at:NOW};
  t.status=missingRequirements(t).length?"awaiting-parts":"in-repair";note(d,t,"Estimate approved by customer");return t;
 }
 function reject(d,key,notes=""){
- const t=ticket(d,key);edit(t);if(t.status!=="awaiting-approval")throw Error("Ticket is not awaiting approval.");
+ const t=ticket(d,key);edit(t);
+ if(!["estimating","awaiting-approval"].includes(t.status)||!t.diagnosis?.feasible)throw Error("Complete a feasible diagnosis before recording rejection.");
  const reason=text(notes||"Customer declined repairs.","Reason",6,280);
  t.approval={decision:"Rejected",notes:reason,at:NOW};t.status="rejected";t.cart=[];
  note(d,t,"Customer rejected estimate");return t;
@@ -205,27 +209,40 @@ function returnIssue(d,key,issueId,count){
  syncParts(t);note(d,t,n+" × "+line.name+" returned to inventory");return r;
 }
 function completeService(d,key,serviceId){
- const t=ticket(d,key);edit(t);
- if(!["awaiting-parts","in-repair"].includes(t.status))throw Error("Approve the repair first.");
+ const t=ticket(d,key);
+ if(!["awaiting-parts","in-repair","invoiced"].includes(t.status)||t.repairCompleted)throw Error("Approve the repair before completing services.");
+ if(t.invoice&&!t.approval?.decision==="Approved")throw Error("Customer approval required.");
  const s=get(t.services,serviceId,"Service");if(s.done)throw Error("Service already completed.");
+ if(t.invoice&&!t.invoice.services.some(row=>row.id===s.id))throw Error("Service was not included in the posted invoice.");
  s.done=true;note(d,t,s.description+" completed");return s;
 }
 function finishRepair(d,key){
- const t=ticket(d,key);edit(t);
- if(t.status!=="in-repair"||missingRequirements(t).length)throw Error("Fulfil parts requirements before completing repair.");
+ const t=ticket(d,key);
+ if(!["in-repair","invoiced"].includes(t.status)||t.repairCompleted||t.approval?.decision!=="Approved")
+  throw Error("Approved repair must be in progress before completion.");
+ if(missingRequirements(t).length)throw Error("Fulfil parts requirements before completing repair.");
  if(t.cart.length)throw Error("Confirm or remove pending cart items.");
  if(t.services.some(s=>!s.done))throw Error("Mark all services complete first.");
- t.status="ready-for-billing";note(d,t,"Repair completed · ready for billing");return t;
+ t.repairCompleted=true;
+ if(!t.invoice)t.status="ready-for-billing";
+ note(d,t,t.invoice?"Repair completed · invoice already posted":"Repair completed · ready for billing");return t;
 }
 function invoiceTicket(d,key){
  const t=ticket(d,key);edit(t);
- if(!["ready-for-billing","rejected","cannot-repair"].includes(t.status))throw Error("Ticket is not ready for billing.");
+ if(!["in-repair","ready-for-billing","rejected","cannot-repair"].includes(t.status))throw Error("Ticket is not ready for billing.");
  if(t.cart.length)throw Error("Clear pending cart first.");
- if(["rejected","cannot-repair"].includes(t.status)&&t.issues.length)throw Error("Rejected repairs cannot include inventory issues.");
- const bill=charges(t);
- t.invoice={id:id(d,"INV"),at:NOW,services:feeLines(t).map(s=>({id:s.id,description:s.description,quantity:s.quantity,unitPrice:s.unitPrice,discount:s.discount})),
-  parts:t.issues.map(x=>({...x})),total:bill.total};
- t.status="invoiced";note(d,t,"Invoice posted · KES "+bill.total);return t.invoice;
+ const repair=["in-repair","ready-for-billing"].includes(t.status);
+ if(repair&&(!t.approval||t.approval.decision!=="Approved"||missingRequirements(t).length))
+  throw Error("Approve repair and fulfil required parts before invoicing.");
+ if(!repair&&t.issues.length)throw Error("Rejected repairs cannot include inventory issues.");
+ const services=repair?t.services:feeLines(t);
+ const lineItems=services.map(s=>({id:s.id,description:s.description,quantity:s.quantity,unitPrice:s.unitPrice,discount:s.discount}));
+ const parts=t.issues.map(x=>({...x}));
+ const total=round(lineItems.reduce((a,s)=>a+money(s.unitPrice,s.discount,s.quantity),0)+
+  parts.reduce((a,x)=>a+money(x.unitPrice,x.discount,x.quantity),0)-
+  t.returns.reduce((a,x)=>a+x.reversalTotal,0));
+ t.invoice={id:id(d,"INV"),at:NOW,services:lineItems,parts,total};
+ t.status="invoiced";note(d,t,"Invoice posted · KES "+total);return t.invoice;
 }
 function payment(d,key,p){
  const t=ticket(d,key);if(t.status!=="invoiced"||!t.invoice)throw Error("Post invoice before taking payment.");
@@ -239,6 +256,8 @@ function release(d,key){
  if(["cannot-repair","rejected"].includes(t.status)){
   if(charges(t).total>0)throw Error("Invoice and settle any diagnostic fee before release.");
  }else if(t.status!=="invoiced")throw Error("Finish the ticket before releasing the vehicle.");
+ if(t.invoice&&!["rejected","cannot-repair"].includes(t.approval?.decision||"")&&t.diagnosis?.feasible&&!t.repairCompleted)
+  throw Error("Complete repair before releasing the vehicle.");
  if(t.invoice&&charges(t).outstanding>0)throw Error("Settle outstanding balance before release.");
  if(t.cart.length)throw Error("Clear pending cart.");
  const reason=t.status==="cannot-repair"?"Repair unavailable":t.status==="rejected"?"Customer declined repairs":"Completed and paid";
