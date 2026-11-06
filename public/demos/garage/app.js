@@ -42,7 +42,8 @@ function openModal(kind,attrs={}){
  issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null,quantity:attrs.quantity||null};ui.toast="";render();
 }
 function openDocument(kind){
- if(!ui.ticketId||!["requirements","parts","services","payment"].includes(kind))return;
+ if(!ui.ticketId||!["requirements","invoice","payment"].includes(kind))return;
+ if(kind==="invoice"&&!d.tickets.find(t=>t.id===ui.ticketId)?.invoice)return;
  ui.modal=null;ui.document={ticketId:ui.ticketId,kind};ui.toast="";render();
 }
 function whatsappText(t){
