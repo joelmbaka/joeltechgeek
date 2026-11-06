@@ -38,3 +38,16 @@
 .stage-lock p{max-width:470px;color:#6c7e85;font-size:13px;line-height:1.8;margin:0 0 24px}
 .stage-lock .btn{min-width:210px}
 @media(max-width:570px){.stage-lock{min-height:350px;padding:42px 19px}.stage-lock-icon{width:108px;height:108px}.stage-lock-icon svg{width:66px;height:66px}.workflow-heading h2{font-size:19px}}
+
+/* Compact outstanding-parts checklist explains what must be physically fulfilled. */
+.outstanding-notice{padding:18px 21px;margin:0 0 21px;background:#fffaf0;border:1px solid #f0ddaa;border-radius:13px}
+.outstanding-notice h3{font-size:14px;font-weight:800;margin:0 0 7px;color:#805d1c}
+.outstanding-notice p{margin:0 0 15px;color:#886e40;font-size:12px;line-height:1.7}
+.outstanding-row{display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid #eedfbe;padding:12px 0}
+.outstanding-row:last-child{padding-bottom:0}
+.outstanding-row b,.outstanding-row small{display:block}
+.outstanding-row b{font-size:13px;color:#5e502e}
+.outstanding-row small{font-size:11px;color:#8c7853;margin-top:5px}
+.outstanding-row .btn{flex-shrink:0}
+.parts-ready{border:1px solid #d2eadb;background:#f1fbf5;color:#236a4c;padding:14px 18px;font-size:12px;font-weight:700;border-radius:11px;margin-bottom:20px}
+@media(max-width:570px){.outstanding-row{align-items:flex-start;flex-direction:column;gap:8px}}
