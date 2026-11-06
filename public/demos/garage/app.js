@@ -6,7 +6,7 @@ if(!root)return;
 let d;
 try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch(_){}
 if(!c.valid(d))d=c.seed();
-const ui={page:"dashboard",ticketId:null,tab:"overview",search:"",filter:"all",modal:null,
+const ui={page:"dashboard",ticketId:null,returnPage:"tickets",tab:"overview",search:"",filter:"all",modal:null,
  document:null,mobileMenu:false,toast:""};
 let lastViewKey=null;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(d));}catch(_){ui.toast="Browser storage is unavailable. Changes may not persist.";}}
@@ -25,11 +25,12 @@ function change(fn,message,after){
 }
 function navigate(page){
  if(!makeViews(d,ui,c).NAV.some(x=>x[0]===page))return;
- ui.page=page;ui.ticketId=null;ui.tab="overview";ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";
+ ui.page=page;ui.ticketId=null;ui.returnPage="tickets";ui.tab="overview";ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";
  render();
 }
 function openTicket(ticketId){
  if(!d.tickets.some(t=>t.id===ticketId))return;
+ ui.returnPage=ui.ticketId?(ui.returnPage||"tickets"):(ui.page||"tickets");
  ui.page="tickets";ui.ticketId=ticketId;ui.tab="overview";
  ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";render();
 }
@@ -101,7 +102,7 @@ document.addEventListener("click",event=>{
  if(action==="toggle-menu"){ui.mobileMenu=!ui.mobileMenu;render();return;}
  if(action==="close-menu"){ui.mobileMenu=false;render();return;}
  if(action==="dismiss"){ui.toast="";render();return;}
- if(action==="back"){navigate("tickets");return;}
+ if(action==="back"){navigate(ui.returnPage||"tickets");return;}
  if(action==="open-ticket"){openTicket(id);return;}
  if(action==="modal"){openModal(id,{itemId,requirementId,issueId,quantity});return;}
  if(action==="close-modal"){ui.modal=null;ui.toast="";render();return;}
@@ -116,7 +117,7 @@ document.addEventListener("click",event=>{
  }
  if(action==="reset"){
   if(!window.confirm?.("Restore all fictional garage records?"))return;
-  d=c.seed();save();ui.page="dashboard";ui.ticketId=null;ui.tab="overview";
+  d=c.seed();save();ui.page="dashboard";ui.ticketId=null;ui.returnPage="tickets";ui.tab="overview";
   ui.modal=null;ui.document=null;ui.search="";ui.filter="all";ui.mobileMenu=false;
   setToast("Demo records restored.");return;
  }
@@ -141,7 +142,7 @@ document.addEventListener("click",event=>{
  if(action==="complete-service")return void change(w=>c.completeService(w,ui.ticketId,id),"Service marked complete.");
  if(action==="remove-cart")return void change(w=>c.removeCart(w,ui.ticketId,id),"Cart item removed.");
 });
-function openState(id){ui.ticketId=id;ui.page="tickets";ui.tab="overview";}
+function openState(id){ui.returnPage=ui.page||"tickets";ui.ticketId=id;ui.page="tickets";ui.tab="overview";}
 function syncRequirementForm(form){
  const part=form.elements.namedItem("partChoice"),source=form.elements.namedItem("source");
  if(!part||!source)return;
