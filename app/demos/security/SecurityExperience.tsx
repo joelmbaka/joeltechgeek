@@ -427,21 +427,34 @@ export default function SecurityExperience() {
       </form>
     </Card>
   </div>;
-  const clientReports = <div className="space-y-5">
-    <SectionTitle title="Site reports" note="Reports are published for individual properties. Browse each site's reports newest first."/>
-    {clientReportGroups.map(({site,reports: siteReportList})=><section key={site.id} className="space-y-3" aria-label={site.name+' reports'}>
-      <div className="flex items-center justify-between gap-3 border-b border-[#d9e9df] pb-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-extrabold text-[#24523b]">{site.name}</h3>
-          <p className="mt-1 text-[11px] text-[#789184]">{site.area}</p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#e9f5ed] px-2.5 py-1 text-[10px] font-bold text-[#17754f]">
-          {siteReportList.length} {siteReportList.length===1?'report':'reports'}
-        </span>
+  const clientReports = selectedReport && clientReportGroups.some(group=>group.site.id===selectedReport.siteId)
+    ? reportDetail(selectedReport,()=>setSelectedReportId(null))
+    : <div className="space-y-4">
+      <SectionTitle title="Reports" note="Weekly and monthly reviews for Alex's properties. Choose a site to see its reports."/>
+      <div className="grid grid-cols-2 gap-2" aria-label="Choose property for reports">
+        {clientReportGroups.map(({site,reports:siteReports})=><button type="button" key={site.id}
+          aria-pressed={clientReportSite?.site.id===site.id}
+          onClick={()=>{setClientReportSiteId(site.id);setSelectedReportId(null);if(scrollRef.current)scrollRef.current.scrollTop=0;}}
+          className={'min-h-20 rounded-2xl border p-3 text-left transition '+(clientReportSite?.site.id===site.id
+            ? 'border-emerald-600 bg-[#e5f5ec] text-[#0e6845] shadow-sm'
+            : 'border-[#dce9df] bg-white text-[#536f5e] hover:border-emerald-300')}>
+          <span className="block text-[11px] font-extrabold leading-4">{site.name}</span>
+          <span className="mt-2 block text-[10px] opacity-80">{siteReports.length} {siteReports.length===1?'report':'reports'}</span>
+        </button>)}
       </div>
-      {reportList(siteReportList, false)}
-    </section>)}
-  </div>;
+      {clientReportSite && <section className="space-y-3" aria-label={clientReportSite.site.name+' reports'}>
+        <div className="flex items-center justify-between gap-3 border-b border-[#d9e9df] pb-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-extrabold text-[#24523b]">{clientReportSite.site.name}</h3>
+            <p className="mt-1 text-[11px] text-[#789184]">{clientReportSite.site.area}</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#e9f5ed] px-2.5 py-1 text-[10px] font-bold text-[#17754f]">
+            Newest first
+          </span>
+        </div>
+        {reportList(clientReportSite.reports,false)}
+      </section>}
+    </div>;
   const clients=Array.from(new Set(data.sites.map(s=>s.client))).sort((a,b)=>a.localeCompare(b));
   const selectedSite=selectedSiteId ? data.sites.find(s=>s.id===selectedSiteId) : undefined;
 
@@ -642,7 +655,7 @@ export default function SecurityExperience() {
     <div className="space-y-3">{managerIssues.filter(i=>i.status==='resolved').map(showIssue)}</div>
   </div>;
 
-  const managerReports = <div className="space-y-4">
+  const managerReports = selectedReport ? reportDetail(selectedReport,()=>setSelectedReportId(null)) : <div className="space-y-4">
     <SectionTitle title="Reports" note="Create dated site reports with optional evidence, visible to each client."
       action={<button type="button" className={secondary} onClick={()=>setShowReportForm(v=>!v)}><Plus className="h-4 w-4"/> Add</button>}/>
     {showReportForm&&<Card>
@@ -650,7 +663,7 @@ export default function SecurityExperience() {
       <form className="mt-3 space-y-3" onSubmit={e=>{
         e.preventDefault();
         try{
-          setData(publishReport(data,reportSite,reportPeriod,reportFrom,reportTo,reportText,reportEvidence));
+          setData(publishReport(data,reportSite,reportPeriod,reportFrom,reportTo,reportText,reportEvidence,reportPreparedBy));
           setReportText('');setReportEvidence([]);setShowReportForm(false);
           setNotice('Report saved. The property client can view it under Reports.');
         }catch(error){setNotice(error instanceof Error?error.message:'Unable to save report.');}
@@ -665,9 +678,9 @@ export default function SecurityExperience() {
             onChange={e=>{
               const period=e.target.value as ReportPeriod;
               setReportPeriod(period);setReportTo(kenyaToday());
-              setReportFrom(period==='daily'?kenyaToday():period==='weekly'?addDays(kenyaToday(),-6):kenyaToday().slice(0,7)+'-01');
+              setReportFrom(period==='weekly'?addDays(kenyaToday(),-6):kenyaToday().slice(0,7)+'-01');
             }}>
-            <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+            <option value="weekly">Weekly</option><option value="monthly">Monthly</option>
           </select>
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -678,9 +691,13 @@ export default function SecurityExperience() {
             <input type="date" required max={kenyaToday()} className={field} value={reportTo} onChange={e=>setReportTo(e.target.value)}/>
           </label>
         </div>
-        <label className="block text-xs font-bold text-[#3c604b]">Summary and findings
-          <textarea className={field} rows={4} minLength={10} required value={reportText}
-            onChange={e=>setReportText(e.target.value)} placeholder="Attendance, site condition, incidents, and recommendations"/>
+        <label className="block text-xs font-bold text-[#3c604b]">Prepared by
+          <input className={field} required minLength={3} maxLength={120} value={reportPreparedBy}
+            onChange={e=>setReportPreparedBy(e.target.value)} placeholder="Name and role of report author"/>
+        </label>
+        <label className="block text-xs font-bold text-[#3c604b]">Full report
+          <textarea className={field} rows={7} minLength={10} maxLength={4000} required value={reportText}
+            onChange={e=>setReportText(e.target.value)} placeholder="Coverage, observations, incidents, recommendations and next actions"/>
         </label>
         <label className="block text-xs font-bold text-[#3c604b]">Attach evidence (optional)
           <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" multiple className={field}
