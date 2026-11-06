@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ id: string }> };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function fail(error: string, status: number) {
   return NextResponse.json({ ok: false, error },
@@ -70,11 +70,11 @@ export async function PATCH(request: Request, { params }: Params) {
     const action = status === 'competitor' ? 'Classified as competitor' : 'Reopened as prospect';
     await client.query(
       `UPDATE public.crm_leads
-       SET stage = $3, priority = CASE WHEN $3 = 'competitor' THEN 'low' ELSE 'normal' END,
+       SET stage = $3::varchar, priority = CASE WHEN $3::varchar = 'competitor' THEN 'low' ELSE 'normal' END,
            do_not_contact = false,
            next_action = NULL, next_action_at = NULL, next_action_time = NULL,
            next_action_timezone = NULL, next_action_due_at = NULL,
-           last_notes = concat_ws(E'\\n\\n', NULLIF(last_notes, ''), $4),
+           last_notes = concat_ws(E'\\n\\n', NULLIF(last_notes, ''), $4::text),
            updated_at = now()
        WHERE id = $1 AND user_id = $2`,
       [id, access.user.id, status, reason],

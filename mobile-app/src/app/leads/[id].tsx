@@ -22,7 +22,7 @@ import { activityChannelLabel, outcomeLabel } from '@/lib/types';
 import type { Lead, LeadContact, LeadDetails, LeadEvent, LeadList } from '@/lib/types';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const excluded = (lead: Lead) => lead.do_not_contact ||
   ['won','lost','competitor','do_not_contact'].includes(lead.stage);
 function websiteUrl(raw: string | null): string | null {
