@@ -460,6 +460,41 @@ test('invoice view refuses to create a document before an invoice is posted', ()
  assert.ok(app.includes('kind==="invoice"&&!d.tickets.find'));
 });
 
+test('fully paid invoice can complete repair without per-service completion', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ const invoice=c.invoiceTicket(d,t.id);
+ c.payment(d,t.id,{amount:invoice.total,method:'Cash'});
+ assert.equal(t.services[0].done,false);
+ assert.throws(()=>c.release(d,t.id),/Complete repair before releasing/);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const billing=makeViews(d,ui,c).main();
+ assert.ok(billing.includes('data-action="finish-repair"'));
+ assert.ok(!billing.includes('data-action="finish-repair" data-id="'+t.id+'" disabled'));
+ const estimate=makeViews(d,{...ui,tab:'diagnosis'},c).main();
+ assert.ok(!estimate.includes('data-action="complete-service"'));
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'invoiced');
+ assert.equal(t.repairCompleted,true);
+ assert.equal(t.services[0].done,true);
+ assert.equal(t.invoice.total,invoice.total);
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
+});
+test('repair completion clears all unfinished authorized services in one action', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ c.addService(d,t.id,{description:'Additional diagnostic test',quantity:1,unitPrice:250,discount:0,kind:'diagnosis'});
+ // The added service revises the estimate; approve the resulting revision again.
+ c.approve(d,t.id);
+ assert.ok(t.services.some(x=>!x.done));
+ c.finishRepair(d,t.id);
+ assert.ok(t.services.every(x=>x.done));
+ assert.equal(t.repairCompleted,true);
+});
+
 test('invoice and released tickets cannot be mutated', () => {
   const d=c.seed(),t=c.ticket(d,'T-1048');
   assert.throws(()=>c.addToCart(d,t.id,'SKU-1',1),/closed/i);
