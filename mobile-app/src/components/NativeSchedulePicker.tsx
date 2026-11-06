@@ -23,7 +23,7 @@ function initialDate(mode: Mode, value: string) {
 }
 /** Display local clock time with explicit AM/PM; API storage stays HH:mm. */
 function timeLabel(value: string): string {
-  if (!/^\\d{2}:\\d{2}$/.test(value)) return value;
+  if (!/^\d{2}:\d{2}$/.test(value)) return value;
   const [hour, minute] = value.split(':').map(Number);
   return String(hour % 12 || 12) + ':' + two(minute) + (hour < 12 ? ' AM' : ' PM');
 }

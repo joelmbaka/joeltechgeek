@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { LeadContactActions } from './LeadContactActions';
 import { useAppDialog } from '@/components/AppDialog';
 import { Button, Field, useUIStyles } from '@/components/ui';
@@ -80,12 +81,40 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>+ Add contact</Text>
       </Pressable> : null}
     </View>
-    {lead.website ? <Text selectable style={styles.subtitle}>Website: {lead.website}</Text> : null}
     {contacts.length === 0 ? <Text style={styles.subtitle}>No contacts yet. Add your first contact.</Text> : null}
     {contacts.map((c) => <View key={c.id} style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{c.name || c.phone || c.email || 'Unnamed contact'}</Text>
-        {c.is_primary ? <Text style={{ color: theme.primaryDark, fontSize: 12, fontWeight: '800' }}>Primary</Text> : null}
+      <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
+        <Text numberOfLines={1} style={[styles.value,{flex:1,fontSize:16}]}>
+          {c.name || c.phone || c.email || 'Unnamed contact'}
+        </Text>
+        {c.is_primary ? <View style={{borderWidth:1,borderColor:theme.primary,
+          backgroundColor:theme.surfaceMuted,borderRadius:16,paddingHorizontal:9,paddingVertical:5}}>
+          <Text style={{color:theme.primaryDark,fontSize:11,fontWeight:'800'}}>Primary</Text>
+        </View> : !locked && editing===null ? <Pressable
+          accessibilityRole="button" accessibilityLabel={'Make '+(c.name||'contact')+' primary'}
+          onPress={()=>void makePrimary(c)} disabled={busy}
+          style={{borderWidth:1,borderColor:theme.border,borderRadius:13,
+            paddingHorizontal:8,paddingVertical:5}}>
+          <Text style={{color:theme.primaryDark,fontSize:11,fontWeight:'700'}}>Set primary</Text>
+        </Pressable> : null}
+        {!locked && editing===null ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Edit '+(c.name||'contact')}
+            disabled={busy} onPress={()=>begin(c.id,c)}
+            style={{width:36,height:36,borderRadius:10,borderWidth:1,borderColor:theme.border,
+              alignItems:'center',justifyContent:'center'}}>
+            <SymbolView name={{ios:'pencil',android:'edit',web:'edit'}}
+              tintColor={theme.primaryDark} size={17}
+              fallback={<Text style={{color:theme.primaryDark,fontSize:18}}>✎</Text>}/>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Remove '+(c.name||'contact')}
+            disabled={busy} onPress={()=>remove(c)}
+            style={{width:36,height:36,borderRadius:10,borderWidth:1,borderColor:theme.border,
+              alignItems:'center',justifyContent:'center'}}>
+            <SymbolView name={{ios:'trash',android:'delete',web:'delete'}}
+              tintColor={theme.warning} size={17}
+              fallback={<Text style={{color:theme.warning,fontSize:18}}>×</Text>}/>
+          </Pressable>
+        </> : null}
       </View>
       {c.role ? <Text style={styles.subtitle}>{c.role}</Text> : null}
       {c.phone ? <Text selectable style={styles.subtitle}>{c.phone}</Text> : null}
@@ -93,25 +122,21 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
       <LeadContactActions phone={c.phone} email={c.email} country={lead.country}
         disabled={locked || busy}/>
 
-      {!locked && editing === null ? <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
-        <Pressable accessibilityRole="button" onPress={() => begin(c.id, c)} disabled={busy}>
-          <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>Edit</Text>
-        </Pressable>
-        {!c.is_primary ? <Pressable accessibilityRole="button" onPress={() => void makePrimary(c)} disabled={busy}>
-          <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>Make primary</Text>
-        </Pressable> : null}
-        <Pressable accessibilityRole="button" onPress={() => remove(c)} disabled={busy}>
-          <Text style={{ color: theme.warning, fontWeight: '700' }}>Remove</Text>
-        </Pressable>
-      </View> : null}
       {editing === c.id ? <View style={{ gap: 9, paddingTop: 8 }}>
         <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}/>
         <Field label="Role" value={form.role} onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}/>
         <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
         <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
-        <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+        <View style={{flexDirection:'row',gap:10}}>
+          <View style={{flex:1}}>
+            <Button disabled={busy || !Object.values(form).some((value) => value.trim())}
+              onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
+          </View>
+          <View style={{flex:1}}>
+            <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+          </View>
+        </View>
       </View> : null}
     </View>)}
     {editing === 'new' ? <View style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 9 }}>
@@ -121,8 +146,15 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
       <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
       <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
-      <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+      <View style={{flexDirection:'row',gap:10}}>
+        <View style={{flex:1}}>
+          <Button disabled={busy || !Object.values(form).some((value) => value.trim())}
+            onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
+        </View>
+        <View style={{flex:1}}>
+          <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+        </View>
+      </View>
     </View> : null}
     {error && editing === null ? <Text style={styles.error}>{error}</Text> : null}
   </View>;

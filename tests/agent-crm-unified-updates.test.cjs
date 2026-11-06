@@ -54,11 +54,11 @@ test('mobile active directory excludes closed; web directory stays compatible',(
   assert.match(mobile,/title="Closed status"/);
   assert.match(mobile,/closedStatus !== 'all'/);
 });
-test('lead page is action-first and history is visible before recording an update',()=>{
+test('lead page keeps recent history visible below the Record Update action',()=>{
   const lead=read('mobile-app/src/app/leads/[id].tsx');
   assert.ok(lead.indexOf('Next follow-up')<lead.indexOf('Lead overview'));
   assert.ok(lead.indexOf('Lead overview')<lead.indexOf('Activity history ('));
-  assert.ok(lead.indexOf('Activity history (')<lead.indexOf('+ Record update'));
+  assert.ok(lead.indexOf('+ Record update')<lead.indexOf('Activity history ('));
   assert.match(lead,/history\.slice\(0,3\)/);
   assert.match(lead,/RecordUpdateSheet/);
   assert.match(lead,/openBrowserAsync/);
@@ -110,4 +110,68 @@ test('competitor reopen validates the fetched lead ID and reports diagnostics on
   assert.match(reopen,/refreshDetails\(leadId\)/);
   assert.match(reopen,/if \(__DEV__\) console\.warn/);
   assert.match(route,/if \(!UUID\.test\(id\)\) return fail\('Invalid lead\.', 400\)/);
+});
+
+test('Record Update modal keeps status bar visible in both themes',()=>{
+  const modal=read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  assert.match(modal,/useColorScheme/);
+  assert.match(modal,/statusBarTranslucent=\{false\}/);
+  assert.match(modal,/<StatusBar style=\{dark \? 'light' : 'dark'\} hidden=\{false\}/);
+  assert.match(modal,/backgroundColor=\{theme.background\}/);
+});
+test('Record Update starts with follow-up form open, but keeps outcome-only possible',()=>{
+  const editor=read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  assert.match(editor,/useState\(true\)/);
+  assert.match(editor,/setIncludeFollowup\(true\)/);
+  assert.match(editor,/const scheduling = includeFollowup/);
+  assert.match(editor,/onPress=\{\(\)=>setIncludeFollowup/);
+  assert.match(editor,/mode: scheduling \? 'set' : 'keep'/);
+  assert.doesNotMatch(editor,/title="Next step"/);
+  assert.match(editor,/Save & Stay/);
+  assert.match(editor,/Save & Next/);
+});
+test('lead follow-up Edit and Complete are inline and not modal navigation',()=>{
+  const screen=read('mobile-app/src/app/leads/[id].tsx');
+  const component=read('mobile-app/src/components/InlineFollowupEditor.tsx');
+  assert.match(screen,/<InlineFollowupEditor/);
+  assert.match(screen,/setInlineFollowupMode\('edit'\)/);
+  assert.match(screen,/setInlineFollowupMode\('complete'\)/);
+  assert.match(screen,/setInlineFollowupMode\(null\)/);
+  assert.match(screen,/\/followup'/);
+  assert.match(screen,/followup:\{mode:'complete'\}/);
+  assert.match(component,/Save follow-up/);
+  assert.match(component,/Mark completed/);
+  assert.match(component,/Completion notes \(optional\)/);
+  assert.match(component,/onCancel/);
+});
+test('lead hierarchy and header Edit match requested ordering',()=>{
+  const screen=read('mobile-app/src/app/leads/[id].tsx');
+  const overview=screen.indexOf('Lead overview');
+  const record=screen.indexOf('+ Record update');
+  const history=screen.indexOf('Activity history (');
+  assert.ok(overview >= 0 && overview < record && record < history);
+  assert.match(screen,/<Stack.Screen options=\{\{/);
+  assert.match(screen,/headerRight: \(\) => <Pressable/);
+  assert.match(screen,/onPress=\{editIdentity\}/);
+  assert.match(screen,/← Back to leads/);
+});
+test('contact edit and remove are icon actions in the header and forms split width',()=>{
+  const contacts=read('mobile-app/src/components/LeadContacts.tsx');
+  assert.match(contacts,/import \{ SymbolView \} from 'expo-symbols'/);
+  assert.match(contacts,/accessibilityLabel=\{'Edit '/);
+  assert.match(contacts,/accessibilityLabel=\{'Remove '/);
+  assert.match(contacts,/tintColor=\{theme.warning\}/);
+  assert.match(contacts,/borderRadius:16,paddingHorizontal:9/);
+  assert.match(contacts,/Save contact/);
+  assert.match(contacts,/Add contact/);
+  assert.match(contacts,/style=\{\{flex:1\}\}>/);
+  assert.doesNotMatch(contacts,/'>Edit<\/Text>/);
+});
+test('time display accepts stored 24-hour values and formats 12-hour',()=>{
+  const picker=read('mobile-app/src/components/NativeSchedulePicker.tsx');
+  assert.match(picker,/String\(hour % 12 \|\| 12\)/);
+  assert.match(picker,/hour < 12 \? ' AM' : ' PM'/);
+  assert.ok(picker.includes('/^' + String.fromCharCode(92) + 'd{2}:' +
+    String.fromCharCode(92) + 'd{2}$/'));
+  assert.doesNotMatch(picker,/is24Hour(?!=\{false\})/);
 });

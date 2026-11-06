@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
@@ -8,7 +8,9 @@ import { LeadDetailSkeleton } from '@/components/Skeleton';
 import { LeadContacts } from '@/components/LeadContacts';
 import { LeadContactActions } from '@/components/LeadContactActions';
 import { RecordUpdateSheet } from '@/components/RecordUpdateSheet';
-import type { FollowupChoice, UnifiedUpdate } from '@/components/RecordUpdateSheet';
+import type { UnifiedUpdate } from '@/components/RecordUpdateSheet';
+import { InlineFollowupEditor } from '@/components/InlineFollowupEditor';
+import type { InlineFollowupUpdate } from '@/components/InlineFollowupEditor';
 import { useAppDialog } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
@@ -60,7 +62,7 @@ export default function LeadScreen() {
   const [contactId,setContactId] = useState<string|null>(null);
   const [historyExpanded,setHistoryExpanded] = useState(false);
   const [updateOpen,setUpdateOpen] = useState(false);
-  const [updateMode,setUpdateMode] = useState<FollowupChoice>('keep');
+  const [inlineFollowupMode,setInlineFollowupMode] = useState<'edit'|'complete'|null>(null);
   const [savingKind,setSavingKind] = useState<'stay'|'next'|null>(null);
   const savingRef = useRef(false);
   // Discard older detail GETs when focus, a save, and foreground refresh overlap.
@@ -125,9 +127,10 @@ export default function LeadScreen() {
     value:c.id,label:(c.name||c.phone||c.email||'Contact')+(c.is_primary?' (Primary)':''),
   }));
 
-  const openUpdate = (mode:FollowupChoice='keep') => {
+  const openUpdate = () => {
     if (!activeLead || locked) return;
-    setUpdateMode(mode);setUpdateOpen(true);setNotice('');
+    setInlineFollowupMode(null);
+    setUpdateOpen(true);setNotice('');
   };
 
   const saveUnified = async (payload:UnifiedUpdate, advance:boolean) => {
@@ -170,6 +173,37 @@ export default function LeadScreen() {
       setSavingKind(null);
     }
   };
+  const saveInlineFollowup = async (change: InlineFollowupUpdate) => {
+    if (!activeLead || !user) throw new Error('Sign in to update this follow-up.');
+    const leadId = activeLead.id;
+    const response = change.kind === 'edit'
+      ? await apiFetch<{ok:true;lead:Lead}>(
+        '/api/agent-crm/leads/'+encodeURIComponent(leadId)+'/followup',{
+          method:'PATCH',body:JSON.stringify({
+            next_action:change.action,
+            next_action_type:change.actionType,
+            next_action_at:change.date,
+            next_action_time:change.time,
+            next_action_timezone:change.timezone,
+            contact_id:change.contactId,
+          }),
+        })
+      : await apiFetch<{ok:true;lead:Lead}>(
+        '/api/agent-crm/leads/'+encodeURIComponent(leadId)+'/updates',{
+          method:'POST',body:JSON.stringify({
+            channel:null,outcome:null,notes:change.notes,disposition:'keep',
+            followup:{mode:'complete'},
+          }),
+        });
+    ++detailsRequestVersion.current;
+    setLead(response.lead);
+    setInlineFollowupMode(null);
+    setNotice(change.kind === 'edit' ? 'Follow-up saved' : 'Follow-up completed');
+    void reconcileReminders(user).catch(()=>{});
+    const fresh = await refreshDetails(leadId);
+    if (!fresh) setNotice('Follow-up saved, but history could not refresh. Tap Refresh details.');
+  };
+
   const openWebsite = async () => {
     const url = websiteUrl(activeLead?.website||null);
     if (!url) {
@@ -253,6 +287,14 @@ export default function LeadScreen() {
 
   if(!user)return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
   return <Page>
+    <Stack.Screen options={{
+      headerRight: () => <Pressable accessibilityRole="button" accessibilityLabel="Edit lead details"
+        disabled={!activeLead || !!otherSaving}
+        onPress={editIdentity}
+        style={{paddingHorizontal:10,paddingVertical:10,opacity:activeLead?1:.5}}>
+        <Text style={{color:theme.primaryDark,fontWeight:'800'}}>Edit</Text>
+      </Pressable>,
+    }}/>
     {!activeLead && loading ? <LeadDetailSkeleton/> : null}
     {error ? <View style={styles.card}>
       <Text style={styles.error}>{error}</Text>
@@ -270,14 +312,9 @@ export default function LeadScreen() {
         <Text style={styles.subtitle}>
           {[activeLead.industry,activeLead.city||activeLead.country].filter(Boolean).join(' · ')}
         </Text>
-        <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
-          <Text style={{color:theme.ink,fontWeight:'700',textTransform:'capitalize'}}>
-            {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
-          </Text>
-          <Pressable accessibilityRole="button" onPress={editIdentity}>
-            <Text style={{color:theme.primaryDark,fontWeight:'700'}}>Edit</Text>
-          </Pressable>
-        </View>
+        <Text style={{color:theme.ink,fontWeight:'700',textTransform:'capitalize'}}>
+          {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
+        </Text>
       </View>
       {identityEditing ? <View style={styles.card}>
         <Field label="Company name" value={companyDraft} onChangeText={setCompanyDraft}/>
@@ -303,20 +340,29 @@ export default function LeadScreen() {
             new Date(activeLead.next_action_due_at).getTime()<=Date.now() ?
             <Text style={{color:theme.warning,fontWeight:'800'}}>Due</Text> : null}
         </View>
-        <Text style={activeLead.next_action?styles.value:styles.subtitle}>
-          {activeLead.next_action||'No follow-up scheduled'}
-        </Text>
-        {activeLead.next_action ? <>
-          <Text style={styles.subtitle}>{formatFollowupDue(activeLead)||'No reminder date'}
-            {activeLead.next_action_contact_id?
-              ' · '+(contacts.find(c=>c.id===activeLead.next_action_contact_id)?.name||'Contact')
-              :' · Company / unspecified'}
+        {inlineFollowupMode ? <InlineFollowupEditor
+          key={activeLead.id+':'+inlineFollowupMode}
+          lead={activeLead} contacts={contacts} mode={inlineFollowupMode}
+          onSave={saveInlineFollowup} onCancel={()=>setInlineFollowupMode(null)}/>
+        : <>
+          <Text style={activeLead.next_action?styles.value:styles.subtitle}>
+            {activeLead.next_action||'No follow-up scheduled'}
           </Text>
-          <View style={{flexDirection:'row',gap:9}}>
-            <View style={{flex:1}}><Button secondary onPress={()=>openUpdate('set')}>Edit</Button></View>
-            <View style={{flex:1}}><Button secondary onPress={()=>openUpdate('complete')}>Complete</Button></View>
-          </View>
-        </> : <Button secondary onPress={()=>openUpdate('set')}>Schedule follow-up</Button>}
+          {activeLead.next_action ? <>
+            <Text style={styles.subtitle}>{formatFollowupDue(activeLead)||'No reminder date'}
+              {activeLead.next_action_contact_id?
+                ' · '+(contacts.find(c=>c.id===activeLead.next_action_contact_id)?.name||'Contact')
+                :' · Company / unspecified'}
+            </Text>
+            <View style={{flexDirection:'row',gap:9}}>
+              <View style={{flex:1}}><Button secondary
+                onPress={()=>setInlineFollowupMode('edit')}>Edit</Button></View>
+              <View style={{flex:1}}><Button secondary
+                onPress={()=>setInlineFollowupMode('complete')}>Complete</Button></View>
+            </View>
+          </> : <Button secondary
+              onPress={()=>setInlineFollowupMode('edit')}>Schedule follow-up</Button>}
+        </>}
       </View>}
       <View style={{gap:8}}>
         {contacts.length>1 ? <SelectSheet title="Contact for quick actions"
@@ -369,6 +415,7 @@ export default function LeadScreen() {
           </View>
         </>}
       </View>
+      {!locked ? <Button onPress={openUpdate}>+ Record update</Button> : null}
       <View style={styles.card}>
         <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
           <Text style={[styles.value,{fontSize:17}]}>Activity history ({history.length})</Text>
@@ -394,12 +441,11 @@ export default function LeadScreen() {
             </View>,
           )}
       </View>
-      {!locked ? <Button onPress={()=>openUpdate()}>+ Record update</Button> : null}
       <LeadContacts lead={activeLead} contacts={contacts}
         onRefresh={()=>{reload();void reconcileReminders(user).catch(()=>{});}}/>
-      <Button secondary onPress={()=>router.back()}>Back to leads</Button>
+      <Button secondary onPress={()=>router.back()}>← Back to leads</Button>
       <RecordUpdateSheet visible={updateOpen} lead={activeLead} contacts={contacts}
-        initialMode={updateMode} savingKind={savingKind}
+        savingKind={savingKind}
         onClose={()=>{if(!savingKind)setUpdateOpen(false);}}
         onSave={saveUnified}/>
     </> : null}
