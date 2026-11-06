@@ -11,7 +11,7 @@ import SecurityRosterDetail from './SecurityRosterDetail';
 import {
   STORAGE_KEY, kenyaToday, addDays, formatDay, formatClock, dayOfInstant, shiftWindow,
   HISTORY_DAYS, PLANNING_DAYS, fillRollingWindow,
-  seedDemo, valid, timelineForDay, siteIssues, siteReports, shiftOnDay,
+  seedDemo, valid, timelineForDay, siteIssues, siteReports, clientSiteReports, shiftOnDay,
   assignShift, addShift, setShiftPresence, addSite, addStaff,
   addIssue, advanceIssue, addSampleEvidence, logVisit, publishReport,
   type State, type Role, type Shift, type Issue, type IssueStatus, type Asset,
@@ -152,6 +152,7 @@ export default function SecurityExperience() {
   const windowEnd = addDays(kenyaToday(),PLANNING_DAYS);
   const issues = siteIssues(data,siteId);
   const reports = siteReports(data,siteId);
+  const clientReportGroups = clientSiteReports(data,siteId);
   const managerIssues = [...data.issues].sort((a,b)=> Date.parse(b.openedAt)-Date.parse(a.openedAt));
   const tabs = role === 'client'
     ? [{id:'roster',name:'Roster', Icon: CalendarDays},{id:'issues',name:'Issues', Icon: MessageSquare},{id:'reports',name:'Reports', Icon:FileText}]
@@ -309,14 +310,14 @@ export default function SecurityExperience() {
       </details>}
     </Card>;
   }
-  function reportList(recs: typeof reports) {
+  function reportList(recs: typeof reports, showSiteName = true) {
     return recs.length ? <div className="space-y-3">{recs.map(rep=><Card key={rep.id}>
       <div className="flex items-center justify-between gap-2">
         <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase text-emerald-800">{rep.period}</span>
         <span className="text-[10px] text-[#7c9489]">{formatDay(dayOfInstant(rep.publishedAt))}</span>
       </div>
       <h3 className="mt-3 text-sm font-extrabold text-[#264637]">{rep.title}</h3>
-      <p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>
+      {showSiteName&&<p className="mt-1 text-[11px] font-semibold text-[#58836f]">{data.sites.find(s=>s.id===rep.siteId)?.name}</p>}
       <p className="mt-2 text-[11px] leading-5 text-[#779186]">From {formatDay(rep.periodFrom)} to {formatDay(rep.periodTo)}</p>
       <p className="mt-3 whitespace-pre-wrap text-xs leading-6 text-[#4c695a]">{rep.summary}</p>
       {(rep.assets?.length||0)>0&&<div className="mt-3"><p className="text-[11px] font-bold text-[#456f5b]">Attached evidence</p><Assets assets={rep.assets||[]}/></div>}
@@ -377,8 +378,21 @@ export default function SecurityExperience() {
       </form>
     </Card>
   </div>;
-  const clientReports = <div><SectionTitle title="Site reports" note="Daily, weekly and monthly reports published by your security company."/>
-    {reportList(reports)}</div>;
+  const clientReports = <div className="space-y-5">
+    <SectionTitle title="Site reports" note="Reports are published for individual properties. Browse each site's reports newest first."/>
+    {clientReportGroups.map(({site,reports: siteReportList})=><section key={site.id} className="space-y-3" aria-label={site.name+' reports'}>
+      <div className="flex items-center justify-between gap-3 border-b border-[#d9e9df] pb-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-[#24523b]">{site.name}</h3>
+          <p className="mt-1 text-[11px] text-[#789184]">{site.area}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#e9f5ed] px-2.5 py-1 text-[10px] font-bold text-[#17754f]">
+          {siteReportList.length} {siteReportList.length===1?'report':'reports'}
+        </span>
+      </div>
+      {reportList(siteReportList, false)}
+    </section>)}
+  </div>;
   const clients=Array.from(new Set(data.sites.map(s=>s.client))).sort((a,b)=>a.localeCompare(b));
   const selectedSite=selectedSiteId ? data.sites.find(s=>s.id===selectedSiteId) : undefined;
 
