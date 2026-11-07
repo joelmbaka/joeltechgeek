@@ -35,10 +35,19 @@ export type UnifiedUpdate = {
   };
 };
 const ACTION_TYPES = [
-  {value:'call',label:'Call'}, {value:'email',label:'Email'},
-  {value:'whatsapp',label:'WhatsApp'}, {value:'meeting',label:'Meeting'},
-  {value:'other',label:'Other'},
+  {value:'call',label:'📞 Call'}, {value:'email',label:'✉️ Email'},
+  {value:'whatsapp',label:'💬 WhatsApp'}, {value:'meeting',label:'📅 Meeting'},
+  {value:'other',label:'⚡ Other'},
 ];
+// Emoji is presentation-only: option values remain unchanged for the API and history.
+const OUTCOME_ICONS: Record<string, string> = {
+  number_unavailable:'🚫', switched_off:'📵', no_answer:'📵', busy:'☎️',
+  wrong_number:'❌', spoke_to_contact:'🗣️', referred_to_contact:'👥',
+  information_requested:'📄', call_back:'🔁', decision_pending:'⏳',
+  demo_requested:'📱', meeting_booked:'📅', proposal_requested:'📋',
+  trial_started:'🚀', onboarding_completed:'✅', not_interested:'👎',
+  sent:'📤', reply_received:'💬', other:'📝',
+};
 const CHANNELS = [
   {value:'call',label:'Call',icon:'📞'},
   {value:'whatsapp',label:'WhatsApp',icon:'💬'},
@@ -46,9 +55,9 @@ const CHANNELS = [
   {value:'other',label:'Other',icon:'⚡'},
 ];
 const DISPOSITIONS = [
-  {value:'keep',label:'Keep active'},
-  {value:'do_not_contact',label:'Mark Do Not Contact'},
-  {value:'competitor',label:'Classify as competitor'},
+  {value:'keep',label:'✅ Keep active'},
+  {value:'do_not_contact',label:'🚫 Do Not Contact'},
+  {value:'competitor',label:'🏢 Competitor'},
 ];
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -229,9 +238,11 @@ export function RecordUpdateSheet({
             {hasInteraction ? <>
               {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
                 options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
-              <SelectSheet title="Outcome (optional for note or follow-up only)" value={outcome}
+              <SelectSheet title="Outcome (optional)" value={outcome}
                 placeholder="Choose outcome" dismissKeyboardOnOpen
-                options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({value,label}))}
+                options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({
+                  value,label:(OUTCOME_ICONS[value] || '📝') + ' ' + label,
+                }))}
                 onChange={(value)=>{setOutcome(value);setStage('');}}/>
               {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
                 options={[{value:'',label:'Suggested automatically'},

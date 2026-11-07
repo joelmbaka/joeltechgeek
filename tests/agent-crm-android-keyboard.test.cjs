@@ -153,3 +153,19 @@ test('Add Lead groups primary contact details together', () => {
   assert.equal((addLead.match(/label="Phone number"/g) || []).length, 1);
   assert.equal((addLead.match(/label="Email"/g) || []).length, 1);
 });
+
+test('Record Update keeps outcome, action and classification values while showing emoji labels', () => {
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  assert.match(update, /title="Outcome \(optional\)"/);
+  assert.doesNotMatch(update, /Outcome \(optional for note or follow-up only\)/);
+  assert.match(update, /OUTCOME_ICONS\[value\] \|\| '📝'/);
+  assert.match(update, /value,label:\(OUTCOME_ICONS\[value\] \|\| '📝'\) \+ ' ' \+ label/);
+  for (const value of ['call','email','whatsapp','meeting','other']) {
+    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+ ",'u'));
+  }
+  for (const value of ['keep','do_not_contact','competitor']) {
+    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+ ",'u'));
+  }
+  assert.match(update, /onChange=\{\(value\)=>\{setOutcome\(value\);setStage\(''\);\}\}/);
+  assert.match(update, /onChange=\{\(value\)=>\{setActionType\(value\);setScheduleTouched\(true\);\}\}/);
+});
