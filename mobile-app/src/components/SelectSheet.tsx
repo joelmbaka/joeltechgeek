@@ -123,7 +123,7 @@ export function SelectSheet({
         <ChevronDown/>
       </> : <>
         {!hideTriggerLabel ? <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text> : null}
-        <View style={{ paddingRight: 19, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ paddingRight: 19, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700', flexShrink: 1 }}>
             {selectedLabel}
             {selected?.count !== undefined ? ' (' + selected.count + ')' : ''}
@@ -245,18 +245,21 @@ export function SelectSheet({
                 borderBottomColor: theme.border, borderBottomWidth: .6,
                 flexDirection: 'row', alignItems: 'center', gap: 8,
               }}>
-              <Text numberOfLines={2} style={{
-                color: value === option.value ? theme.primaryDark : theme.ink,
-                fontWeight: value === option.value ? '800' : '500',
-                flex: 1, fontSize: 15,
-              }}>
-                {option.label}
-                {option.count !== undefined ? ' (' + option.count + ')' : ''}
-              </Text>
-              {option.icon ? <Text accessibilityElementsHidden
-                style={{fontSize:18,marginLeft:10}}>{option.icon}</Text> : null}
+              <View style={{flexDirection:'row',alignItems:'center',gap:6,flexShrink:1}}>
+                <Text numberOfLines={2} style={{
+                  color: value === option.value ? theme.primaryDark : theme.ink,
+                  fontWeight: value === option.value ? '800' : '500',
+                  flexShrink:1,fontSize:15,
+                }}>
+                  {option.label}
+                  {option.count !== undefined ? ' (' + option.count + ')' : ''}
+                </Text>
+                {option.icon ? <Text accessibilityElementsHidden
+                  style={{fontSize:18}}>{option.icon}</Text> : null}
+              </View>
               {value === option.value ?
-                <Text style={{ color: theme.primary, fontWeight: '900', marginLeft:6 }}>✓</Text> : null}
+                <Text style={{ color: theme.primary, fontWeight: '900',
+                  marginLeft:'auto' }}>✓</Text> : null}
             </Pressable>)}
             {visible.length === 0 ? <Text style={styles.subtitle}>No matching options.</Text> : null}
           </ScrollView> : null}

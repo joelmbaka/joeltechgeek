@@ -232,10 +232,20 @@ test('Dropdown icons appear after labels with a consistent visual gap', () => {
   assert.match(sheet, /icon\?: string/);
   assert.match(sheet, /selected\?\.icon \? <Text/);
   assert.match(sheet, /option\.icon \? <Text/);
-  assert.match(sheet, /marginLeft:10/);
-  assert.match(sheet, /alignItems: 'center', gap: 12/);
+  assert.match(sheet, /alignItems:'center',gap:6,flexShrink:1/);
+  assert.match(sheet, /marginLeft:'auto'/);
+  assert.match(sheet, /alignItems: 'center', gap: 6/);
   assert.match(update, /value,label,icon:OUTCOME_ICONS\[value\] \|\| '📝'/);
   assert.match(update, /label:'Keep active',icon:'✅'/);
   assert.match(followup, /label: 'Call', icon: '📞'/);
   assert.doesNotMatch(update, /label:'📞 Call'/);
+});
+
+test('Dropdown labels and trailing emojis stay together while selection check stays right', () => {
+  const src = read('mobile-app/src/components/SelectSheet.tsx');
+  const item = src.slice(src.indexOf('{visible.map((option)'), src.indexOf('{visible.length === 0'));
+  assert.match(item, /<View style=\{\{flexDirection:'row',alignItems:'center',gap:6,flexShrink:1\}\}>/);
+  assert.ok(item.indexOf('{option.label}') < item.indexOf('{option.icon}'));
+  assert.ok(item.indexOf('{option.icon}') < item.indexOf('marginLeft:\\'auto\\'') || item.includes("marginLeft:'auto'"));
+  assert.doesNotMatch(item, /flex: 1, fontSize: 15/);
 });
