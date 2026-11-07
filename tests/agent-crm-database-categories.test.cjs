@@ -62,3 +62,16 @@ test('Duplicate business categories are rejected by server for the authenticated
   assert.match(api, /RETURNING name/);
   assert.match(api, /replace\(\/\\s\+\/g, ' '\)/);
 });
+
+test('lead category ownership is enforced by a composite foreign key with legacy-client sync', () => {
+  const migration = read('migrations/2026-11-07-crm-normalize-business-categories.sql');
+  const db = read('lib/agent-crm/db.ts');
+  const categories = read('lib/agent-crm/categories.ts');
+  assert.match(migration, /FOREIGN KEY \(business_category_id, user_id\)/);
+  assert.match(migration, /REFERENCES public\.crm_business_categories\(id, user_id\)/);
+  assert.match(migration, /CREATE TRIGGER crm_leads_business_category_sync/);
+  assert.match(migration, /CREATE TRIGGER crm_business_category_name_sync/);
+  assert.match(migration, /RAISE EXCEPTION 'Category backfill is incomplete'/);
+  assert.match(db, /business_category_id::text AS business_category_id/);
+  assert.doesNotMatch(categories, /SELECT DISTINCT industry/);
+});
