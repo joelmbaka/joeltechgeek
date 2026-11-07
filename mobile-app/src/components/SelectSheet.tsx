@@ -29,6 +29,7 @@ function ChevronDown() {
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
   disabled = false, placeholder, compact = false, onCreateOption, dismissKeyboardOnOpen = false,
+  hideTriggerLabel = false,
 }: {
   title: string;
   value: string;
@@ -40,6 +41,8 @@ export function SelectSheet({
   compact?: boolean;
   onCreateOption?: (name: string) => Promise<string>;
   dismissKeyboardOnOpen?: boolean;
+  /** Keep the sheet title for accessibility and the modal; render only its selected value in a row. */
+  hideTriggerLabel?: boolean;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
@@ -109,7 +112,7 @@ export function SelectSheet({
         borderWidth: 1, borderColor: theme.border, backgroundColor: theme.white,
         paddingHorizontal: 10, gap: 5, opacity: disabled ? .55 : 1,
       } : [styles.input, {
-        justifyContent: 'center', minHeight: 58,
+        justifyContent: 'center', minHeight: hideTriggerLabel ? 44 : 58,
         paddingVertical: 8, opacity: disabled ? .55 : 1,
       }]}>
       {compact ? <>
@@ -119,7 +122,7 @@ export function SelectSheet({
         }}>{selectedLabel}</Text>
         <ChevronDown/>
       </> : <>
-        <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text>
+        {!hideTriggerLabel ? <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text> : null}
         <View style={{ paddingRight: 19 }}>
           <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700' }}>
             {selectedLabel}

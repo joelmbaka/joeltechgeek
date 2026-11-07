@@ -65,18 +65,20 @@ export function Button({ children, onPress, disabled = false, secondary = false 
   </Pressable>;
 }
 export function Field({ label, value, onChangeText, placeholder, multiline = false,
-  keyboardType, autoCapitalize, autoFocus = false }: {
+  keyboardType, autoCapitalize, autoFocus = false, inline = false }: {
   label: string; value: string; onChangeText: (value: string) => void;
   placeholder?: string; multiline?: boolean;
   keyboardType?: 'default'|'email-address'|'phone-pad';
   autoCapitalize?: 'none'|'sentences'|'words';
   autoFocus?: boolean;
+  inline?: boolean;
 }) {
   const styles = useUIStyles();
   const theme = useTheme();
-  return <View style={{ gap: 5 }}>
-    <Text style={styles.label}>{label}</Text>
-    <TextInput style={[styles.input, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
+  return <View style={inline ? {flexDirection:'row',alignItems:'center',gap:12,minHeight:48} : {gap:5}}>
+    <Text style={[styles.label,inline && {width:112,fontSize:13,color:theme.ink}]}>{label}</Text>
+    <TextInput style={[styles.input,inline && {flex:1,minWidth:0},
+      multiline && {minHeight:88,textAlignVertical:'top'}]}
       value={value} onChangeText={onChangeText} placeholder={placeholder}
       placeholderTextColor={theme.muted} multiline={multiline} keyboardType={keyboardType}
       autoCapitalize={autoCapitalize} autoCorrect={false} autoFocus={autoFocus}/>

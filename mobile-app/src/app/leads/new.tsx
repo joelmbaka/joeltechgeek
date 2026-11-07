@@ -1,23 +1,25 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
 import { useAuth } from '@/lib/AuthProvider';
+import { useTheme } from '@/lib/config';
 import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import type { Lead } from '@/lib/types';
 
 export default function AddLead() {
   const styles = useUIStyles();
+  const theme = useTheme();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
   const { user } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
   const [company, setCompany] = useState('');
   const [industry, setIndustry] = useState('');
-  const [country, setCountry] = useState('Kenya');
+  const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [contact, setContact] = useState('');
   const [role, setRole] = useState('');
@@ -49,7 +51,7 @@ export default function AddLead() {
   };
 
   const canCreate = !busy && brief.length <= 220 && Boolean(company.trim() || contact.trim()) &&
-    Boolean(country.trim()) && Boolean(priority) &&
+    Boolean(priority) &&
     (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
   const save = async () => {
     if (!canCreate) return;
@@ -71,30 +73,38 @@ export default function AddLead() {
   };
 
   return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
-    <Text style={styles.title}>New lead</Text>
-    <Text style={styles.subtitle}>Company or contact name required.</Text>
-    <Field label="Company name" value={company} onChangeText={setCompany} autoFocus/>
-    <Field label="Primary contact name" value={contact} onChangeText={setContact}/>
-    <SelectSheet
-      title="Business category (optional)" value={industry}
-      placeholder="No category"
-      options={[{ value: '', label: 'No category' }, ...industries.map((value) => ({ value, label: value }))]}
-      onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
-    />
-    <Field label="Country *" value={country} onChangeText={setCountry}/>
-    <Field label="City" value={city} onChangeText={setCity}/>
-    <Field label="Contact role" value={role} onChangeText={setRole}/>
-    <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
+    <Field label="Company name" value={company} onChangeText={setCompany} autoFocus inline/>
+    <Field label="Primary contact name" value={contact} onChangeText={setContact} inline/>
+    <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
+      <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Business category</Text>
+      <View style={{flex:1,minWidth:0}}>
+        <SelectSheet
+          title="Business category" value={industry} hideTriggerLabel
+          placeholder="No category"
+          options={[{ value: '', label: 'No category' }, ...industries.map((value) => ({ value, label: value }))]}
+          onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
+        />
+      </View>
+    </View>
+    <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>
+    <Field label="City" value={city} onChangeText={setCity} placeholder="Optional" inline/>
+    <Field label="Contact role" value={role} onChangeText={setRole} inline/>
+    <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" inline/>
     <Field label="Email" value={email} onChangeText={setEmail}
-      keyboardType="email-address" autoCapitalize="none"/>
-    <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none"/>
-    <SelectSheet title="Priority" value={priority} onChange={setPriority} dismissKeyboardOnOpen
-      placeholder="Select priority"
-      options={[
-        { value: 'normal', label: 'Normal' },
-        { value: 'high', label: 'High' },
-        { value: 'low', label: 'Low' },
-      ]}/>
+      keyboardType="email-address" autoCapitalize="none" inline/>
+    <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" inline/>
+    <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
+      <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Priority</Text>
+      <View style={{flex:1,minWidth:0}}>
+        <SelectSheet title="Priority" value={priority} onChange={setPriority}
+          hideTriggerLabel dismissKeyboardOnOpen placeholder="Select priority"
+          options={[
+            { value: 'normal', label: 'Normal' },
+            { value: 'high', label: 'High' },
+            { value: 'low', label: 'Low' },
+          ]}/>
+      </View>
+    </View>
     <Field label="Lead brief (optional, 220 characters)" value={brief} onChangeText={setBrief} multiline/>
     <Field label="Initial activity notes (optional)" value={notes} onChangeText={setNotes} multiline/>
     {error ? <Text style={styles.error}>{error}</Text> : null}

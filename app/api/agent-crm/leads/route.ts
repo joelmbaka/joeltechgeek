@@ -226,7 +226,6 @@ export async function POST(request: Request) {
 
   const identity = normalizeLeadIdentity(body);
   if (!identity.ok) return badInput(identity.error);
-  if (!values.country) return badInput('Country is required.');
   const priority = values.priority || 'normal';
   const stageValue = values.stage || 'new';
   if (!['high', 'normal', 'low'].includes(priority)) return badInput('Invalid priority.');

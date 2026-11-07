@@ -22,10 +22,10 @@ test('Add Lead enters directly into company name and can select category without
   const addLead = read('mobile-app/src/app/leads/new.tsx');
   const field = read('mobile-app/src/components/ui.tsx');
   const sheet = read('mobile-app/src/components/SelectSheet.tsx');
-  assert.match(addLead, /<Field label="Company name"[^\n]*autoFocus\/>/);
+  assert.match(addLead, /<Field label="Company name"[^\n]*autoFocus inline\/>/);
   assert.match(field, /autoFocus=\{autoFocus\}/);
   assert.match(addLead, /onCreateOption=\{createCategory\} searchable dismissKeyboardOnOpen/);
-  assert.match(addLead, /onChange=\{setPriority\} dismissKeyboardOnOpen/);
+  assert.match(addLead, /hideTriggerLabel dismissKeyboardOnOpen placeholder="Select priority"/);
   assert.match(sheet, /if \(dismissKeyboardOnOpen\) Keyboard\.dismiss\(\)/);
   assert.match(pageSource(), /keyboardShouldPersistTaps="handled"/);
 });
@@ -101,4 +101,28 @@ test('Record Update uses compact activity chips and keyboard-safe sticky save ac
   assert.match(update, /Save & Stay/);
   assert.match(update, /Save & Next/);
   assert.match(update, /<KeyboardAvoidingView style=\{\{flex:1\}\} behavior="padding">/);
+});
+
+test('Add Lead uses compact inline rows and treats country/city as optional global free text', () => {
+  const addLead = read('mobile-app/src/app/leads/new.tsx');
+  const ui = read('mobile-app/src/components/ui.tsx');
+  const selector = read('mobile-app/src/components/SelectSheet.tsx');
+  const api = read('app/api/agent-crm/leads/route.ts');
+  assert.match(addLead, /const \[country, setCountry\] = useState\(''\)/);
+  assert.doesNotMatch(addLead, /Boolean\(country\.trim\(\)\)/);
+  assert.doesNotMatch(api, /Country is required/);
+  assert.match(api, /values\.country,/);
+  assert.match(addLead, /label="Country"[^\\n]*placeholder="Optional" inline/);
+  assert.match(addLead, /label="City"[^\\n]*placeholder="Optional" inline/);
+  assert.match(addLead, /label="Company name"[^\\n]*autoFocus inline/);
+  assert.match(addLead, /label="Primary contact name"[^\\n]*inline/);
+  assert.match(ui, /inline = false/);
+  assert.match(ui, /inline && \{flex:1,minWidth:0\}/);
+  assert.match(selector, /hideTriggerLabel = false/);
+  assert.match(addLead, /title="Business category" value=\{industry\} hideTriggerLabel/);
+  assert.match(addLead, /hideTriggerLabel dismissKeyboardOnOpen placeholder="Select priority"/);
+  assert.doesNotMatch(addLead, />New lead</);
+  assert.doesNotMatch(addLead, /Company or contact name required/);
+  assert.match(addLead, /label="Lead brief[^"]*"[^\\n]*multiline/);
+  assert.match(addLead, /label="Initial activity notes[^"]*"[^\\n]*multiline/);
 });
