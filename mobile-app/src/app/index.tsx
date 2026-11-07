@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Image, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { FlatList, Image, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { LoadingState } from '@/components/LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useUIStyles } from '@/components/ui';
@@ -53,6 +54,7 @@ export default function HomeScreen() {
   const { mantra, now } = useDailyMantra();
   const { ready, user, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
   const [offset, setOffset] = useState(0);
@@ -72,9 +74,24 @@ export default function HomeScreen() {
   const requestVersion = useRef(0);
   const listRef = useRef<FlatList<Lead>>(null);
   const listHeaderHeight = useRef(0);
+  const searchRowY = useRef(0);
+  const searchFocused = useRef(false);
   const pendingPageScroll = useRef(false);
 
   useEffect(() => { setOffset(0); }, [debounced, view, closedStatus, industry, alphabetical]);
+
+  // The search input sits below the dashboard controls inside the FlatList header.
+  // When Android opens the keyboard, scroll the actual input into view.
+  useEffect(() => {
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (!searchFocused.current) return;
+      listRef.current?.scrollToOffset({
+        offset: Math.max(0, searchRowY.current + 14 - 24),
+        animated: true,
+      });
+    });
+    return () => subscription.remove();
+  }, []);
 
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
@@ -204,6 +221,7 @@ export default function HomeScreen() {
     })),
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerHeight}>
     <FlatList
       ref={listRef}
       data={loading ? [] : (data?.leads || [])}
@@ -308,11 +326,15 @@ export default function HomeScreen() {
             </Text>
           </Pressable> : null}
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
+          onLayout={(event) => { searchRowY.current = event.nativeEvent.layout.y; }}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
             value={search}
             onChangeText={setSearch}
+            onFocus={() => { searchFocused.current = true; }}
+            onBlur={() => { searchFocused.current = false; }}
+            onSubmitEditing={Keyboard.dismiss}
             placeholder="Search company, contact, phone or email"
             placeholderTextColor={theme.muted}
             autoCapitalize="none" autoCorrect={false}
@@ -367,6 +389,7 @@ export default function HomeScreen() {
           </View>
         </View> : undefined}
     />
+    </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 

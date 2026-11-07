@@ -62,3 +62,17 @@ test('Record Update keeps editable fields visible in its own Android full-screen
   assert.match(update, /Save & Next/);
   assert.doesNotMatch(update, /autoFocus/);
 });
+
+test('Lead Directory keeps search visible without replacing its FlatList', () => {
+  const directory = read('mobile-app/src/app/index.tsx');
+  assert.match(directory, /useHeaderHeight\(\)/);
+  assert.match(directory, /<KeyboardAvoidingView style=\{\{ flex: 1 \}\} behavior="padding" keyboardVerticalOffset=\{headerHeight\}>/);
+  assert.match(directory, /<FlatList/);
+  assert.match(directory, /Keyboard\.addListener\('keyboardDidShow'/);
+  assert.match(directory, /if \(!searchFocused\.current\) return/);
+  assert.match(directory, /searchRowY\.current \+ 14 - 24/);
+  assert.match(directory, /onFocus=\{\(\) => \{ searchFocused\.current = true; \}\}/);
+  assert.match(directory, /onBlur=\{\(\) => \{ searchFocused\.current = false; \}\}/);
+  assert.match(directory, /onSubmitEditing=\{Keyboard\.dismiss\}/);
+  assert.doesNotMatch(directory, /autoFocus/);
+});
