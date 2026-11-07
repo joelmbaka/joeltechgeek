@@ -86,4 +86,9 @@ test('GPS route has timestamped coordinates and ignition events',()=>{
  assert.ok(route.every(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&Number.isFinite(p.speed)));
  assert.ok(route.some(p=>p.event==='Ignition on'));
  assert.ok(route.some(p=>p.event==='Ignition off'));
+ const first=d.rentals[0];
+ const session=c.routeFor(d,first.vehicleId,first.id);
+ assert.equal(session.length,11);
+ assert.ok(session[0].at>=first.start);
+ assert.notDeepEqual(session,d.vehicles.find(v=>v.id===first.vehicleId).route);
 });
