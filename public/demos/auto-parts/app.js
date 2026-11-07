@@ -20,7 +20,7 @@
   const low=p=>p.stock<=p.reorder;
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){ui.notice="Browser storage unavailable. Changes may not persist.";}};
   const action=(label,name,cls="",extra="")=>'<button type="button" class="btn '+cls+'" data-action="'+name+'" '+extra+'>'+label+'</button>';
-  const field=(label,name,value="",type="text",extra="")=>'<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+extra+' required></label>';
+  const field=(label,name,value="",type="text",extra="")=>'<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+extra+(["phone","email","brand","fitment","description"].includes(name)?"":" required")+'></label>';
   const header=(title,button="",desc="")=>'<div class="page-header"><div><h1>'+esc(title)+'</h1>'+(desc?'<p>'+esc(desc)+'</p>':'')+'</div>'+button+'</div>';
   const table=(heads,body)=>'<div class="table-scroll"><table><thead><tr>'+heads.map(x=>'<th>'+x+'</th>').join("")+'</tr></thead><tbody>'+body+'</tbody></table></div>';
   const blank=message=>'<div class="empty">'+esc(message)+'</div>';
@@ -36,7 +36,7 @@
     return header("New sale","","Search, add products and issue a receipt.")+
       '<div class="sales-layout"><section class="card padded"><h2>Find products</h2><div class="search-wrap"><input id="product-search" type="search" placeholder="Search product, brand or SKU" value="'+esc(ui.query)+'" autocomplete="off" aria-label="Search products"></div><div class="product-list">'+(results||blank("No products match your search."))+'</div></section>'+
       '<section class="card padded checkout-panel"><h2>Cart</h2>'+(cart||blank("Choose products to start a sale."))+'<div class="total-row"><strong>Total</strong><strong>'+usd(saleTotal())+'</strong></div>'+
-      '<form data-form="checkout"><label class="field"><span>Customer (optional)</span><select name="customerId"><option value="">Walk-in customer</option>'+selectOptions(data.customers.map(c=>[c.id,c.name]),ui.customerId)+'</select></label>'+
+      '<form data-form="checkout"><label class="field"><span>Customer (optional)</span><select name="customerId" id="sale-customer"><option value="">Walk-in customer</option>'+selectOptions(data.customers.map(c=>[c.id,c.name]),ui.customerId)+'</select></label>'+
       '<label class="field"><span>Payment</span><select name="method" id="sale-method">'+selectOptions(["Cash","Card","Bank transfer","Other"].map(s=>[s,s]),ui.method)+'</select></label>'+
       '<label class="field" id="tender-field" '+(ui.method!=="Cash"?'hidden':'')+'><span>Cash received</span><input name="tendered" type="number" min="0" step=".01" value="'+saleTotal()+'" /></label>'+
       '<button type="submit" class="btn primary full" '+(ui.cart.length?"":"disabled")+'>Complete sale & view receipt</button></form></section></div>';
@@ -151,7 +151,7 @@
     if(el.dataset.stopClose)return;
     if(el.dataset.nav){ui.view=el.dataset.nav;ui.notice="";render();window.scrollTo?.(0,0);return;}
     const a=el.dataset.action,id=el.dataset.id;
-    if(a==="close-modal"){if(e.target.closest("[data-stop-close]")&&!e.target.closest("button"))return;ui.modal="";render();return;}
+    if(a==="close-modal"){if(el.classList.contains("modal-backdrop")&&e.target!==el)return;ui.modal="";render();return;}
     if(a==="dismiss-notice"){ui.notice="";render();return;}
     if(a==="add-cart"){const p=product(id);if(p?.stock>0){const found=ui.cart.find(l=>l.id===id);if(found&&found.qty<p.stock)found.qty++;else if(!found)ui.cart.push({id,qty:1});render();}return;}
     if(a==="remove-cart"){ui.cart=ui.cart.filter(l=>l.id!==id);render();return;}
@@ -189,6 +189,7 @@
   document.addEventListener("change",e=>{
     const el=e.target;
     if(el.id==="role-switch"){ui.role=el.value;ui.view=roleNav[ui.role][0][0];ui.modal="";ui.notice="";ui.cart=[];render();}
+    if(el.id==="sale-customer"){ui.customerId=el.value;}
     if(el.id==="sale-method"){ui.method=el.value;render();}
     if(el.id==="purchase-supplier")ui.supplierId=el.value;
     if(el.id==="purchase-product"){ui.purchaseProduct=el.value;ui.purchaseCost=product(el.value)?.cost||0;render();}
