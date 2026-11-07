@@ -142,3 +142,14 @@ test('Record Update shows four icon activity choices in stable rows', () => {
   assert.match(update, /const \[channel, setChannel\] = useState\('call'\)/);
   assert.match(update, /channel && outcome \? channel as ActivityChannel : null/);
 });
+
+test('Add Lead groups primary contact details together', () => {
+  const addLead = read('mobile-app/src/app/leads/new.tsx');
+  const contact = addLead.indexOf('label="Primary contact name"');
+  const phone = addLead.indexOf('label="Phone number"');
+  const email = addLead.indexOf('label="Email"');
+  const category = addLead.indexOf('>Business category</Text>');
+  assert.ok(contact >= 0 && contact < phone && phone < email && email < category);
+  assert.equal((addLead.match(/label="Phone number"/g) || []).length, 1);
+  assert.equal((addLead.match(/label="Email"/g) || []).length, 1);
+});

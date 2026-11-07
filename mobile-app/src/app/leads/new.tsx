@@ -75,6 +75,9 @@ export default function AddLead() {
   return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
     <Field label="Company name" value={company} onChangeText={setCompany} autoFocus inline/>
     <Field label="Primary contact name" value={contact} onChangeText={setContact} inline/>
+    <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" inline/>
+    <Field label="Email" value={email} onChangeText={setEmail}
+      keyboardType="email-address" autoCapitalize="none" inline/>
     <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
       <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Business category</Text>
       <View style={{flex:1,minWidth:0}}>
@@ -89,9 +92,6 @@ export default function AddLead() {
     <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>
     <Field label="City" value={city} onChangeText={setCity} placeholder="Optional" inline/>
     <Field label="Contact role" value={role} onChangeText={setRole} inline/>
-    <Field label="Phone number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" inline/>
-    <Field label="Email" value={email} onChangeText={setEmail}
-      keyboardType="email-address" autoCapitalize="none" inline/>
     <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" inline/>
     <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
       <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Priority</Text>
