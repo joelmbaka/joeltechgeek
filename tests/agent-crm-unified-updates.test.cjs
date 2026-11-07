@@ -26,7 +26,8 @@ test('all update combinations: optional interaction, note, task, or exclusion',(
   assert.match(api,/classification_changed/);
   assert.match(api,/disposition === 'do_not_contact'/);
   assert.match(api,/willChangeFollowup/);
-  assert.match(editor,/No interaction \(note or follow-up only\)/);
+  assert.match(editor,/Record an outcome or leave a note/);
+  assert.match(editor,/channel: channel && outcome \? channel as ActivityChannel : null/);
   assert.match(editor,/Notes \(optional\)/);
   assert.match(editor,/Save & Stay/);
   assert.match(editor,/Save & Next/);
@@ -155,7 +156,7 @@ test('lead hierarchy and header Edit match requested ordering',()=>{
   assert.ok(overview >= 0 && overview < record && record < history);
   assert.match(screen,/<Stack.Screen options=\{\{/);
   assert.match(screen,/headerRight: \(\) => <Pressable/);
-  assert.match(screen,/onPress=\{editIdentity\}/);
+  assert.match(screen,/onPress=\{\(\)=>router\.push\(\{pathname:'\/leads\/edit\/\[id\]'/);
   assert.match(screen,/← Back to leads/);
 });
 test('contact edit and remove are icon actions in the header and forms split width',()=>{

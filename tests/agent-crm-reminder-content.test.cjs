@@ -93,7 +93,7 @@ test('notification tap retains owner-scoped lead deep link and reconciliation re
 
 test('company and contact edits still reconcile reminders after the redesign', () => {
   const screen=fs.readFileSync(path.join(__dirname,'../mobile-app/src/app/leads/[id].tsx'),'utf8');
-  assert.match(screen,/setIdentityEditing\(false\);reload\(\);setNotice/);
+  assert.match(screen,/pathname:'\/leads\/edit\/\[id\]'/);
   assert.match(screen,/if\(user\)void reconcileReminders\(user\)/);
   assert.match(screen,/onRefresh=\{\(\)=>\{reload\(\);void reconcileReminders\(user\)/);
 });
