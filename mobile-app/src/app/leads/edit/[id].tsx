@@ -118,6 +118,6 @@ export default function EditLead() {
       <Text style={styles.subtitle}>Edit contact names, phone numbers and emails in Lead Details → Contacts.</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button disabled={!valid} onPress={()=>void save()}>{busy?'Saving…':'Save changes'}</Button>
-    </>}
+    </> : null}
   </Page>;
 }

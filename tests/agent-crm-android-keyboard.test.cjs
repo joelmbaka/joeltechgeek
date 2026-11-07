@@ -117,10 +117,10 @@ test('Add Lead uses compact inline rows and treats country/city as optional glob
   assert.doesNotMatch(addLead, /Boolean\(country\.trim\(\)\)/);
   assert.doesNotMatch(api, /Country is required/);
   assert.match(api, /values\.country,/);
-  assert.match(addLead, /label="Country"[^\\n]*placeholder="Optional" inline/);
-  assert.match(addLead, /label="City"[^\\n]*placeholder="Optional" inline/);
-  assert.match(addLead, /label="Company name"[^\\n]*autoFocus inline/);
-  assert.match(addLead, /label="Primary contact name"[^\\n]*inline/);
+  assert.match(addLead, /label="Country"[^\n]*placeholder="Optional" inline/);
+  assert.match(addLead, /label="City"[^\n]*placeholder="Optional" inline/);
+  assert.match(addLead, /label="Company name"[^\n]*autoFocus inline/);
+  assert.match(addLead, /label="Primary contact name"[^\n]*inline/);
   assert.match(ui, /inline = false/);
   assert.match(ui, /inline && \{flex:1,minWidth:0\}/);
   assert.match(selector, /hideTriggerLabel = false/);
@@ -128,8 +128,8 @@ test('Add Lead uses compact inline rows and treats country/city as optional glob
   assert.match(addLead, /hideTriggerLabel dismissKeyboardOnOpen placeholder="Select priority"/);
   assert.doesNotMatch(addLead, />New lead</);
   assert.doesNotMatch(addLead, /Company or contact name required/);
-  assert.match(addLead, /label="Lead brief[^"]*"[^\\n]*multiline/);
-  assert.match(addLead, /label="Initial activity notes[^"]*"[^\\n]*multiline/);
+  assert.match(addLead, /label="Lead brief[^"]*"[^\n]*multiline/);
+  assert.match(addLead, /label="Initial activity notes[^"]*"[^\n]*multiline/);
 });
 
 test('Record Update shows four icon activity choices in stable rows', () => {
