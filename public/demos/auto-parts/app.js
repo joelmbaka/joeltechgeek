@@ -79,7 +79,7 @@
     if(!ui.modal)return "";
     let title="",body="";
     if(ui.modal==="customer"){
-      title="Add customer";body='<form data-form="customer" class="stack">'+field("Name","name")+field("Phone (optional)","phone","","tel",'required="false"')+field("Email (optional)","email","","email",'required="false"')+'<button class="btn primary full" type="submit">Save customer</button></form>';
+      title="Add customer";body='<form data-form="customer" class="stack">'+field("Name","name")+field("Phone (optional)","phone","","tel")+field("Email (optional)","email","","email")+'<button class="btn primary full" type="submit">Save customer</button></form>';
       body=body.replace(/name="phone"([^>]*) required>/,'name="phone"$1>').replace(/name="email"([^>]*) required>/,'name="email"$1>');
     }
     if(ui.modal==="supplier"){
