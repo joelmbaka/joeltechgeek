@@ -39,6 +39,7 @@ jobs:
       - run: npm run test:crm-reminder-defaults
       - run: npm run test:crm-reminder-content
       - run: npm run test:crm-phase5
+      - run: npm run test:legal-terms
       - run: npx tsc --noEmit
   mobile-crm:
     name: Android JS TypeScript

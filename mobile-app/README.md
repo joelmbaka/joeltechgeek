@@ -1,10 +1,10 @@
-# JoelTechGeek CRM Android
+# CallsBound Android
 
 Android sign-in follows Milliol: Continue with Google opens a temporary Google OAuth browser session. It never signs into the JoelTechGeek website or uses web Auth.js cookies. After choosing an account, the app receives a one-time authorization code via its deep link and exchanges that for an independent mobile session.
 
 ## Google Cloud
 
-Open the existing JoelTechGeek CRM Web OAuth client and add the exact authorized redirect URI:
+Open the existing Google Web OAuth client and add the exact authorized redirect URI:
 
     https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback
 
