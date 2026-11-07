@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { Button, Page, useUIStyles } from '@/components/ui';
+import { NotificationCardSkeleton } from '@/components/Skeleton';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
@@ -192,11 +193,14 @@ export default function NotificationsScreen() {
       <Button secondary onPress={() => fetchPage(row.section, 0)}>Retry</Button>
     </View>;
 
-    return <Text style={[styles.subtitle, { marginHorizontal: 20,
-      marginBottom: 18, marginTop: 4 }]}>
-      {row.kind === 'loading' ? 'Loading reminders…'
-        : row.section === 'unread' ? 'You’re all caught up — no unread reminders.'
-          : 'No notifications read in the last 7 days.'}
+    if (row.kind === 'loading') return <View style={{marginHorizontal:18,marginBottom:12}}>
+      <NotificationCardSkeleton count={row.section === 'unread' ? 3 : 2}/>
+    </View>;
+
+    return <Text style={[styles.subtitle,{marginHorizontal:20,
+      marginBottom:18,marginTop:4}]}>
+      {row.section === 'unread' ? 'You’re all caught up — no unread reminders.'
+        : 'No notifications read in the last 7 days.'}
     </Text>;
   };
 

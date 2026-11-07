@@ -249,3 +249,33 @@ test('Dropdown labels and trailing emojis stay together while selection check st
   assert.ok(item.indexOf('{option.label}') < item.indexOf('{option.icon}'));
   assert.doesNotMatch(item, /flex: 1, fontSize: 15/);
 });
+
+test('Skeletons match current lead cards, lead details and edit form shapes', () => {
+  const sk = read('mobile-app/src/components/Skeleton.tsx');
+  const directory = read('mobile-app/src/app/index.tsx');
+  const detail = read('mobile-app/src/app/leads/[id].tsx');
+  const edit = read('mobile-app/src/app/leads/edit/[id].tsx');
+  assert.match(sk, /export function LeadCardSkeleton/);
+  assert.match(sk, /Matches LeadRow: title\/priority/);
+  assert.match(sk, /index%2===0 \? <View/);
+  assert.match(directory, /ListEmptyComponent=\{loading \? <LeadCardSkeleton count=\{PER_PAGE\}\/>/);
+  assert.match(sk, /Matches Lead Details: heading, follow-up, actions, overview, history and contacts/);
+  assert.match(detail, /!activeLead && loading \? <LeadDetailSkeleton\/>/);
+  assert.match(sk, /export function EditLeadSkeleton/);
+  assert.match(sk, /Array\.from\(\{length:6\}/);
+  assert.match(edit, /!loaded \? <EditLeadSkeleton\/>/);
+});
+
+test('Notification skeleton only replaces empty loading states, not pagination or stored rows', () => {
+  const src = read('mobile-app/src/app/notifications.tsx');
+  const sk = read('mobile-app/src/components/Skeleton.tsx');
+  assert.match(src, /import \{ NotificationCardSkeleton \}/);
+  assert.match(src, /unreadLoading && unreadItems\.length === 0/);
+  assert.match(src, /readLoading && readItems\.length === 0/);
+  assert.match(src, /row\.kind === 'loading'\) return <View/);
+  assert.match(src, /<NotificationCardSkeleton count=\{row\.section === 'unread' \? 3 : 2\}\/>/);
+  assert.match(src, /row\.kind === 'more'/);
+  assert.match(src, /rows\.push\(\{ kind: 'read-header'/);
+  assert.match(sk, /export function NotificationCardSkeleton/);
+  assert.match(sk, /Loading notifications/);
+});
