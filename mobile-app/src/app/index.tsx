@@ -417,9 +417,9 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
       </Text>
       <View style={{flexDirection:'row',alignItems:'center',gap:5,flexShrink:0}}>
         {due ? <View style={{borderRadius:15,borderWidth:1,
-          borderColor:theme.warning,backgroundColor:theme.surfaceMuted,
+          borderColor:theme.dueBorder,backgroundColor:theme.dueBg,
           paddingHorizontal:7,paddingVertical:4}}>
-          <Text style={{color:theme.warning,fontWeight:'800',fontSize:11}}>Due now</Text>
+          <Text style={{color:theme.dueText,fontWeight:'800',fontSize:11}}>Due now</Text>
         </View> : null}
         <PriorityChip priority={lead.priority}/>
       </View>

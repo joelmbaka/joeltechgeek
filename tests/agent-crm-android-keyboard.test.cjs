@@ -292,3 +292,15 @@ test('Lead cards display Due now beside priority, keeping follow-up date unclutt
   assert.match(card, /\{dueTime \? <Text style=\{\[styles\.subtitle,\{fontSize:12\}\]\}>◷ \{dueTime\}<\/Text> : null\}/);
   assert.equal((card.match(/>Due now<\/Text>/g) || []).length, 1);
 });
+
+test('Due now uses its own alert palette instead of the Normal priority palette', () => {
+  const config = read('mobile-app/src/lib/config.ts');
+  const index = read('mobile-app/src/app/index.tsx');
+  const priority = read('mobile-app/src/components/PriorityChip.tsx');
+  assert.equal((config.match(/dueBg:/g) || []).length, 2);
+  assert.equal((config.match(/dueBorder:/g) || []).length, 2);
+  assert.equal((config.match(/dueText:/g) || []).length, 2);
+  assert.match(index, /borderColor:theme\.dueBorder,backgroundColor:theme\.dueBg/);
+  assert.match(index, /color:theme\.dueText,fontWeight:'800',fontSize:11/);
+  assert.match(priority, /theme\.chipNormalBg, theme\.chipNormalBorder, theme\.chipNormalText/);
+});
