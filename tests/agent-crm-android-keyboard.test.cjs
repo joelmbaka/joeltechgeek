@@ -39,7 +39,9 @@ test('Lead Details opts in to keyboard-aware scrolling without changing Record U
   const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
   assert.match(detail, /useHeaderHeight\(\)/);
   assert.match(detail, /<Page keyboardAware keyboardVerticalOffset=\{headerHeight\}>/);
-  assert.match(detail, /onChangeText=\{setCompanyDraft\} autoFocus/);
+  const editLead = read('mobile-app/src/app/leads/edit/[id].tsx');
+  assert.match(detail, /pathname:'\/leads\/edit\/\[id\]'/);
+  assert.match(editLead, /<Field label="Company name"[^\n]*inline\/>/);
   assert.match(detail, /<Field label="Lead brief/);
   assert.match(detail, /<Field label="Important details"/);
   assert.equal((contacts.match(/<Field label="Name"[^\n]*autoFocus\/>/g) || []).length, 2);
