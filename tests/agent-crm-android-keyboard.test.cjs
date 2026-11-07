@@ -94,7 +94,10 @@ test('Record Update prefills suggested clock without scheduling an untouched rem
 test('Record Update uses compact activity chips and keyboard-safe sticky save actions', () => {
   const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
   assert.match(update, /CHANNELS\.map\(option => <Pressable/);
-  assert.match(update, /option\.value \? option\.label : 'Note only'/);
+  assert.match(update, /\{option\.icon\}/);
+  assert.match(update, /singleActivityRow = screenWidth >= 480/);
+  assert.match(update, /flexBasis:singleActivityRow\?'0%':'47%'/);
+  assert.doesNotMatch(update, /label:'No interaction \(note or follow-up only\)'/);
   assert.match(update, /!keyboardVisible \? <View/);
   assert.match(update, /Keyboard\.addListener\('keyboardDidShow'/);
   assert.match(update, /Keyboard\.addListener\('keyboardDidHide'/);
@@ -125,4 +128,17 @@ test('Add Lead uses compact inline rows and treats country/city as optional glob
   assert.doesNotMatch(addLead, /Company or contact name required/);
   assert.match(addLead, /label="Lead brief[^"]*"[^\\n]*multiline/);
   assert.match(addLead, /label="Initial activity notes[^"]*"[^\\n]*multiline/);
+});
+
+test('Record Update shows four icon activity choices in stable rows', () => {
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  const channels = update.match(/const CHANNELS = \[([\s\S]*?)\];/);
+  assert.ok(channels);
+  const entries = [...channels[1].matchAll(/\{value:'([^']+)',label:'([^']+)',icon:'([^']+)'\}/g)];
+  assert.deepEqual(entries.map((match) => match[1]), ['call', 'whatsapp', 'email', 'other']);
+  assert.match(update, /flexWrap:'wrap',gap:8/);
+  assert.match(update, /flexBasis:singleActivityRow\?'0%':'47%'/);
+  assert.match(update, /useWindowDimensions\(\)/);
+  assert.match(update, /const \[channel, setChannel\] = useState\('call'\)/);
+  assert.match(update, /channel && outcome \? channel as ActivityChannel : null/);
 });

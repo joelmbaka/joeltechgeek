@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Keyboard, KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -39,9 +40,10 @@ const ACTION_TYPES = [
   {value:'other',label:'Other'},
 ];
 const CHANNELS = [
-  {value:'',label:'No interaction (note or follow-up only)'},
-  {value:'call',label:'Call'}, {value:'whatsapp',label:'WhatsApp'},
-  {value:'email',label:'Email'}, {value:'other',label:'Other'},
+  {value:'call',label:'Call',icon:'📞'},
+  {value:'whatsapp',label:'WhatsApp',icon:'💬'},
+  {value:'email',label:'Email',icon:'✉️'},
+  {value:'other',label:'Other',icon:'⚡'},
 ];
 const DISPOSITIONS = [
   {value:'keep',label:'Keep active'},
@@ -73,6 +75,8 @@ export function RecordUpdateSheet({
   const styles = useUIStyles();
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
+  const { width: screenWidth } = useWindowDimensions();
+  const singleActivityRow = screenWidth >= 480;
   const dialog = useAppDialog();
   const [channel, setChannel] = useState('call');
   const [outcome, setOutcome] = useState('');
@@ -204,18 +208,21 @@ export function RecordUpdateSheet({
             </View>
             <View style={{padding:15,gap:13}}>
               <Text style={styles.label}>Activity type</Text>
-              <View style={{flexDirection:'row',flexWrap:'wrap',gap:7}}>
-                {CHANNELS.map(option => <Pressable key={option.value || 'none'} accessibilityRole="button"
+              <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+                {CHANNELS.map(option => <Pressable key={option.value} accessibilityRole="button"
+                  accessibilityLabel={option.label}
                   accessibilityState={{selected:channel===option.value}}
                   onPress={() => { Keyboard.dismiss();setChannel(option.value);setOutcome('');setStage('');
-                    if (option.value && disposition==='competitor') setDisposition('keep'); }}
-                  style={{paddingHorizontal:13,minHeight:42,alignItems:'center',justifyContent:'center',
-                    borderRadius:11,borderWidth:1,
+                    if (disposition==='competitor') setDisposition('keep'); }}
+                  style={{flexGrow:1,flexBasis:singleActivityRow?'0%':'47%',
+                    flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,
+                    paddingHorizontal:8,minHeight:44,borderRadius:11,borderWidth:1,
                     borderColor:channel===option.value?theme.primary:theme.border,
                     backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
-                  <Text style={{color:channel===option.value?theme.chipHighText:theme.ink,
+                  <Text style={{fontSize:16}}>{option.icon}</Text>
+                  <Text numberOfLines={1} style={{color:channel===option.value?theme.chipHighText:theme.ink,
                     fontWeight:channel===option.value?'800':'600',fontSize:13}}>
-                    {option.value ? option.label : 'Note only'}
+                    {option.label}
                   </Text>
                 </Pressable>)}
               </View>
