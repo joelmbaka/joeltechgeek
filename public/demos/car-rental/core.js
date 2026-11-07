@@ -38,7 +38,7 @@ const sampleRoute=(base,seedNo)=>{const origin=[-1.2921+seedNo*.005,36.8219+seed
 function seed(now=ts()){
  const vehicles=vehiclesSeed.map((a,i)=>({id:"V-"+(i+1),plate:a[0],make:a[1],model:a[2],year:a[3],cc:a[4],seats:a[5],transmission:a[6],fuel:a[7],rate:a[8],odometer:a[9],maintenance:i===5||i===9,serviceKm:a[9]+(i%3+1)*350,trackerId:"SIM-"+(i+100),trackerOnline:i!==3&&i!==8,route:sampleRoute(shift(now,-(i+1)*.17),i),lastService:shift(now,-45-i*3)}));
  const customers=customersSeed.map((a,i)=>({id:"C-"+(i+1),name:a[0],phone:a[1],documentNo:a[2],email:""}));
- const d={version:1,seededAt:now,vehicles,customers,rentals:[],payments:[],expenses:[],maintenance:[],nextRental:1060};
+ const d={version:1,seededAt:now,vehicles,customers,rentals:[],payments:[],expenses:[],maintenance:[],gpsSessions:{},nextRental:1060};
  const specs=[
  [0,0,-1,3,70,false],[1,1,-8,7,665,false],[3,2,-5,14,250,false],
  [6,3,-2,2,0,false],[7,4,-4,7,546,false],[8,5,-11,14,300,false],
@@ -50,6 +50,7 @@ function seed(now=ts()){
   const actualReturn=completed?shift(due,.08):null;
   const rental={id:"R-"+(1040+i),vehicleId:v.id,customerId:customers[ci].id,start,due,days,rate:v.rate,base:round(v.rate*days),extra:0,returnedAt:actualReturn,endOdometer:completed?v.odometer-600+i*19:null,startOdometer:v.odometer-800-i*7,events:[]};
   d.rentals.push(rental);
+  d.gpsSessions[rental.id]=sampleRoute(shift(start,.15),vi);
   if(paid)d.payments.push({id:"PAY-"+i,rentalId:rental.id,amount:Math.min(paid,rental.base),method:i%2?"Bank transfer":"Cash",reference:"",date:shift(start,.1)});
  });
  d.expenses.push({id:"EXP-1",vehicleId:null,category:"Office rent",amount:420,date:shift(now,-9),description:"Monthly office rent"});
@@ -59,7 +60,7 @@ function seed(now=ts()){
  d.maintenance.push({id:"M-2",vehicleId:"V-10",date:shift(now,-1),type:"Brake inspection",cost:90,odometer:vehicles[9].odometer,notes:"Pads replaced"});
  return d;
 }
-const validate=d=>!!d&&d.version===1&&["vehicles","customers","rentals","payments","expenses","maintenance"].every(k=>Array.isArray(d[k]));
+const validate=d=>!!d&&d.version===1&&["vehicles","customers","rentals","payments","expenses","maintenance"].every(k=>Array.isArray(d[k]))&&!!d.gpsSessions;
 const vehicle=(d,id)=>d.vehicles.find(v=>v.id===id);
 const customer=(d,id)=>d.customers.find(c=>c.id===id);
 const active=(d,vid)=>d.rentals.find(r=>r.vehicleId===vid&&!r.returnedAt);
@@ -69,6 +70,7 @@ const total=r=>round(r.base+r.extra);
 const due=(d,r)=>round(total(r)-payments(d,r.id));
 const payStatus=(d,r)=>due(d,r)<=0?"Paid":payments(d,r.id)?"Partially paid":"Unpaid";
 const overdue=(r,now=ts())=>!r.returnedAt&&new Date(r.due).getTime()<new Date(now).getTime();
+const routeFor=(d,vid,rid)=>rid&&d.gpsSessions[rid]?d.gpsSessions[rid]:(vehicle(d,vid)?.route||[]);
 const requireVehicle=(d,id)=>{const v=vehicle(d,id);if(!v)throw Error("Vehicle not found.");return v};
 const requireRental=(d,id)=>{const r=d.rentals.find(x=>x.id===id);if(!r)throw Error("Rental not found.");return r};
 const copyTransaction=(d,fn)=>{const draft=JSON.parse(JSON.stringify(d));const result=fn(draft);Object.keys(d).forEach(k=>delete d[k]);Object.assign(d,draft);return result};
@@ -94,6 +96,7 @@ function startRental(d,f){
   const dueAt=new Date(start.getTime()+days*DAY);
   const rental={id:"R-"+x.nextRental++,vehicleId:v.id,customerId:c.id,start:start.toISOString(),due:dueAt.toISOString(),days,rate,base:round(days*rate),extra:0,returnedAt:null,endOdometer:null,startOdometer:v.odometer,events:[]};
   x.rentals.unshift(rental);
+  x.gpsSessions[rental.id]=sampleRoute(shift(rental.start,.08),x.vehicles.indexOf(v));
   if(Number(f.initialPayment||0)>0)paymentUnsafe(x,{rentalId:rental.id,amount:f.initialPayment,method:f.method||"Cash",reference:f.reference||""},rental.start);
   return rental;
  });
@@ -177,5 +180,5 @@ function alerts(d,now=ts()){
  }
  return out.sort((a,b)=>(a.severity==="urgent"?-1:1)-(b.severity==="urgent"?-1:1));
 }
-return {DAY,seed,validate,vehicle,customer,active,status,payments,total,due,payStatus,overdue,addCustomer,addVehicle,startRental,recordPayment,extendRental,returnVehicle,maintenance,expense,setMaintenance,finance,alerts,shift,round};
+return {DAY,seed,validate,vehicle,customer,active,routeFor,status,payments,total,due,payStatus,overdue,addCustomer,addVehicle,startRental,recordPayment,extendRental,returnVehicle,maintenance,expense,setMaintenance,finance,alerts,shift,round};
 })();
