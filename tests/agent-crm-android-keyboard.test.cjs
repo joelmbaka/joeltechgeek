@@ -161,12 +161,12 @@ test('Record Update keeps outcome, action and classification values while showin
   assert.match(update, /title="Outcome \(optional\)"/);
   assert.doesNotMatch(update, /Outcome \(optional for note or follow-up only\)/);
   assert.match(update, /OUTCOME_ICONS\[value\] \|\| '📝'/);
-  assert.match(update, /value,label:\(OUTCOME_ICONS\[value\] \|\| '📝'\) \+ ' ' \+ label/);
+  assert.match(update, /value,label,icon:OUTCOME_ICONS\[value\] \|\| '📝'/);
   for (const value of ['call','email','whatsapp','meeting','other']) {
-    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+ ",'u'));
+    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+',icon:'[^']+'",'u'));
   }
   for (const value of ['keep','do_not_contact','competitor']) {
-    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+ ",'u'));
+    assert.match(update, new RegExp("value:'" + value + "',label:'[^']+',icon:'[^']+'",'u'));
   }
   assert.match(update, /onChange=\{\(value\)=>\{setOutcome\(value\);setStage\(''\);\}\}/);
   assert.match(update, /onChange=\{\(value\)=>\{setActionType\(value\);setScheduleTouched\(true\);\}\}/);
@@ -194,8 +194,8 @@ test('Inline follow-up uses Record Update style while retaining its save contrac
   const edit=read('mobile-app/src/components/InlineFollowupEditor.tsx');
   assert.match(edit,/<NativeSchedulePicker label="Date" mode="date" value=\{date\} decorated/);
   assert.match(edit,/<NativeSchedulePicker label="Time" mode="time" value=\{time\} decorated/);
-  assert.match(edit,/label: '📞 Call'/);
-  assert.match(edit,/label: '💬 WhatsApp'/);
+  assert.match(edit,/label: 'Call', icon: '📞'/);
+  assert.match(edit,/label: 'WhatsApp', icon: '💬'/);
   assert.match(edit,/kind:'edit',action:action.trim\(\),actionType,date/);
 });
 
@@ -223,4 +223,19 @@ test('Edit Lead shows a form-shaped skeleton instead of loading spinner', () => 
   assert.match(skeleton, /export function EditLeadSkeleton\(\)/);
   assert.match(skeleton, /Loading edit lead form/);
   assert.match(skeleton, /Array\.from\(\{length:6\}/);
+});
+
+test('Dropdown icons appear after labels with a consistent visual gap', () => {
+  const sheet = read('mobile-app/src/components/SelectSheet.tsx');
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  const followup = read('mobile-app/src/components/InlineFollowupEditor.tsx');
+  assert.match(sheet, /icon\?: string/);
+  assert.match(sheet, /selected\?\.icon \? <Text/);
+  assert.match(sheet, /option\.icon \? <Text/);
+  assert.match(sheet, /marginLeft:10/);
+  assert.match(sheet, /alignItems: 'center', gap: 12/);
+  assert.match(update, /value,label,icon:OUTCOME_ICONS\[value\] \|\| '📝'/);
+  assert.match(update, /label:'Keep active',icon:'✅'/);
+  assert.match(followup, /label: 'Call', icon: '📞'/);
+  assert.doesNotMatch(update, /label:'📞 Call'/);
 });

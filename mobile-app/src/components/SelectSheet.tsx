@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
 import { useUIStyles } from './ui';
 
-export type SelectOption = { value: string; label: string; count?: number };
+export type SelectOption = { value: string; label: string; icon?: string; count?: number };
 
 function ChevronDown() {
   const theme = useTheme();
@@ -123,11 +123,13 @@ export function SelectSheet({
         <ChevronDown/>
       </> : <>
         {!hideTriggerLabel ? <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text> : null}
-        <View style={{ paddingRight: 19 }}>
-          <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700' }}>
+        <View style={{ paddingRight: 19, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700', flexShrink: 1 }}>
             {selectedLabel}
             {selected?.count !== undefined ? ' (' + selected.count + ')' : ''}
           </Text>
+          {selected?.icon ? <Text accessibilityElementsHidden
+            style={{fontSize:17}}>{selected.icon}</Text> : null}
         </View>
         <View pointerEvents="none" style={{
           position: 'absolute', right: 10, top: 0, bottom: 0,
@@ -251,8 +253,10 @@ export function SelectSheet({
                 {option.label}
                 {option.count !== undefined ? ' (' + option.count + ')' : ''}
               </Text>
+              {option.icon ? <Text accessibilityElementsHidden
+                style={{fontSize:18,marginLeft:10}}>{option.icon}</Text> : null}
               {value === option.value ?
-                <Text style={{ color: theme.primary, fontWeight: '900' }}>✓</Text> : null}
+                <Text style={{ color: theme.primary, fontWeight: '900', marginLeft:6 }}>✓</Text> : null}
             </Pressable>)}
             {visible.length === 0 ? <Text style={styles.subtitle}>No matching options.</Text> : null}
           </ScrollView> : null}

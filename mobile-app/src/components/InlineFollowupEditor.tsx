@@ -13,11 +13,11 @@ export type InlineFollowupUpdate =
   | { kind: 'complete'; notes: string };
 
 const ACTION_TYPES = [
-  { value: 'call', label: '📞 Call' },
-  { value: 'whatsapp', label: '💬 WhatsApp' },
-  { value: 'email', label: '✉️ Email' },
-  { value: 'meeting', label: '📅 Meeting' },
-  { value: 'other', label: '⚡ Other' },
+  { value: 'call', label: 'Call', icon: '📞' },
+  { value: 'whatsapp', label: 'WhatsApp', icon: '💬' },
+  { value: 'email', label: 'Email', icon: '✉️' },
+  { value: 'meeting', label: 'Meeting', icon: '📅' },
+  { value: 'other', label: 'Other', icon: '⚡' },
 ] as const;
 type ActionType = typeof ACTION_TYPES[number]['value'];
 

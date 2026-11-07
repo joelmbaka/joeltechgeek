@@ -35,9 +35,9 @@ export type UnifiedUpdate = {
   };
 };
 const ACTION_TYPES = [
-  {value:'call',label:'📞 Call'}, {value:'email',label:'✉️ Email'},
-  {value:'whatsapp',label:'💬 WhatsApp'}, {value:'meeting',label:'📅 Meeting'},
-  {value:'other',label:'⚡ Other'},
+  {value:'call',label:'Call',icon:'📞'}, {value:'email',label:'Email',icon:'✉️'},
+  {value:'whatsapp',label:'WhatsApp',icon:'💬'}, {value:'meeting',label:'Meeting',icon:'📅'},
+  {value:'other',label:'Other',icon:'⚡'},
 ];
 // Emoji is presentation-only: option values remain unchanged for the API and history.
 const OUTCOME_ICONS: Record<string, string> = {
@@ -55,9 +55,9 @@ const CHANNELS = [
   {value:'other',label:'Other',icon:'⚡'},
 ];
 const DISPOSITIONS = [
-  {value:'keep',label:'✅ Keep active'},
-  {value:'do_not_contact',label:'🚫 Do Not Contact'},
-  {value:'competitor',label:'🏢 Competitor'},
+  {value:'keep',label:'Keep active',icon:'✅'},
+  {value:'do_not_contact',label:'Do Not Contact',icon:'🚫'},
+  {value:'competitor',label:'Competitor',icon:'🏢'},
 ];
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 const pad2 = (value: number) => String(value).padStart(2, '0');
@@ -241,7 +241,7 @@ export function RecordUpdateSheet({
               <SelectSheet title="Outcome (optional)" value={outcome}
                 placeholder="Choose outcome" dismissKeyboardOnOpen
                 options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({
-                  value,label:(OUTCOME_ICONS[value] || '📝') + ' ' + label,
+                  value,label,icon:OUTCOME_ICONS[value] || '📝',
                 }))}
                 onChange={(value)=>{setOutcome(value);setStage('');}}/>
               {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
