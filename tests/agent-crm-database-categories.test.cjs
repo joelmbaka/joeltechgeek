@@ -8,7 +8,7 @@ test('category suggestions come only from signed-in user database records', () =
   const categories = read('lib/agent-crm/categories.ts');
   const api = read('app/api/agent-crm/categories/route.ts');
   assert.match(categories, /crm_business_categories WHERE user_id = \$1/);
-  assert.match(categories, /crm_leads WHERE user_id = \$1/);
+  assert.doesNotMatch(categories, /SELECT DISTINCT industry/);
   assert.doesNotMatch(categories, /CRM_INDUSTRIES|isCrmIndustry/);
   assert.match(api, /getBusinessCategories\(access\.user\.id\)/);
   assert.match(api, /INSERT INTO public\.crm_business_categories \(user_id, name\)/);
@@ -33,7 +33,7 @@ test('web and Android industry filters use the current user lead categories', ()
   assert.match(web, /data\?\.industries \|\| \[\]/);
   assert.doesNotMatch(web, /CRM_INDUSTRIES/);
   assert.match(android, /data\?\.industries/);
-  assert.match(queue, /SELECT industry,count\(\*\)::int count FROM public\.crm_leads WHERE user_id=\$1/);
+  assert.match(queue, /JOIN public\.crm_business_categories/);
 });
 
 test('Android category creation is an isolated bottom-sheet view with bounded preview', () => {

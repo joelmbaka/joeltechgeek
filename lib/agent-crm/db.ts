@@ -22,7 +22,7 @@ export function getCrmPool(): Pool {
 }
 
 // Avoid timezone conversion when serializing PostgreSQL DATE values.
-export const LEAD_COLUMNS = String.raw`id, company_name, industry, country, city, website,
+export const LEAD_COLUMNS = String.raw`id, company_name, business_category_id::text AS business_category_id, industry, country, city, website,
   contact_name, contact_role, phone, email, existing_system,
   problem_summary, qualification_reason, source_url, priority,
   lead_brief, important_details, lead_facts, next_action_type,

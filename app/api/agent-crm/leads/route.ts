@@ -98,7 +98,7 @@ async function getPagedLeads(params: URLSearchParams, user: CrmUser) {
         [userId],
       ),
       db.query<{ industry: string; count: number }>(
-        "SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE user_id = $1 AND btrim(industry) <> '' GROUP BY industry ORDER BY industry",
+        "SELECT c.name AS industry, count(*)::int AS count FROM public.crm_leads l JOIN public.crm_business_categories c ON c.id = l.business_category_id AND c.user_id = l.user_id WHERE l.user_id = $1 GROUP BY c.id, c.name ORDER BY c.name",
         [userId],
       ),
     ]);

@@ -113,6 +113,7 @@ export type LeadContact = {
 export type Lead = {
   id: string;
   company_name: string;
+  business_category_id: string | null;
   industry: string;
   country: string;
   city: string | null;
