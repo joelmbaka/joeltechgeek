@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text,
+  Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text,
   TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +28,7 @@ function ChevronDown() {
 
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
-  disabled = false, placeholder, compact = false, onCreateOption,
+  disabled = false, placeholder, compact = false, onCreateOption, dismissKeyboardOnOpen = false,
 }: {
   title: string;
   value: string;
@@ -39,6 +39,7 @@ export function SelectSheet({
   placeholder?: string;
   compact?: boolean;
   onCreateOption?: (name: string) => Promise<string>;
+  dismissKeyboardOnOpen?: boolean;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
@@ -101,7 +102,7 @@ export function SelectSheet({
       accessibilityRole="button"
       accessibilityLabel={title + ', ' + selectedLabel}
       disabled={disabled}
-      onPress={() => setOpen(true)}
+      onPress={() => { if (dismissKeyboardOnOpen) Keyboard.dismiss(); setOpen(true); }}
       style={compact ? {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         minHeight: 36, maxWidth: 195, borderRadius: 10,

@@ -27,14 +27,23 @@ export function useUIStyles() {
     secondaryText: { color: theme.primaryDark, fontWeight: '700' },
   }), [theme]);
 }
-export function Page({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
+export function Page({ children, scroll = true, keyboardAware = false, keyboardVerticalOffset = 0 }: {
+  children: ReactNode;
+  scroll?: boolean;
+  /** Opt in per screen. Other pages keep their existing keyboard behavior. */
+  keyboardAware?: boolean;
+  keyboardVerticalOffset?: number;
+}) {
   const styles = useUIStyles();
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }}
+      behavior={keyboardAware || Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={keyboardAware ? keyboardVerticalOffset : 0}>
       {scroll ? <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode={keyboardAware ? 'none' : undefined}
         keyboardShouldPersistTaps="handled">{children}</ScrollView> :
         <View style={styles.screen}>{children}</View>}
     </KeyboardAvoidingView>
@@ -56,11 +65,12 @@ export function Button({ children, onPress, disabled = false, secondary = false 
   </Pressable>;
 }
 export function Field({ label, value, onChangeText, placeholder, multiline = false,
-  keyboardType, autoCapitalize }: {
+  keyboardType, autoCapitalize, autoFocus = false }: {
   label: string; value: string; onChangeText: (value: string) => void;
   placeholder?: string; multiline?: boolean;
   keyboardType?: 'default'|'email-address'|'phone-pad';
   autoCapitalize?: 'none'|'sentences'|'words';
+  autoFocus?: boolean;
 }) {
   const styles = useUIStyles();
   const theme = useTheme();
@@ -69,7 +79,7 @@ export function Field({ label, value, onChangeText, placeholder, multiline = fal
     <TextInput style={[styles.input, multiline && { minHeight: 88, textAlignVertical: 'top' }]}
       value={value} onChangeText={onChangeText} placeholder={placeholder}
       placeholderTextColor={theme.muted} multiline={multiline} keyboardType={keyboardType}
-      autoCapitalize={autoCapitalize} autoCorrect={false}/>
+      autoCapitalize={autoCapitalize} autoCorrect={false} autoFocus={autoFocus}/>
   </View>;
 }
 export function Busy({ label = 'Loading from server…' }: { label?: string }) {

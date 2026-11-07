@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Text } from 'react-native';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
@@ -11,6 +12,7 @@ import type { Lead } from '@/lib/types';
 export default function AddLead() {
   const styles = useUIStyles();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const { user } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
   const [company, setCompany] = useState('');
@@ -68,16 +70,16 @@ export default function AddLead() {
     } finally { setBusy(false); }
   };
 
-  return <Page>
+  return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
     <Text style={styles.title}>New lead</Text>
     <Text style={styles.subtitle}>Company or contact name required.</Text>
-    <Field label="Company name" value={company} onChangeText={setCompany}/>
+    <Field label="Company name" value={company} onChangeText={setCompany} autoFocus/>
     <Field label="Primary contact name" value={contact} onChangeText={setContact}/>
     <SelectSheet
       title="Business category (optional)" value={industry}
       placeholder="No category"
       options={[{ value: '', label: 'No category' }, ...industries.map((value) => ({ value, label: value }))]}
-      onChange={setIndustry} onCreateOption={createCategory} searchable
+      onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
     />
     <Field label="Country *" value={country} onChangeText={setCountry}/>
     <Field label="City" value={city} onChangeText={setCity}/>
@@ -86,7 +88,7 @@ export default function AddLead() {
     <Field label="Email" value={email} onChangeText={setEmail}
       keyboardType="email-address" autoCapitalize="none"/>
     <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none"/>
-    <SelectSheet title="Priority" value={priority} onChange={setPriority}
+    <SelectSheet title="Priority" value={priority} onChange={setPriority} dismissKeyboardOnOpen
       placeholder="Select priority"
       options={[
         { value: 'normal', label: 'Normal' },
