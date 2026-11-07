@@ -97,8 +97,8 @@ export default function EditLead() {
         <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Business category</Text>
         <View style={{flex:1,minWidth:0}}>
           <SelectSheet title="Business category" value={industry} hideTriggerLabel
-            placeholder="No category"
-            options={[{value:'',label:'No category'},...industries.map(value=>({value,label:value}))]}
+            placeholder="Other"
+            options={[...industries.filter(name=>name!=='Other').map(value=>({value,label:value})),{value:'',label:'Other'}]}
             onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen/>
         </View>
       </View>

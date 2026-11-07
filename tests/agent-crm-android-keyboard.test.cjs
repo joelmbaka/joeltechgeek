@@ -310,9 +310,29 @@ test('Lead directory category selector shows server category counts', () => {
   const selector = read('mobile-app/src/components/SelectSheet.tsx');
   const workQueue = read('lib/agent-crm/work-queue.ts');
   assert.match(directory, /const categoryCounts = data\?\.industry_counts/);
-  assert.match(directory, /value: name, label: name, count: categoryCounts\?\.\[name\]/);
-  assert.match(directory, /value: 'all', label: 'All categories', count: data\?\.stats\?\.total/);
+  assert.match(directory, /value: name, label: name, count: categoryCounts\?\.\[name\] \?\? 0/);
+  assert.match(directory, /value: 'all', label: 'All categories', count: data\?\.industries\?\.length/);
   assert.match(directory, /Math\.max\(0, data\.stats\.total - categorizedCount\)/);
   assert.match(selector, /option\.count !== undefined \? ' \(' \+ option\.count \+ '\)' : ''/);
   assert.match(workQueue, /industry_counts:Object\.fromEntries\(categories\.rows\.map/);
+});
+
+test('Category filters list saved zero-lead categories and Other last', () => {
+  const directory=read('mobile-app/src/app/index.tsx');
+  const create=read('mobile-app/src/app/leads/new.tsx');
+  const edit=read('mobile-app/src/app/leads/edit/[id].tsx');
+  const queue=read('lib/agent-crm/work-queue.ts');
+  const api=read('app/api/agent-crm/leads/route.ts');
+  assert.match(directory, /value: 'all', label: 'All categories', count: data\?\.industries\?\.length/);
+  assert.match(directory, /value: name, label: name, count: categoryCounts\?\.\[name\] \?\? 0/);
+  assert.ok(directory.indexOf("label: 'Other'") > directory.indexOf("value: name, label: name, count:"));
+  assert.match(directory, /value: '__uncategorized__', label: 'Other'/);
+  assert.match(queue, /FROM public\.crm_business_categories c LEFT JOIN public\.crm_leads l/);
+  assert.match(queue, /count\(l\.id\)::int AS count/);
+  assert.match(api, /FROM public\.crm_business_categories c LEFT JOIN public\.crm_leads l/);
+  assert.match(create, /placeholder="Other"/);
+  assert.match(edit, /placeholder="Other"/);
+  assert.match(create, /value: '', label: 'Other'/);
+  assert.match(edit, /value:'',label:'Other'/);
+  assert.match(queue, /industry==='__uncategorized__'/);
 });

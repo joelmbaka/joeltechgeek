@@ -156,7 +156,7 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
         count(*) FILTER(WHERE stage='meeting')::int AS meetings,
         count(*) FILTER(WHERE stage='won')::int AS won
         FROM public.crm_leads WHERE user_id=$1`,[user.id]),
-      db.query<{industry:string;count:number}>("SELECT c.name AS industry,count(*)::int count FROM public.crm_leads l JOIN public.crm_business_categories c ON c.id=l.business_category_id AND c.user_id=l.user_id WHERE l.user_id=$1 GROUP BY c.id,c.name ORDER BY c.name",[user.id]),
+      db.query<{industry:string;count:number}>("SELECT c.name AS industry, count(l.id)::int AS count FROM public.crm_business_categories c LEFT JOIN public.crm_leads l ON l.business_category_id=c.id AND l.user_id=c.user_id WHERE c.user_id=$1 GROUP BY c.id,c.name ORDER BY lower(c.name)",[user.id]),
       db.query<{total:number}>(prefix+' SELECT count(*)::int total FROM classified w WHERE '+workViewFilter('to_call'),[user.id,zone]),
     ]);
     return NextResponse.json({ok:true,user,leads:rows.rows.slice(0,limit),has_more:rows.rows.length>limit,

@@ -218,13 +218,13 @@ export default function HomeScreen() {
   const categorizedCount = Object.values(categoryCounts || {})
     .reduce((total, count) => total + count, 0);
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All categories', count: data?.stats?.total },
-    { value: '__uncategorized__', label: 'No category',
+    { value: 'all', label: 'All categories', count: data?.industries?.length },
+    ...(data?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry])).map((name) => ({
+      value: name, label: name, count: categoryCounts?.[name] ?? 0,
+    })),
+    { value: '__uncategorized__', label: 'Other',
       count: data?.stats?.total === undefined ? undefined :
         Math.max(0, data.stats.total - categorizedCount) },
-    ...(data?.industries || (industry === 'all' ? [] : [industry])).map((name) => ({
-      value: name, label: name, count: categoryCounts?.[name],
-    })),
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerHeight}>

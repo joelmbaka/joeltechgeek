@@ -75,3 +75,13 @@ test('lead category ownership is enforced by a composite foreign key with legacy
   assert.match(db, /business_category_id::text AS business_category_id/);
   assert.doesNotMatch(categories, /SELECT DISTINCT industry/);
 });
+
+test('category catalogue includes saved zero-lead rows in both APIs', () => {
+  const queue=read('lib/agent-crm/work-queue.ts');
+  const route=read('app/api/agent-crm/leads/route.ts');
+  for(const source of [queue,route]){
+    assert.match(source, /FROM public\.crm_business_categories c LEFT JOIN public\.crm_leads l/);
+    assert.match(source, /count\(l\.id\)::int AS count/);
+    assert.match(source, /c\.user_id/);
+  }
+});
