@@ -186,7 +186,8 @@ test('Edit Lead page supports company, category, location, website and priority'
   assert.match(edit,/title="Business category"/);
   assert.match(edit,/title="Priority"/);
   assert.match(api,/canUseBusinessCategory/);
-  assert.match(api,/'industry','country','city','website','priority'/);
+  for (const field of ['industry','country','city','website','priority'])
+    assert.match(api, new RegExp(field + ': \\d+'));
   assert.match(api,/user_id=\$2/);
 });
 test('Inline follow-up uses Record Update style while retaining its save contract', () => {
