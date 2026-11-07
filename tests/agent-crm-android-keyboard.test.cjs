@@ -336,3 +336,12 @@ test('Category filters list saved zero-lead categories and Other last', () => {
   assert.match(edit, /value:'',label:'Other'/);
   assert.match(queue, /industry==='__uncategorized__'/);
 });
+
+test('Lead directory category options sort by descending lead count with alphabetical ties', () => {
+  const directory = read('mobile-app/src/app/index.tsx');
+  const options = directory.slice(directory.indexOf('const industryOptions:'), directory.indexOf('return <SafeAreaView', directory.indexOf('const industryOptions:')));
+  assert.match(options, /\.sort\(\(a, b\) => \(categoryCounts\?\.\[b\] \?\? 0\) - \(categoryCounts\?\.\[a\] \?\? 0\) \|\| a\.localeCompare\(b\)\)/);
+  assert.ok(options.indexOf("value: 'all'") < options.indexOf('.sort('));
+  assert.ok(options.indexOf("label: 'Other'") > options.indexOf('.map((name)'));
+  assert.match(options, /count: categoryCounts\?\.\[name\] \?\? 0/);
+});

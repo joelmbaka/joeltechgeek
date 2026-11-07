@@ -219,9 +219,11 @@ export default function HomeScreen() {
     .reduce((total, count) => total + count, 0);
   const industryOptions: SelectOption[] = [
     { value: 'all', label: 'All categories', count: data?.industries?.length },
-    ...(data?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry])).map((name) => ({
-      value: name, label: name, count: categoryCounts?.[name] ?? 0,
-    })),
+    ...[...(data?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry]))]
+      .sort((a, b) => (categoryCounts?.[b] ?? 0) - (categoryCounts?.[a] ?? 0) || a.localeCompare(b))
+      .map((name) => ({
+        value: name, label: name, count: categoryCounts?.[name] ?? 0,
+      })),
     { value: '__uncategorized__', label: 'Other',
       count: data?.stats?.total === undefined ? undefined :
         Math.max(0, data.stats.total - categorizedCount) },
