@@ -99,7 +99,8 @@ export default function EditLead() {
           <SelectSheet title="Business category" value={industry} hideTriggerLabel
             placeholder="Other"
             options={[...industries.filter(name=>name!=='Other').map(value=>({value,label:value})),{value:'',label:'Other'}]}
-            onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen/>
+            onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
+            loading={!loaded}/>
         </View>
       </View>
       <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>

@@ -345,3 +345,24 @@ test('Lead directory category options sort by descending lead count with alphabe
   assert.ok(options.indexOf("label: 'Other'") > options.indexOf('.map((name)'));
   assert.match(options, /count: categoryCounts\?\.\[name\] \?\? 0/);
 });
+
+test('Business category bottom sheets show skeletons until categories finish loading', () => {
+  const sheet=read('mobile-app/src/components/SelectSheet.tsx');
+  const skeleton=read('mobile-app/src/components/Skeleton.tsx');
+  const home=read('mobile-app/src/app/index.tsx');
+  const add=read('mobile-app/src/app/leads/new.tsx');
+  const edit=read('mobile-app/src/app/leads/edit/[id].tsx');
+  assert.match(skeleton,/export function CategoryOptionSkeleton/);
+  assert.match(skeleton,/Loading business categories/);
+  assert.match(sheet,/loading = false, loadingError/);
+  assert.match(sheet,/loading \? 'Loading categories…'/);
+  assert.match(sheet,/!adding && loading \? <CategoryOptionSkeleton\/>/);
+  assert.match(sheet,/!adding && loadingError \? <Text/);
+  assert.match(sheet,/searchable && !adding && !loading && !loadingError/);
+  assert.match(sheet,/onCreateOption && !loading && !loadingError/);
+  assert.match(home,/loading=\{loading\} loadingError=\{message\}/);
+  assert.match(add,/setCategoriesLoading\(true\)/);
+  assert.match(add,/setCategoriesLoading\(false\)/);
+  assert.match(add,/loading=\{categoriesLoading\} loadingError=\{categoriesError\}/);
+  assert.match(edit,/loading=\{!loaded\}/);
+});

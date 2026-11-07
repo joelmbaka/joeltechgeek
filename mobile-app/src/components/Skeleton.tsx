@@ -136,3 +136,17 @@ export function EditLeadSkeleton() {
     <View style={{borderRadius:10,backgroundColor:theme.surfaceMuted,minHeight:44}}/>
   </View>;
 }
+
+// Row placeholders for category options inside the shared bottom sheet.
+export function CategoryOptionSkeleton({count=5}: {count?:number}) {
+  const theme=useTheme();
+  const pulse=usePulse();
+  return <View accessible accessibilityLabel="Loading business categories" style={{gap:0}}>
+    {Array.from({length:count},(_,index)=><View key={index}
+      style={{minHeight:51,borderBottomWidth:0.6,borderBottomColor:theme.border,
+        flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10}}>
+      <Bar pulse={pulse} width={index%3===0?'72%':index%3===1?'53%':'64%'} height={15}/>
+      <Bar pulse={pulse} width={28} height={14}/>
+    </View>)}
+  </View>;
+}

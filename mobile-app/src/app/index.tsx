@@ -302,7 +302,8 @@ export default function HomeScreen() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="Business category" value={industry}
-              options={industryOptions} onChange={setIndustry} searchable/>
+              options={industryOptions} onChange={setIndustry} searchable
+              loading={loading} loadingError={message}/>
           </View>
         </View>
         {view === 'closed' ? <SelectSheet title="Closed status" value={closedStatus}

@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
 import { useUIStyles } from './ui';
+import { CategoryOptionSkeleton } from './Skeleton';
 
 export type SelectOption = { value: string; label: string; icon?: string; count?: number };
 
@@ -29,7 +30,7 @@ function ChevronDown() {
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
   disabled = false, placeholder, compact = false, onCreateOption, dismissKeyboardOnOpen = false,
-  hideTriggerLabel = false,
+  hideTriggerLabel = false, loading = false, loadingError,
 }: {
   title: string;
   value: string;
@@ -43,6 +44,9 @@ export function SelectSheet({
   dismissKeyboardOnOpen?: boolean;
   /** Keep the sheet title for accessibility and the modal; render only its selected value in a row. */
   hideTriggerLabel?: boolean;
+  /** Show category-shaped placeholders until the server response is complete. */
+  loading?: boolean;
+  loadingError?: string | null;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
@@ -56,7 +60,8 @@ export function SelectSheet({
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
-  const selectedLabel = selected?.label || placeholder || 'Select';
+  const selectedLabel = loading ? 'Loading categories…' :
+    loadingError ? 'Categories unavailable' : selected?.label || placeholder || 'Select';
   const visible = useMemo(() => options.filter((option) =>
     (option.label + ' ' + option.value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   ), [options, query]);
@@ -171,7 +176,7 @@ export function SelectSheet({
               <Text style={{ color: theme.muted, fontWeight: '700', fontSize: 16 }}>Done</Text>
             </Pressable>
           </View>
-          {searchable && !adding ? <TextInput
+          {searchable && !adding && !loading && !loadingError ? <TextInput
             autoCorrect={false} autoCapitalize="none"
             value={query} onChangeText={setQuery}
             placeholder={'Search ' + title.toLowerCase()}
@@ -227,14 +232,16 @@ export function SelectSheet({
                 </Text>
               </Pressable>
             </View>
-          </View> : !adding && onCreateOption ? <Pressable accessibilityRole="button"
+          </View> : !adding && onCreateOption && !loading && !loadingError ? <Pressable accessibilityRole="button"
             onPress={() => { setAdding(true); setShowAllCategories(false); setNewName(''); setCreateError(''); }}
             style={{ paddingVertical: 15, borderBottomColor: theme.border, borderBottomWidth: 1 }}>
             <Text style={{ color: theme.primaryDark, fontWeight: '800', fontSize: 15 }}>
               + Add new category
             </Text>
           </Pressable> : null}
-          {!adding ? <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
+          {!adding && loading ? <CategoryOptionSkeleton/> :
+            !adding && loadingError ? <Text style={[styles.error,{paddingVertical:18}]}>{loadingError}</Text> :
+            !adding ? <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}>
             {visible.map((option) => <Pressable key={option.value}

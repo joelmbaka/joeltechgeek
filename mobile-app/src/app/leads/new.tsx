@@ -17,6 +17,8 @@ export default function AddLead() {
   const headerHeight = useHeaderHeight();
   const { user } = useAuth();
   const [industries, setIndustries] = useState<string[]>([]);
+  const [categoriesLoading,setCategoriesLoading] = useState(true);
+  const [categoriesError,setCategoriesError] = useState<string|null>(null);
   const [company, setCompany] = useState('');
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('');
@@ -34,11 +36,18 @@ export default function AddLead() {
 
   const loadIndustries = useCallback((signal: AbortSignal) => {
     if (!user) return;
+    setCategoriesLoading(true);
+    setCategoriesError(null);
     void apiFetch<{ ok: true; categories: string[] }>('/api/agent-crm/categories', { signal })
       .then((result) => { if (!signal.aborted) setIndustries(result.categories); })
       .catch((reason: unknown) => {
-        if (!signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load industries.');
-      });
+        if (!signal.aborted) {
+          const message=reason instanceof Error ? reason.message : 'Could not load categories.';
+          setCategoriesError(message);
+          setError(message);
+        }
+      })
+      .finally(()=>{if(!signal.aborted)setCategoriesLoading(false);});
   }, [user?.id]);
   useFreshOnFocus(loadIndustries, [loadIndustries]);
 
@@ -86,6 +95,7 @@ export default function AddLead() {
           placeholder="Other"
           options={[...industries.filter((name) => name !== 'Other').map((value) => ({ value, label: value })), { value: '', label: 'Other' }]}
           onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
+          loading={categoriesLoading} loadingError={categoriesError}
         />
       </View>
     </View>
