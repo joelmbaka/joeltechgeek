@@ -279,3 +279,16 @@ test('Notification skeleton only replaces empty loading states, not pagination o
   assert.match(sk, /export function NotificationCardSkeleton/);
   assert.match(sk, /Loading notifications/);
 });
+
+test('Lead cards display Due now beside priority, keeping follow-up date uncluttered', () => {
+  const source = read('mobile-app/src/app/index.tsx');
+  const card = source.slice(source.indexOf('function LeadRow('));
+  const dueBadge = card.indexOf('>Due now</Text>');
+  const priority = card.indexOf('<PriorityChip priority={lead.priority}/>');
+  const nextAction = card.indexOf('Next: {lead.next_action}');
+  assert.ok(dueBadge > 0 && dueBadge < priority && priority < nextAction);
+  assert.match(card, /const due = lead\.work_state === 'due'/);
+  assert.match(card, /minWidth:0,fontSize:16\}\]} numberOfLines=\{2\}/);
+  assert.match(card, /\{dueTime \? <Text style=\{\[styles\.subtitle,\{fontSize:12\}\]\}>◷ \{dueTime\}<\/Text> : null\}/);
+  assert.equal((card.match(/>Due now<\/Text>/g) || []).length, 1);
+});

@@ -411,11 +411,18 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
   return <Pressable accessibilityRole="button"
     accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')}
     onPress={onPress} style={styles.card}>
-    <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
-      <Text style={[styles.value,{flex:1,fontSize:16}]}>
+    <View style={{flexDirection:'row',alignItems:'flex-start',gap:8}}>
+      <Text style={[styles.value,{flex:1,minWidth:0,fontSize:16}]} numberOfLines={2}>
         {lead.company_name || lead.contact_name || 'Unnamed lead'}
       </Text>
-      <PriorityChip priority={lead.priority}/>
+      <View style={{flexDirection:'row',alignItems:'center',gap:5,flexShrink:0}}>
+        {due ? <View style={{borderRadius:15,borderWidth:1,
+          borderColor:theme.warning,backgroundColor:theme.surfaceMuted,
+          paddingHorizontal:7,paddingVertical:4}}>
+          <Text style={{color:theme.warning,fontWeight:'800',fontSize:11}}>Due now</Text>
+        </View> : null}
+        <PriorityChip priority={lead.priority}/>
+      </View>
     </View>
     <Text style={styles.subtitle} numberOfLines={2}>
       {lead.company_name ? (lead.contact_name || 'No contact') : (lead.contact_role || 'No company')}
@@ -447,14 +454,7 @@ function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
       <Text numberOfLines={2} style={{color:theme.primaryDark,fontWeight:'700',fontSize:13}}>
         Next: {lead.next_action}
       </Text>
-      {dueTime ? <View style={{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7}}>
-        <Text style={[styles.subtitle,{fontSize:12}]}>◷ {dueTime}</Text>
-        {due ? <View style={{borderRadius:15,borderWidth:1,
-          borderColor:theme.warning,backgroundColor:theme.surfaceMuted,
-          paddingHorizontal:8,paddingVertical:4}}>
-          <Text style={{color:theme.warning,fontWeight:'800',fontSize:11}}>Due now</Text>
-        </View> : null}
-      </View> : null}
+      {dueTime ? <Text style={[styles.subtitle,{fontSize:12}]}>◷ {dueTime}</Text> : null}
     </View> : lead.retry_eligible_at && lead.work_state==='cooldown' ?
       <Text style={styles.subtitle}>Retry eligible: {lead.retry_eligible_at}</Text> : null}
   </Pressable>;
