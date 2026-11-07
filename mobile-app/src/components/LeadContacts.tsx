@@ -123,7 +123,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         disabled={locked || busy}/>
 
       {editing === c.id ? <View style={{ gap: 9, paddingTop: 8 }}>
-        <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}/>
+        <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} autoFocus/>
         <Field label="Role" value={form.role} onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}/>
         <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
         <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
@@ -141,7 +141,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
     </View>)}
     {editing === 'new' ? <View style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 9 }}>
       <Text style={[styles.value, { fontSize: 16 }]}>New contact</Text>
-      <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}/>
+      <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} autoFocus/>
       <Field label="Role" value={form.role} onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}/>
       <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
       <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>

@@ -97,13 +97,13 @@ export function InlineFollowupEditor({
     </Text>
     {mode === 'edit' ? <>
       {contacts.length > 1 ? <SelectSheet title="Contact" value={contactId}
-        options={choices} searchable disabled={busy} onChange={setContactId}/> : null}
+        options={choices} searchable disabled={busy} onChange={setContactId} dismissKeyboardOnOpen/> : null}
       <SelectSheet title="Action type" value={actionType} options={ACTION_TYPES}
-        disabled={busy} onChange={value=>{
+        disabled={busy} dismissKeyboardOnOpen onChange={value=>{
           if (ACTION_TYPES.some(option=>option.value===value)) setActionType(value as ActionType);
         }}/>
       <Field label="Next action" value={action} onChangeText={setAction}
-        placeholder="e.g. Call to confirm requirements"/>
+        placeholder="e.g. Call to confirm requirements" autoFocus/>
       <View style={{flexDirection:'row',gap:12}}>
         <NativeSchedulePicker label="Date" mode="date" value={date}
           disabled={busy} onChange={value=>{setDate(value);if(!value)setTime('');}}/>

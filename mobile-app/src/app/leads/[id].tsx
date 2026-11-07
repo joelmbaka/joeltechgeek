@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Pressable, Text, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
@@ -54,6 +55,7 @@ export default function LeadScreen() {
   const theme = useTheme();
   const dialog = useAppDialog();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const {
     id, view, industry, queueIds:queueIdsParam, queueOffset:queueOffsetParam,
     queueMore, queueView, queueQuery,
@@ -366,7 +368,7 @@ export default function LeadScreen() {
   };
 
   if(!user)return <Page><Text style={styles.error}>Sign in to access lead details.</Text></Page>;
-  return <Page>
+  return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
     <Stack.Screen options={{
       headerRight: () => <Pressable accessibilityRole="button" accessibilityLabel="Edit lead details"
         disabled={!activeLead || !!otherSaving}
@@ -398,7 +400,7 @@ export default function LeadScreen() {
         </Text>
       </View>
       {identityEditing ? <View style={styles.card}>
-        <Field label="Company name" value={companyDraft} onChangeText={setCompanyDraft}/>
+        <Field label="Company name" value={companyDraft} onChangeText={setCompanyDraft} autoFocus/>
         <View style={{flexDirection:'row',gap:10}}>
           <View style={{flex:1}}><Button disabled={!!otherSaving} onPress={()=>void saveIdentity()}>
             {otherSaving==='identity'?'Saving…':'Save details'}
@@ -448,7 +450,7 @@ export default function LeadScreen() {
       <View style={{gap:8}}>
         {contacts.length>1 ? <SelectSheet title="Contact for quick actions"
           value={chosenContactId} options={contactOptions}
-          onChange={setContactId} searchable/> : null}
+          onChange={setContactId} searchable dismissKeyboardOnOpen/> : null}
         <LeadContactActions
           phone={companyOnly?activeLead.phone:chosenContact?.phone}
           email={companyOnly?activeLead.email:chosenContact?.email}
