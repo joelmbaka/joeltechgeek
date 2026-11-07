@@ -138,7 +138,7 @@ export function SelectSheet({
       statusBarTranslucent={false}>
       <KeyboardAvoidingView
         style={{ flex: 1, justifyContent: 'flex-end' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' || adding ? 'padding' : undefined}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Close selection"
           onPress={close}
