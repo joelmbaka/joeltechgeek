@@ -52,3 +52,28 @@ export function LeadDetailSkeleton() {
     </View>)}
   </View>;
 }
+
+/** Mirrors the compact inline fields in Edit Lead without mounting real editable controls. */
+export function EditLeadSkeleton() {
+  const theme = useTheme();
+  const pulse = usePulse();
+  return <View accessible accessibilityLabel="Loading edit lead form" style={{gap:12}}>
+    {Array.from({length:6},(_,index)=><View key={index}
+      style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
+      <Bar pulse={pulse} width={112} height={14}/>
+      <View style={{flex:1,minHeight:44,backgroundColor:theme.white,borderRadius:10,
+        borderColor:theme.border,borderWidth:1,paddingHorizontal:12,justifyContent:'center'}}>
+        <Bar pulse={pulse} width={index===1?'70%':'55%'} height={14}/>
+      </View>
+    </View>)}
+    {[0,1].map(index=><View key={index} style={{gap:8}}>
+      <Bar pulse={pulse} width={index===0?'55%':'38%'} height={14}/>
+      <View style={{minHeight:88,backgroundColor:theme.white,borderRadius:10,
+        borderColor:theme.border,borderWidth:1,padding:12,gap:12}}>
+        <Bar pulse={pulse} width="78%" height={14}/>
+        <Bar pulse={pulse} width="52%" height={14}/>
+      </View>
+    </View>)}
+    <View style={{borderRadius:10,backgroundColor:theme.surfaceMuted,minHeight:44}}/>
+  </View>;
+}

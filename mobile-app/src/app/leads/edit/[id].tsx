@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Text, View } from 'react-native';
-import { Button, Busy, Field, Page, useUIStyles } from '@/components/ui';
+import { Button, Field, Page, useUIStyles } from '@/components/ui';
+import { EditLeadSkeleton } from '@/components/Skeleton';
 import { SelectSheet } from '@/components/SelectSheet';
 import { useTheme } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
@@ -88,7 +89,7 @@ export default function EditLead() {
   };
   return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
     <Stack.Screen options={{title:'Edit lead'}}/>
-    {!loaded ? <Busy/> : null}
+    {!loaded ? <EditLeadSkeleton/> : null}
     {loaded&&!original ? <Text style={styles.error}>{error||'Lead not found.'}</Text> : null}
     {original ? <>
       <Field label="Company name" value={company} onChangeText={setCompany} inline/>

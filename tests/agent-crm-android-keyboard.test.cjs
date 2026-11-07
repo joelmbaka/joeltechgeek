@@ -213,3 +213,14 @@ test('Edit Lead saves brief and important details atomically with business detai
   assert.match(api, /canUseBusinessCategory/);
   assert.doesNotMatch(api, /const assignments = columns\.map\(\(column,index\)=>column\+'=/);
 });
+
+test('Edit Lead shows a form-shaped skeleton instead of loading spinner', () => {
+  const edit = read('mobile-app/src/app/leads/edit/[id].tsx');
+  const skeleton = read('mobile-app/src/components/Skeleton.tsx');
+  assert.match(edit, /import \{ EditLeadSkeleton \} from '@\/components\/Skeleton'/);
+  assert.match(edit, /!loaded \? <EditLeadSkeleton\/>/);
+  assert.doesNotMatch(edit, /<Busy\/>/);
+  assert.match(skeleton, /export function EditLeadSkeleton\(\)/);
+  assert.match(skeleton, /Loading edit lead form/);
+  assert.match(skeleton, /Array\.from\(\{length:6\}/);
+});
