@@ -21,7 +21,7 @@ export default function ProfileScreen() {
   const showDialog = useAppDialog();
   if (!user) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
   const signOut = () => showDialog({
-    title: 'Sign out of CRM?',
+    title: 'Sign out of CallsBound?',
     message: 'Your session on this device will end. To access your workspace again, sign in with your Google account.',
     cancelLabel: 'Stay signed in',
     confirmLabel: 'Sign out',
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
         <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=JoelTechGeek%20CRM%20account%20and%20data%20deletion')
+      <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=CallsBound%20account%20and%20data%20deletion')
         .catch(() => showDialog({ title: 'Email app unavailable', message: 'Please email mbakajoe26@gmail.com to request account or data deletion.' }))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>

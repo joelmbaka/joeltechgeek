@@ -6,7 +6,7 @@ const isPreview = variant === 'preview';
 
 module.exports = ({ config }) => ({
   ...config,
-  name: isDevelopment ? 'JTG CRM Dev' : isPreview ? 'JTG Preview' : config.name,
+  name: isDevelopment ? 'CallsBound Dev' : isPreview ? 'CallsBound Preview' : config.name,
   scheme: isDevelopment
     ? 'joeltechgeek-dev'
     : isPreview ? 'joeltechgeek-preview' : config.scheme,

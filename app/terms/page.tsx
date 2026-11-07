@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | JoelTechGeek CRM & Website',
-  description: 'Terms governing use of the Joeltech Geek Systems website, private web CRM and JoelTechGeek CRM Android app.',
+  title: 'Terms of Service | CallsBound & JoelTechGeek Website',
+  description: 'Terms governing use of the Joeltech Geek Systems website, private web CRM and CallsBound Android app.',
   alternates: { canonical: '/terms' },
   openGraph: {
     type: 'website',
     url: '/terms',
-    title: 'Terms of Service | JoelTechGeek CRM & Website',
-    description: 'Terms for accessing the JoelTechGeek CRM app and the Joeltech Geek Systems website.',
+    title: 'Terms of Service | CallsBound & JoelTechGeek Website',
+    description: 'Terms for accessing the CallsBound app and the Joeltech Geek Systems website.',
   },
 };
 
@@ -18,7 +18,7 @@ const sections = [
     id: 'scope',
     title: '1. Who we are and what these terms cover',
     paragraphs: [
-      'Joeltech Geek Systems is a business based in Kenya. These Terms of Service govern access to and use of our public website at joeltechgeek.com, our web-based CRM and the JoelTechGeek CRM Android app (together, the Services).',
+      'Joeltech Geek Systems is a business based in Kenya. These Terms of Service govern access to and use of our public website at joeltechgeek.com, our web-based CRM and the CallsBound Android app (together, the Services).',
       'The CRM helps authorized users manage business leads, contact records, outreach activities, next actions and follow-up reminders. Features may vary by account and platform.',
       'A separate written agreement or product-specific terms may apply to commissioned software development, other products shown in our portfolio or paid services. If a signed agreement conflicts with these terms, that agreement controls for the services it covers.',
     ],
@@ -128,10 +128,10 @@ export default function TermsPage() {
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Terms of Service
           </h1>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Effective date: 6 November 2026</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Effective date: 7 November 2026</p>
           <p className="mt-6 text-base leading-8 text-gray-700 dark:text-gray-300">
             These terms explain the responsibilities of <strong className="text-gray-900 dark:text-white">Joeltech Geek Systems</strong> and
-            the people who access our website or use <strong className="text-gray-900 dark:text-white">JoelTechGeek CRM</strong> on web and Android.
+            the people who access our website or use <strong className="text-gray-900 dark:text-white">CallsBound</strong> on web and Android.
           </p>
           <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-400">
             By accessing or using the Services, you agree to these terms to the extent permitted by applicable law.

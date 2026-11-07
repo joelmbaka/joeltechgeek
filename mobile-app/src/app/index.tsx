@@ -44,7 +44,7 @@ function BrandMark({ dark }: { dark: boolean }) {
     source={dark ? require('../../assets/images/auth-logo-dark.png') : require('../../assets/images/auth-logo.png')}
     style={{ width: 108, height: 108, alignSelf: 'center' }}
     resizeMode="contain"
-    accessibilityLabel="JoelTechGeek logo" />;
+    accessibilityLabel="CallsBound logo" />;
 }
 
 export default function HomeScreen() {
@@ -201,7 +201,7 @@ export default function HomeScreen() {
         shadowColor: '#000', shadowOpacity: .08, shadowRadius: 16, shadowOffset: { width: 0, height: 5 },
       }}>
         <BrandMark dark={brandScheme === 'dark'}/>
-        <Text style={[styles.title, { textAlign: 'center', fontSize: 22 }]}>JoelTechGeek CRM</Text>
+        <Text style={[styles.title, { textAlign: 'center', fontSize: 22 }]}>CallsBound</Text>
         <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: 6 }]}>Sign in to continue</Text>
         {authError ? <Text style={[styles.error, { textAlign: 'center' }]}>{authError}</Text> : null}
         <Button onPress={() => void login()}>Continue with Google</Button>

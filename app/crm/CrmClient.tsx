@@ -8,7 +8,7 @@ import {
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CrmUser, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
-import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
+import { BrandSymbol } from '@/components/BrandLogo';
 import { AddLeadModal } from './AddLeadModal';
 import { LeadContactsPanel } from './LeadContactsPanel';
 
@@ -1060,7 +1060,11 @@ export function CrmClient() {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-[#0A1724]/95">
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
-            <div className="min-w-0 shrink-0"><BrandLogo /></div>
+            <div className="flex min-w-0 items-center gap-2.5" aria-label="CallsBound">
+              <span className="shrink-0 dark:hidden"><BrandSymbol size={37} /></span>
+              <span className="hidden shrink-0 dark:block"><BrandSymbol size={37} onDark /></span>
+              <span className="truncate text-base font-extrabold tracking-tight text-[#0A2836] dark:text-white sm:text-lg">CallsBound</span>
+            </div>
             <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] font-bold tracking-wide text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-900/25 dark:text-emerald-300 sm:hidden">CRM</span>
             <div className="hidden border-l border-slate-200 pl-4 dark:border-white/15 sm:block">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#059669] dark:text-[#34D399]">Sales CRM</p>
@@ -1105,7 +1109,7 @@ export function CrmClient() {
                 <span className="dark:hidden"><BrandSymbol size={47} /></span>
                 <span className="hidden dark:block"><BrandSymbol size={47} onDark /></span>
               </div>
-              <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.19em] text-[#059669] dark:text-[#34D399]">JoelTechGeek · Sales CRM</p>
+              <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.19em] text-[#059669] dark:text-[#34D399]">CallsBound · Sales CRM</p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#0A2836] dark:text-white sm:text-[28px]">
                 {view === 'denied' ? 'Account not authorized' : view === 'error' ? 'Connection problem' : 'Welcome to your workspace'}
               </h2>
@@ -1129,7 +1133,7 @@ export function CrmClient() {
               {view === 'error' && <button type="button" onClick={() => void refresh()}
                 className="mt-4 text-sm font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Retry connection</button>}
               <p className="mt-7 border-t border-slate-100 pt-5 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-400">
-                New to JoelTechGeek CRM? Your account will be created automatically.
+                New to CallsBound? Your account will be created automatically.
               </p>
             </div>
           </section>

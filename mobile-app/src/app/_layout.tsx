@@ -28,14 +28,14 @@ function Navigation() {
         headerTitleAlign: 'left',
         headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
           <Image
-            alt="JoelTechGeek"
+            alt="CallsBound"
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             source={dark ? require('../../assets/images/header-logo-dark.png') : require('../../assets/images/header-logo.png')}
             style={{ width: 30, height: 30 }}
             resizeMode="contain"
-            accessibilityLabel="JoelTechGeek" />
+            accessibilityLabel="CallsBound" />
           <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>
-            JoelTechGeek CRM
+            CallsBound
           </Text>
         </View>,
         headerBackVisible: false,
