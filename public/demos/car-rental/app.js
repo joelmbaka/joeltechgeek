@@ -33,7 +33,7 @@ const title=(heading,action="",back="")=>'<div class="heading">'+(back?btn("←"
 function run(fn,message){
  try{const copy=JSON.parse(JSON.stringify(data)),result=fn(copy);data=copy;save();ui.dialog="";ui.toast=message||"Saved.";render();return result;}catch(e){ui.toast=e.message||"Unable to save.";render();return null;}
 }
-function nav(tab){ui.tab=tab;ui.vehicleId=null;ui.customerId=null;ui.dialog="";ui.gpsIndex=null;stopReplay();render();}
+function nav(tab){ui.tab=tab;ui.vehicleId=null;ui.rentalId=null;ui.customerId=null;ui.dialog="";ui.gpsIndex=null;ui.search="";stopReplay();render();}
 function openVehicle(vid,sub="details"){if(!byId(vid))return;ui.tab="fleet";ui.vehicleId=vid;ui.sub=sub;ui.dialog="";ui.gpsIndex=null;stopReplay();render();}
 function stopReplay(){if(ui.gpsTimer){clearInterval(ui.gpsTimer);ui.gpsTimer=null;}}
 function vehicleCard(v){
