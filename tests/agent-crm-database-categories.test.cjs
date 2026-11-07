@@ -33,7 +33,8 @@ test('web and Android industry filters use the current user lead categories', ()
   assert.match(web, /data\?\.industries \|\| \[\]/);
   assert.doesNotMatch(web, /CRM_INDUSTRIES/);
   assert.match(android, /data\?\.industries/);
-  assert.match(queue, /JOIN public\.crm_business_categories/);
+  assert.match(queue, /FROM public\.crm_business_categories/);
+  assert.match(queue, /LEFT JOIN public\.crm_leads/);
 });
 
 test('Android category creation is an isolated bottom-sheet view with bounded preview', () => {
