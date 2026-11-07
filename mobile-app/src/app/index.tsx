@@ -213,11 +213,17 @@ export default function HomeScreen() {
   </SafeAreaView>;
 
   const stats = loading ? null : data?.stats || null;
+  // Counts are global to this user's leads (not the current filtered page).
+  const categoryCounts = data?.industry_counts;
+  const categorizedCount = Object.values(categoryCounts || {})
+    .reduce((total, count) => total + count, 0);
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All categories' },
-    { value: '__uncategorized__', label: 'No category' },
+    { value: 'all', label: 'All categories', count: data?.stats?.total },
+    { value: '__uncategorized__', label: 'No category',
+      count: data?.stats?.total === undefined ? undefined :
+        Math.max(0, data.stats.total - categorizedCount) },
     ...(data?.industries || (industry === 'all' ? [] : [industry])).map((name) => ({
-      value: name, label: name,
+      value: name, label: name, count: categoryCounts?.[name],
     })),
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>

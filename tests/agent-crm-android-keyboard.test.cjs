@@ -304,3 +304,15 @@ test('Due now uses its own alert palette instead of the Normal priority palette'
   assert.match(index, /color:theme\.dueText,fontWeight:'800',fontSize:11/);
   assert.match(priority, /theme\.chipNormalBg, theme\.chipNormalBorder, theme\.chipNormalText/);
 });
+
+test('Lead directory category selector shows server category counts', () => {
+  const directory = read('mobile-app/src/app/index.tsx');
+  const selector = read('mobile-app/src/components/SelectSheet.tsx');
+  const workQueue = read('lib/agent-crm/work-queue.ts');
+  assert.match(directory, /const categoryCounts = data\?\.industry_counts/);
+  assert.match(directory, /value: name, label: name, count: categoryCounts\?\.\[name\]/);
+  assert.match(directory, /value: 'all', label: 'All categories', count: data\?\.stats\?\.total/);
+  assert.match(directory, /Math\.max\(0, data\.stats\.total - categorizedCount\)/);
+  assert.match(selector, /option\.count !== undefined \? ' \(' \+ option\.count \+ '\)' : ''/);
+  assert.match(workQueue, /industry_counts:Object\.fromEntries\(categories\.rows\.map/);
+});
