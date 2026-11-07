@@ -6,7 +6,6 @@
  * The industry column name stays unchanged until a later schema phase.
  */
 export const CRM_INDUSTRIES = [
-  'Agriculture & Cooperatives',
   'Asset & Equipment Management',
   'Beauty & Wellness',
   'Car Rental & Fleet Hire',
@@ -24,13 +23,10 @@ export const CRM_INDUSTRIES = [
   'FMCG & Distribution',
   'Fuel Stations',
   'Garages & Auto Repair',
-  'Healthcare & Hospitals',
   'Hotel & Hospitality',
   'HR, Payroll & Attendance',
   'Insurance & Brokers',
   'Laboratories',
-  'Legal Services',
-  'Manufacturing & Production',
   'Membership & Associations',
   'Microfinance & Lending',
   'Movers & Relocation',
@@ -47,7 +43,6 @@ export const CRM_INDUSTRIES = [
   'SACCOs & Cooperatives',
   'Schools & Education',
   'Security & Guarding',
-  'Software & Technology',
   'Transport & Logistics',
   'Travel & Tours',
   'Vehicle Tracking & Telematics',
