@@ -9,7 +9,6 @@ import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcome } from '@/lib/agent-crm/types';
 import type { CrmUser, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
-import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { AddLeadModal } from './AddLeadModal';
 import { LeadContactsPanel } from './LeadContactsPanel';
 
@@ -1042,7 +1041,7 @@ export function CrmClient() {
   const stats = data?.stats || emptyStats;
   // Category names and counts include all assigned leads, not just the current page.
   const industries = useMemo(
-    () => Array.from(new Set([...CRM_INDUSTRIES, ...(data?.industries || [])])).filter(Boolean)
+    () => (data?.industries || []).filter(Boolean)
       .sort((a, b) => a.localeCompare(b)),
     [data?.industries],
   );

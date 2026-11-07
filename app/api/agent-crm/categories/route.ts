@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getBusinessCategories } from '@/lib/agent-crm/categories';
 import { getCrmPool } from '@/lib/agent-crm/db';
-import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,9 +37,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Enter a valid category name (up to 100 characters).' }, { status: 400 });
   }
   try {
-    // Built-in suggestions need no duplicate custom record.
-    const suggested = CRM_INDUSTRIES.find((item) => item.toLowerCase() === name.toLowerCase());
-    if (suggested) return NextResponse.json({ ok: true, category: suggested });
+    // Reuse a category already saved or assigned by this user instead of duplicating it.
+    const existing = (await getBusinessCategories(access.user.id))
+      .find((item) => item.toLocaleLowerCase() === name.toLocaleLowerCase());
+    if (existing) return NextResponse.json({ ok: true, category: existing },
+      { headers: { 'Cache-Control': 'private, no-store' } });
     const db = getCrmPool();
     await db.query(
       'INSERT INTO public.crm_business_categories (user_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING',

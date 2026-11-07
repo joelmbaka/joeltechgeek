@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Check, Plus, X } from 'lucide-react';
-import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
 import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, LEAD_STAGES } from '@/lib/agent-crm/types';
 import type { ActivityChannel } from '@/lib/agent-crm/types';
 
@@ -53,7 +52,7 @@ export function AddLeadModal({
   const [form, setForm] = useState<FormState>(defaults);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [categories, setCategories] = useState<string[]>([...CRM_INDUSTRIES]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);

@@ -1,8 +1,7 @@
 import { getCrmPool } from './db';
-import { CRM_INDUSTRIES, isCrmIndustry } from './industries';
 
-/** Categories are suggestions plus per-agent custom entries and legacy assigned labels.
- * Existing crm_leads.industry remains the persisted field for compatibility.
+/** The signed-in user's saved categories plus categories assigned to their leads.
+ * There are no global defaults; new users can create their first category.
  */
 export async function getBusinessCategories(userId: string): Promise<string[]> {
   const db = getCrmPool();
@@ -17,7 +16,7 @@ export async function getBusinessCategories(userId: string): Promise<string[]> {
     ),
   ]);
   const names = new Map<string, string>();
-  for (const raw of [...CRM_INDUSTRIES, ...saved.rows.map((r) => r.name), ...used.rows.map((r) => r.name)]) {
+  for (const raw of [...saved.rows.map((r) => r.name), ...used.rows.map((r) => r.name)]) {
     const name = raw.trim();
     if (name && !names.has(name.toLocaleLowerCase())) names.set(name.toLocaleLowerCase(), name);
   }
@@ -26,7 +25,7 @@ export async function getBusinessCategories(userId: string): Promise<string[]> {
 
 /** Do not accept arbitrary categories submitted by another agent or a modified client. */
 export async function canUseBusinessCategory(userId: string, name: string): Promise<boolean> {
-  if (!name || isCrmIndustry(name)) return true;
+  if (!name) return true;
   const result = await getCrmPool().query<{ found: boolean }>(
     `SELECT (
       EXISTS (SELECT 1 FROM public.crm_business_categories
