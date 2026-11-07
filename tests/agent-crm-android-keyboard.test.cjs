@@ -169,3 +169,29 @@ test('Record Update keeps outcome, action and classification values while showin
   assert.match(update, /onChange=\{\(value\)=>\{setOutcome\(value\);setStage\(''\);\}\}/);
   assert.match(update, /onChange=\{\(value\)=>\{setActionType\(value\);setScheduleTouched\(true\);\}\}/);
 });
+
+test('Edit Lead page supports company, category, location, website and priority', () => {
+  const detail=read('mobile-app/src/app/leads/[id].tsx');
+  const edit=read('mobile-app/src/app/leads/edit/[id].tsx');
+  const api=read('app/api/agent-crm/leads/[id]/identity/route.ts');
+  const layout=read('mobile-app/src/app/_layout.tsx');
+  assert.match(layout,/name="leads\/edit\/\[id\]"/);
+  assert.match(detail,/pathname:'\/leads\/edit\/\[id\]'/);
+  assert.doesNotMatch(detail,/identityEditing/);
+  assert.match(edit,/<Page keyboardAware keyboardVerticalOffset=\{headerHeight\}>/);
+  for(const label of ['Company name','Country','City','Website'])
+    assert.ok(edit.includes('label="'+label+'"'));
+  assert.match(edit,/title="Business category"/);
+  assert.match(edit,/title="Priority"/);
+  assert.match(api,/canUseBusinessCategory/);
+  assert.match(api,/'industry','country','city','website','priority'/);
+  assert.match(api,/user_id=\$2/);
+});
+test('Inline follow-up uses Record Update style while retaining its save contract', () => {
+  const edit=read('mobile-app/src/components/InlineFollowupEditor.tsx');
+  assert.match(edit,/<NativeSchedulePicker label="Date" mode="date" value=\{date\} decorated/);
+  assert.match(edit,/<NativeSchedulePicker label="Time" mode="time" value=\{time\} decorated/);
+  assert.match(edit,/label: '📞 Call'/);
+  assert.match(edit,/label: '💬 WhatsApp'/);
+  assert.match(edit,/kind:'edit',action:action.trim\(\),actionType,date/);
+});

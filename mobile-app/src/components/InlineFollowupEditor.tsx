@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useTheme } from '@/lib/config';
 import { Button, Field, useUIStyles } from './ui';
 import { SelectSheet } from './SelectSheet';
 import { NativeSchedulePicker } from './NativeSchedulePicker';
@@ -11,11 +13,11 @@ export type InlineFollowupUpdate =
   | { kind: 'complete'; notes: string };
 
 const ACTION_TYPES = [
-  { value: 'call', label: 'Call' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'email', label: 'Email' },
-  { value: 'meeting', label: 'Meeting' },
-  { value: 'other', label: 'Other' },
+  { value: 'call', label: '📞 Call' },
+  { value: 'whatsapp', label: '💬 WhatsApp' },
+  { value: 'email', label: '✉️ Email' },
+  { value: 'meeting', label: '📅 Meeting' },
+  { value: 'other', label: '⚡ Other' },
 ] as const;
 type ActionType = typeof ACTION_TYPES[number]['value'];
 
@@ -29,6 +31,7 @@ export function InlineFollowupEditor({
   onCancel: () => void;
 }) {
   const styles = useUIStyles();
+  const theme = useTheme();
   const [action, setAction] = useState(lead.next_action || '');
   const [actionType, setActionType] = useState<ActionType>(
     (lead.next_action_type as ActionType | null) || 'call',
@@ -104,14 +107,20 @@ export function InlineFollowupEditor({
         }}/>
       <Field label="Next action" value={action} onChangeText={setAction}
         placeholder="e.g. Call to confirm requirements" autoFocus/>
-      <View style={{flexDirection:'row',gap:12}}>
-        <NativeSchedulePicker label="Date" mode="date" value={date}
-          disabled={busy} onChange={value=>{setDate(value);if(!value)setTime('');}}/>
-        <NativeSchedulePicker label="Time (optional)" mode="time" value={time}
-          disabled={busy || !date} onChange={setTime}/>
+      <View style={{backgroundColor:theme.surfaceMuted,borderRadius:15,borderWidth:1,
+        borderColor:theme.border,padding:12,gap:11}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+          <SymbolView name={{ios:'calendar',android:'event',web:'event'}} size={19}
+            tintColor={theme.primaryDark}/>
+          <Text style={[styles.value,{fontSize:14}]}>Reminder</Text>
+        </View>
+        <View style={{flexDirection:'row',gap:10}}>
+          <NativeSchedulePicker label="Date" mode="date" value={date} decorated
+            disabled={busy} onChange={value=>{setDate(value);if(!value)setTime('');}}/>
+          <NativeSchedulePicker label="Time" mode="time" value={time} decorated
+            disabled={busy || !date} onChange={setTime}/>
+        </View>
       </View>
-      <Text style={styles.subtitle}>Without a time, the reminder defaults to 9:00 AM
-        or the next available same-day time.</Text>
     </> : <>
       <Text style={styles.subtitle}>
         Completing this task clears its reminder and records the completion in activity history.

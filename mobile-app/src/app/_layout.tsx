@@ -50,6 +50,7 @@ function Navigation() {
       <Stack.Screen name="signing-out" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}/>
       <Stack.Screen name="auth-callback" options={{ title: 'Google sign-in' }}/>
       <Stack.Screen name="leads/new" options={{ title: 'Add lead' }}/>
+      <Stack.Screen name="leads/edit/[id]" options={{ title: 'Edit lead' }}/>
       <Stack.Screen name="leads/[id]" options={{ title: 'Lead details' }}/>
     </Stack>
   </>;

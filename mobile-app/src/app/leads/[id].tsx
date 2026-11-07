@@ -79,9 +79,7 @@ export default function LeadScreen() {
   const savingRef = useRef(false);
   // Discard older detail GETs when focus, a save, and foreground refresh overlap.
   const detailsRequestVersion = useRef(0);
-  const [otherSaving,setOtherSaving] = useState<'identity'|'context'|'reopen'|null>(null);
-  const [identityEditing,setIdentityEditing] = useState(false);
-  const [companyDraft,setCompanyDraft] = useState('');
+  const [otherSaving,setOtherSaving] = useState<'context'|'reopen'|null>(null);
   const [contextEditing,setContextEditing] = useState(false);
   const [briefDraft,setBriefDraft] = useState('');
   const [detailsDraft,setDetailsDraft] = useState('');
@@ -295,22 +293,6 @@ export default function LeadScreen() {
     try { await WebBrowser.openBrowserAsync(url); }
     catch { dialog({title:'Website unavailable',message:'Could not open this website.'}); }
   };
-  const editIdentity = () => {
-    if (!activeLead) return;
-    setCompanyDraft(activeLead.company_name||'');setIdentityEditing(true);
-  };
-  const saveIdentity = async () => {
-    if (!activeLead || otherSaving) return;
-    setOtherSaving('identity');
-    try {
-      await apiFetch('/api/agent-crm/leads/'+encodeURIComponent(id)+'/identity',{
-        method:'PATCH',body:JSON.stringify({company_name:companyDraft.trim()}),
-      });
-      setIdentityEditing(false);reload();setNotice('Lead details updated');
-      if(user)void reconcileReminders(user).catch(()=>{});
-    } catch(e) {setError(e instanceof Error?e.message:'Could not update lead.');}
-    finally {setOtherSaving(null);}
-  };
   const editContext = () => {
     if(!activeLead)return;
     setBriefDraft(activeLead.lead_brief||'');
@@ -372,7 +354,7 @@ export default function LeadScreen() {
     <Stack.Screen options={{
       headerRight: () => <Pressable accessibilityRole="button" accessibilityLabel="Edit lead details"
         disabled={!activeLead || !!otherSaving}
-        onPress={editIdentity}
+        onPress={()=>router.push({pathname:'/leads/edit/[id]',params:{id:String(activeLead?.id || id)}})}
         style={{paddingHorizontal:10,paddingVertical:10,opacity:activeLead?1:.5}}>
         <Text style={{color:theme.primaryDark,fontWeight:'800'}}>Edit</Text>
       </Pressable>,
@@ -399,16 +381,6 @@ export default function LeadScreen() {
           {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
         </Text>
       </View>
-      {identityEditing ? <View style={styles.card}>
-        <Field label="Company name" value={companyDraft} onChangeText={setCompanyDraft} autoFocus/>
-        <View style={{flexDirection:'row',gap:10}}>
-          <View style={{flex:1}}><Button disabled={!!otherSaving} onPress={()=>void saveIdentity()}>
-            {otherSaving==='identity'?'Saving…':'Save details'}
-          </Button></View>
-          <View style={{flex:1}}><Button secondary disabled={!!otherSaving}
-            onPress={()=>setIdentityEditing(false)}>Cancel</Button></View>
-        </View>
-      </View> : null}
       {locked ? <View style={styles.card}>
         <Text style={[styles.value,{fontSize:17}]}>Closed & Excluded</Text>
         <Text style={styles.subtitle}>
