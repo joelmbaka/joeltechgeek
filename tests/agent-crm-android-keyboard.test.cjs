@@ -366,3 +366,15 @@ test('Business category bottom sheets show skeletons until categories finish loa
   assert.match(add,/loading=\{categoriesLoading\} loadingError=\{categoriesError\}/);
   assert.match(edit,/loading=\{!loaded\}/);
 });
+
+test('Notifications retains section headings without redundant helper text', () => {
+  const notifications=read('mobile-app/src/app/notifications.tsx');
+  assert.doesNotMatch(notifications, /<Text style=\{styles\.title\}>Notifications<\/Text>/);
+  assert.doesNotMatch(notifications, /<Text style=\{styles\.subtitle\}>\s*Due reminders stay unread/);
+  assert.doesNotMatch(notifications, /Oldest due first · All unread reminders/);
+  assert.doesNotMatch(notifications, /Read within the last 7 days/);
+  assert.match(notifications, />Unread<\/Text>/);
+  assert.match(notifications, />Recently read<\/Text>/);
+  assert.match(notifications, /readExpanded \? 'Hide  ⌃' : 'Show  ⌄'/);
+  assert.match(notifications, /<NotificationCardSkeleton/);
+});

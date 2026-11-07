@@ -145,10 +145,7 @@ export default function NotificationsScreen() {
       style={[styles.card, { marginHorizontal: 18, marginTop: 12,
         marginBottom: 12, paddingVertical: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text style={[styles.value, { fontSize: 17 }]}>Recently read</Text>
-          <Text style={styles.subtitle}>Read within the last 7 days</Text>
-        </View>
+        <Text style={[styles.value, { fontSize: 17, flex: 1 }]}>Recently read</Text>
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>
           {readExpanded ? 'Hide  ⌃' : 'Show  ⌄'}
         </Text>
@@ -216,14 +213,8 @@ export default function NotificationsScreen() {
       renderItem={({ item }) => renderRow(item)}
       contentContainerStyle={{ paddingBottom: 38 }}
       ListHeaderComponent={<View style={{ paddingHorizontal: 18,
-        paddingTop: 18, paddingBottom: 12, gap: 10 }}>
-        <Text style={styles.title}>Notifications</Text>
-        <Text style={styles.subtitle}>
-          Due reminders stay unread until opened. Recently read reminders
-          remain available for seven days.
-        </Text>
-        <Text style={[styles.value, { fontSize: 17, marginTop: 8 }]}>Unread</Text>
-        <Text style={styles.subtitle}>Oldest due first · All unread reminders</Text>
+        paddingTop: 18, paddingBottom: 12 }}>
+        <Text style={[styles.value, { fontSize: 17 }]}>Unread</Text>
       </View>}
     />
   </Page>;
