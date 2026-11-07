@@ -237,7 +237,7 @@ function render(){
  if(map){map.remove();map=null;}
  const visible=ui.rentalId?rentalDetail():ui.customerId?customerDetail():ui.vehicleId?vehicleDetail():ui.tab==="fleet"?fleet():ui.tab==="alerts"?alertsPage():ui.tab==="finance"?financePage():customersPage();
  const nav= tabs.map(([key,label,icon])=>'<button data-nav="'+key+'" class="'+(ui.tab===key?"active":"")+'"><span>'+icon+'</span><small>'+label+'</small></button>').join("");
- root.innerHTML='<div class="shell"><header class="appbar"><div><small>RENTAL FLEET · OWNER</small><strong>Northline Rentals</strong></div><a href="/demos/car-rental" title="About this demo">About demo ↗</a></header>'+
+ root.innerHTML='<div class="shell"><header class="appbar"><div><small>RENTAL FLEET · OWNER</small><strong>Northline Rentals</strong></div><div class="appbar-links"><button type="button" data-action="reset" aria-label="Reset fictional demo data">Reset</button><a href="/demos/car-rental" title="About this demo">About demo ↗</a></div></header>'+
  '<main class="screen">'+visible+'</main><nav class="bottom-nav" aria-label="Main navigation">'+nav+'</nav></div>'+dialogContent()+
  (ui.toast?'<div role="status" class="toast">'+esc(ui.toast)+btn("×","dismiss","icon-btn")+'</div>':"");
  if(ui.vehicleId&&ui.sub==="tracking")mountMap();
