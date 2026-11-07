@@ -8,7 +8,7 @@ test('Android Add Lead opts into keyboard avoidance with header offset', () => {
   const page = read('mobile-app/src/components/ui.tsx');
   const addLead = read('mobile-app/src/app/leads/new.tsx');
   const otherScreens = [
-    'mobile-app/src/components/RecordUpdateSheet.tsx',
+    'mobile-app/src/app/index.tsx',
   ].map(read);
   assert.match(page, /keyboardAware = false/);
   assert.match(page, /keyboardAware \|\| Platform\.OS === 'ios' \? 'padding' : undefined/);
@@ -47,5 +47,18 @@ test('Lead Details opts in to keyboard-aware scrolling without changing Record U
   assert.match(contacts, /keyboardType="email-address"/);
   assert.match(followup, /placeholder="e\.g\. Call to confirm requirements" autoFocus/);
   assert.match(followup, /dismissKeyboardOnOpen/);
-  assert.doesNotMatch(update, /keyboardAware/);
+  assert.match(update, /<KeyboardAvoidingView style=\{\{flex:1\}\} behavior="padding">/);
+});
+
+test('Record Update keeps editable fields visible in its own Android full-screen modal', () => {
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  assert.match(update, /presentationStyle="fullScreen"/);
+  assert.match(update, /<KeyboardAvoidingView style=\{\{flex:1\}\} behavior="padding">/);
+  assert.match(update, /<ScrollView keyboardShouldPersistTaps="handled"/);
+  assert.match(update, /<Field label="Notes \(optional\)"/);
+  assert.match(update, /<Field label="Next action \(required\)"/);
+  assert.equal((update.match(/dismissKeyboardOnOpen/g) || []).length, 7);
+  assert.match(update, /Save & Stay/);
+  assert.match(update, /Save & Next/);
+  assert.doesNotMatch(update, /autoFocus/);
 });

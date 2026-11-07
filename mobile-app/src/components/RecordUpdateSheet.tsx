@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View, useColorScheme,
+  KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -152,7 +152,7 @@ export function RecordUpdateSheet({
     onRequestClose={() => { if (!savingKind) onClose(); }}>
     <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
     <SafeAreaView style={{flex:1,backgroundColor:theme.background}}>
-      <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
+      <KeyboardAvoidingView style={{flex:1}} behavior="padding">
         <View style={{paddingHorizontal:18,paddingVertical:13,
           borderBottomWidth:1,borderColor:theme.border,flexDirection:'row',
           alignItems:'center',justifyContent:'space-between'}}>
@@ -171,17 +171,17 @@ export function RecordUpdateSheet({
           <View style={styles.card}>
             <Text style={[styles.value,{fontSize:17}]}>1 · Interaction</Text>
             <Text style={styles.subtitle}>Skip this if you only need a note or follow-up.</Text>
-            <SelectSheet title="Activity type (optional)" value={channel} options={CHANNELS}
+            <SelectSheet title="Activity type (optional)" value={channel} options={CHANNELS} dismissKeyboardOnOpen
               onChange={(v)=>{setChannel(v);setOutcome('');setStage('');
                 if (v && disposition==='competitor') setDisposition('keep'); }}/>
             {hasInteraction ? <>
               {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
-                options={choices} searchable onChange={setInteractionContact}/> : null}
+                options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
               <SelectSheet title="Outcome (optional for note or follow-up only)" value={outcome}
-                placeholder="Choose outcome"
+                placeholder="Choose outcome" dismissKeyboardOnOpen
                 options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({value,label}))}
                 onChange={(value)=>{setOutcome(value);setStage('');}}/>
-              {outcome ? <SelectSheet title="Lead stage (optional)" value={stage}
+              {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
                 options={[{value:'',label:'Suggested automatically'},
                   ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
                 onChange={setStage}/> : null}
@@ -208,8 +208,8 @@ export function RecordUpdateSheet({
             </Pressable>
             {followupOpen ? <>
               {contacts.length>1 ? <SelectSheet title="Follow-up contact"
-                value={followupContact} options={choices} searchable onChange={setFollowupContact}/> : null}
-              <SelectSheet title="Action type" value={actionType}
+                value={followupContact} options={choices} searchable dismissKeyboardOnOpen onChange={setFollowupContact}/> : null}
+              <SelectSheet title="Action type" value={actionType} dismissKeyboardOnOpen
                 options={ACTION_TYPES} onChange={setActionType}/>
               <Field label="Next action (required)" value={nextAction}
                 onChangeText={setNextAction} placeholder="e.g. Call to confirm proposal"/>
@@ -228,7 +228,7 @@ export function RecordUpdateSheet({
           </View>
           <View style={styles.card}>
             <Text style={[styles.value,{fontSize:17}]}>3 · Classification</Text>
-            <SelectSheet title="Lead status" value={disposition}
+            <SelectSheet title="Lead status" value={disposition} dismissKeyboardOnOpen
               options={DISPOSITIONS} onChange={(v)=>{
                 const next=v as 'keep'|'do_not_contact'|'competitor';
                 setDisposition(next);
