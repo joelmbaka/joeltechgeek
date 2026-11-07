@@ -197,3 +197,18 @@ test('Inline follow-up uses Record Update style while retaining its save contrac
   assert.match(edit,/label: '💬 WhatsApp'/);
   assert.match(edit,/kind:'edit',action:action.trim\(\),actionType,date/);
 });
+
+test('Edit Lead saves brief and important details atomically with business details', () => {
+  const edit = read('mobile-app/src/app/leads/edit/[id].tsx');
+  const api = read('app/api/agent-crm/leads/[id]/identity/route.ts');
+  assert.match(edit, /label="Lead brief \(max 220 characters\)"/);
+  assert.match(edit, /label="Important details"/);
+  assert.match(edit, /lead_brief:brief\.trim\(\)/);
+  assert.match(edit, /important_details:details\.trim\(\)/);
+  assert.match(api, /important_details: 5000/);
+  assert.match(api, /lead_brief: 220/);
+  assert.match(api, /const assignments = columns\.map/);
+  assert.match(api, /\[id, access\.user\.id, \.\.\.values\]/);
+  assert.match(api, /canUseBusinessCategory/);
+  assert.doesNotMatch(api, /const assignments = columns\.map\(\(column,index\)=>column\+'=/);
+});

@@ -28,6 +28,8 @@ export default function EditLead() {
   const [city,setCity] = useState('');
   const [website,setWebsite] = useState('');
   const [priority,setPriority] = useState('normal');
+  const [brief,setBrief] = useState('');
+  const [details,setDetails] = useState('');
   const [busy,setBusy] = useState(false);
   const [loaded,setLoaded] = useState(false);
   const [error,setError] = useState('');
@@ -43,7 +45,9 @@ export default function EditLead() {
       const lead=details.lead;
       setOriginal(lead);setCompany(lead.company_name||'');setIndustry(lead.industry||'');
       setCountry(lead.country||'');setCity(lead.city||'');setWebsite(lead.website||'');
-      setPriority(lead.priority||'normal');setIndustries(categories.categories);setLoaded(true);
+      setPriority(lead.priority||'normal');setBrief(lead.lead_brief||'');
+      setDetails(lead.important_details||'');
+      setIndustries(categories.categories);setLoaded(true);
     }).catch((reason:unknown)=>{
       if(!signal.aborted){setError(reason instanceof Error?reason.message:'Unable to load lead.');setLoaded(true);}
     });
@@ -59,11 +63,14 @@ export default function EditLead() {
   const changed=!!original && (
     company.trim()!==(original.company_name||'') || industry!==(original.industry||'') ||
     country.trim()!==(original.country||'') || city.trim()!==(original.city||'') ||
-    website.trim()!==(original.website||'') || priority!==original.priority
+    website.trim()!==(original.website||'') || priority!==original.priority ||
+    brief.trim()!==(original.lead_brief||'') ||
+    details.trim()!==(original.important_details||'')
   );
   const valid=!!original && !busy && changed &&
     (!!company.trim() || !!original.contact_name?.trim()) &&
-    company.length<=180 && country.length<=80 && city.length<=120 && website.length<=1000;
+    company.length<=180 && country.length<=80 && city.length<=120 && website.length<=1000 &&
+    brief.length<=220 && details.length<=5000;
   const save=async()=>{
     if(!valid||!id)return;
     setBusy(true);setError('');
@@ -71,7 +78,8 @@ export default function EditLead() {
       await apiFetch('/api/agent-crm/leads/'+encodeURIComponent(id)+'/identity',{
         method:'PATCH',body:JSON.stringify({
           company_name:company.trim(),industry,country:country.trim(),city:city.trim(),
-          website:website.trim(),priority,
+          website:website.trim(),priority,lead_brief:brief.trim(),
+          important_details:details.trim(),
         }),
       });
       router.back();
@@ -103,6 +111,10 @@ export default function EditLead() {
             onChange={setPriority} hideTriggerLabel dismissKeyboardOnOpen/>
         </View>
       </View>
+      <Field label="Lead brief (max 220 characters)" value={brief}
+        onChangeText={setBrief} multiline/>
+      <Field label="Important details" value={details}
+        onChangeText={setDetails} multiline/>
       <Text style={styles.subtitle}>Edit contact names, phone numbers and emails in Lead Details → Contacts.</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button disabled={!valid} onPress={()=>void save()}>{busy?'Saving…':'Save changes'}</Button>
