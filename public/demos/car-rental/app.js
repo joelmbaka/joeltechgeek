@@ -88,7 +88,7 @@ function tracking(v){
 }
 function history(v){
  const rr=rentals(v.id);
- return card('<h2>Rental history</h2>'+rr.map(r=>'<button class="history-item" data-action="rental" data-id="'+esc(r.id)+'"><div><b>'+esc(cust(r.customerId)?.name)+'</b><small>'+date(r.start)+' – '+date(r.returnedAt||r.due)+' · '+r.days+' day(s)</small></div><div>'+pill(r.returnedAt?"Completed":core.overdue(r)?"Overdue":"Rented")+'<small>'+usd(core.total(r))+' · '+esc(core.payStatus(data,r))+'</small></div><span>›</span></button>').join("")+'</section>');
+ return card('<h2>Rental history</h2>'+rr.map(r=>'<button class="history-item" data-action="rental" data-id="'+esc(r.id)+'"><div><b>'+esc(cust(r.customerId)?.name)+'</b><small>'+date(r.start)+' – '+date(r.returnedAt||r.due)+' · '+r.days+' day(s)</small></div><div>'+pill(r.returnedAt?"Completed":core.overdue(r)?"Overdue":"Rented")+'<small>'+usd(core.total(r))+' · '+esc(core.payStatus(data,r))+'</small></div><span>›</span></button>').join(""));
 }
 function maintenancePage(v){
  const list=data.maintenance.filter(m=>m.vehicleId===v.id).sort((a,b)=>b.date.localeCompare(a.date));
@@ -131,7 +131,7 @@ function financePage(){
  card('<h2>Recent expenses</h2>'+[
  ...data.expenses.map(e=>({id:e.id,date:e.date,vehicleId:e.vehicleId,name:e.category,amount:e.amount,description:e.description})),
  ...data.maintenance.map(m=>({id:m.id,date:m.date,vehicleId:m.vehicleId,name:m.type,amount:m.cost,description:"Maintenance"}))
- ].filter(e=>e.date.slice(0,7)===ui.month).sort((a,b)=>b.date.localeCompare(a.date)).map(e=>'<div class="detail-row"><span>'+esc(e.name)+' <small>'+date(e.date)+(e.vehicleId?" · "+esc(byId(e.vehicleId)?.plate):" · Office")+'</small></span><b>'+usd(e.amount)+'</b></div>').join("")||blank("No expenses this month.")));
+ ].filter(e=>e.date.slice(0,7)===ui.month).sort((a,b)=>b.date.localeCompare(a.date)).map(e=>'<div class="detail-row"><span>'+esc(e.name)+' <small>'+date(e.date)+(e.vehicleId?" · "+esc(byId(e.vehicleId)?.plate):" · Office")+'</small></span><b>'+usd(e.amount)+'</b></div>').join("")||blank("No expenses this month."));
 }
 function customersPage(){
  return title("Customers",btn("+ Add","new-customer","primary"))+
