@@ -35,3 +35,30 @@ test('web and Android industry filters use the current user lead categories', ()
   assert.match(android, /data\?\.industries/);
   assert.match(queue, /SELECT industry,count\(\*\)::int count FROM public\.crm_leads WHERE user_id=\$1/);
 });
+
+test('Android category creation is an isolated bottom-sheet view with bounded preview', () => {
+  const sheet = read('mobile-app/src/components/SelectSheet.tsx');
+  assert.match(sheet, /\{!adding \? <ScrollView/);
+  assert.match(sheet, /\{adding \? 'New category' : title\}/);
+  assert.match(sheet, /existingCategories\.slice\(0, 5\)/);
+  assert.match(sheet, /Show all /);
+  assert.match(sheet, /Category already exists\./);
+  assert.doesNotMatch(sheet, /e\.g\. Fleet Operators/);
+});
+
+test('Web category creation uses a separate centered dialog and compact category preview', () => {
+  const web = read('app/crm/AddLeadModal.tsx');
+  assert.match(web, /aria-labelledby="new-business-category-title"/);
+  assert.match(web, /categories\.slice\(0, 5\)/);
+  assert.match(web, /max-h-40 overflow-y-auto/);
+  assert.match(web, /Category already exists\./);
+  assert.doesNotMatch(web, /e\.g\. Fleet Operators/);
+});
+
+test('Duplicate business categories are rejected by server for the authenticated user', () => {
+  const api = read('app/api/agent-crm/categories/route.ts');
+  assert.match(api, /Category already exists\./);
+  assert.match(api, /status: 409/);
+  assert.match(api, /RETURNING name/);
+  assert.match(api, /replace\(\/\\s\+\/g, ' '\)/);
+});

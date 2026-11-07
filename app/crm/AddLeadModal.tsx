@@ -54,9 +54,11 @@ export function AddLeadModal({
   const [error, setError] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
   const [addingCategory, setAddingCategory] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [categoryError, setCategoryError] = useState('');
+  const [categoryLoadError, setCategoryLoadError] = useState('');
   const hasName = Boolean(form.company_name.trim() || form.contact_name.trim());
   const validEmail = !form.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
   const validFollowup = (!form.next_action_at || Boolean(form.next_action.trim())) &&
@@ -72,13 +74,18 @@ export function AddLeadModal({
         return res.json() as Promise<{ categories: string[] }>;
       })
       .then((data) => { if (!controller.signal.aborted) setCategories(data.categories); })
-      .catch(() => { if (!controller.signal.aborted) setCategoryError('Could not load saved categories.'); });
+      .catch(() => { if (!controller.signal.aborted) setCategoryLoadError('Could not load saved categories.'); });
     return () => controller.abort();
   }, []);
 
   async function saveCategory() {
     const name = newCategory.trim().replace(/\s+/g, ' ');
     if (!name || categoryBusy) return;
+    if (categories.some((category) =>
+      category.trim().replace(/\s+/g, ' ').toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setCategoryError('Category already exists.');
+      return;
+    }
     setCategoryBusy(true);
     setCategoryError('');
     try {
@@ -92,6 +99,7 @@ export function AddLeadModal({
       change('industry', data.category);
       setAddingCategory(false);
       setNewCategory('');
+      setShowAllCategories(false);
     } catch (err) {
       setCategoryError(err instanceof Error ? err.message : 'Could not save category.');
     } finally { setCategoryBusy(false); }
@@ -103,7 +111,11 @@ export function AddLeadModal({
 
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !saving) onClose();
+      if (event.key === 'Escape' && !saving) {
+        if (addingCategory) {
+          if (!categoryBusy) { setAddingCategory(false); setNewCategory(''); setCategoryError(''); setShowAllCategories(false); }
+        } else onClose();
+      }
     }
     document.addEventListener('keydown', keydown);
     const previousOverflow = document.body.style.overflow;
@@ -112,7 +124,7 @@ export function AddLeadModal({
       document.removeEventListener('keydown', keydown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [onClose, saving]);
+  }, [onClose, saving, addingCategory, categoryBusy]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,6 +180,7 @@ export function AddLeadModal({
   }
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[110] flex items-end justify-center bg-[#051522]/75 p-0 backdrop-blur-[2px] sm:items-center sm:p-5"
       role="presentation"
@@ -224,6 +237,8 @@ export function AddLeadModal({
                   onChange={(event) => {
                     if (event.target.value === '__add_new__') {
                       setAddingCategory(true);
+                      setNewCategory('');
+                      setShowAllCategories(false);
                       setCategoryError('');
                     } else { change('industry', event.target.value); }
                   }}>
@@ -233,22 +248,7 @@ export function AddLeadModal({
                   ))}
                   <option value="__add_new__">+ Add new category…</option>
                 </select>
-                {addingCategory && <div className="mt-2 flex flex-col gap-2">
-                  <input className={fieldClass} value={newCategory} maxLength={100}
-                    placeholder="e.g. Fleet Operators" aria-label="New business category"
-                    onChange={(event) => setNewCategory(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void saveCategory(); } }} />
-                  <div className="flex gap-2">
-                    <button type="button" disabled={categoryBusy} onClick={() => setAddingCategory(false)}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Cancel</button>
-                    <button type="button" disabled={categoryBusy || !newCategory.trim()}
-                      onClick={() => void saveCategory()}
-                      className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
-                      {categoryBusy ? 'Saving…' : 'Save category'}
-                    </button>
-                  </div>
-                </div>}
-                {categoryError && <p role="alert" className="mt-2 text-xs text-rose-700">{categoryError}</p>}
+                {categoryLoadError && <p role="alert" className="mt-2 text-xs text-rose-700 dark:text-rose-300">{categoryLoadError}</p>}
               </div>
               <label className={labelClass}>Phone / WhatsApp {input('phone', '07... or +254...', 40)}</label>
               <label className={labelClass}>Contact role {input('contact_role', 'Owner, manager, director...', 120)}</label>
@@ -403,5 +403,58 @@ export function AddLeadModal({
         </form>
       </section>
     </div>
+    {addingCategory && <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-[#051522]/80 p-4 backdrop-blur-[2px]"
+      role="presentation"
+    >
+      <section role="dialog" aria-modal="true" aria-labelledby="new-business-category-title"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/15 dark:bg-[#0E1D2A] sm:p-6">
+        <div className="mb-5 flex items-center justify-between gap-2">
+          <h3 id="new-business-category-title" className="text-lg font-bold text-[#0A2836] dark:text-white">New category</h3>
+          <button type="button" aria-label="Close new category" disabled={categoryBusy}
+            onClick={() => { setAddingCategory(false); setNewCategory(''); setCategoryError(''); setShowAllCategories(false); }}
+            className="rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-white/10">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form onSubmit={(event) => { event.preventDefault(); void saveCategory(); }}>
+          <label className={labelClass} htmlFor="new-crm-category-name">Category name</label>
+          <input id="new-crm-category-name" autoFocus maxLength={100} className={fieldClass}
+            placeholder="Enter category name" value={newCategory}
+            onChange={(event) => { setNewCategory(event.target.value); setCategoryError(''); }}/>
+          {categoryError && <p role="alert" className="mt-2 text-xs text-rose-700 dark:text-rose-300">{categoryError}</p>}
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-[#0A2836] dark:text-slate-100">Your existing categories</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{categories.length} total</span>
+            </div>
+            {categories.length ? <div className={showAllCategories ? 'max-h-40 overflow-y-auto' : ''}>
+              <div className="flex flex-wrap gap-1.5">
+                {(showAllCategories ? categories : categories.slice(0, 5)).map((category) =>
+                  <span key={category} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    {category}
+                  </span>)}
+              </div>
+            </div> : <p className="text-sm text-slate-500 dark:text-slate-400">No categories yet.</p>}
+            {categories.length > 5 && <button type="button" onClick={() => setShowAllCategories((current) => !current)}
+              className="mt-2 text-xs font-semibold text-[#047857] hover:underline dark:text-emerald-300">
+              {showAllCategories ? 'Show fewer' : 'Show all ' + categories.length + ' categories'}
+            </button>}
+          </div>
+          <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+            <button type="button" disabled={categoryBusy}
+              onClick={() => { setAddingCategory(false); setNewCategory(''); setCategoryError(''); setShowAllCategories(false); }}
+              className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/5">
+              Cancel
+            </button>
+            <button type="submit" disabled={categoryBusy || !newCategory.trim()}
+              className="min-h-11 rounded-xl bg-[#059669] px-5 text-sm font-semibold text-white hover:bg-[#047857] disabled:opacity-50">
+              {categoryBusy ? 'Saving…' : 'Save category'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>}
+    </>
   );
 }
