@@ -17,7 +17,7 @@ const status=v=>core.status(data,v);
 let data;
 try{data=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
 if(!core.validate(data))data=core.seed();
-const ui={tab:"fleet",filter:"All",search:"",vehicleId:null,sub:"details",rentalId:null,customerId:null,dialog:"",toast:"",month:localDate().slice(0,7),gpsIndex:null,gpsTimer:null};
+const ui={tab:"fleet",filter:"All",search:"",vehicleId:null,sub:"details",rentalId:null,customerId:null,dialog:"",toast:"",month:localDate().slice(0,7),gpsIndex:null,gpsRentalId:null,gpsTimer:null};
 const tabs=[["fleet","Fleet","🚘"],["alerts","Alerts","♢"],["finance","Finance","▤"],["customers","Customers","♙"]];
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){ui.toast="Browser storage unavailable. Demo changes may not persist."}};
 const pill=(v)=>'<span class="pill '+(v==="Available"||v==="Paid"?"good":v==="Rented"||v==="Partially paid"?"info":v==="Overdue"?"bad":"warn")+'">'+esc(v)+'</span>';
@@ -33,8 +33,8 @@ const title=(heading,action="",back="")=>'<div class="heading">'+(back?btn("←"
 function run(fn,message){
  try{const copy=JSON.parse(JSON.stringify(data)),result=fn(copy);data=copy;save();ui.dialog="";ui.toast=message||"Saved.";render();return result;}catch(e){ui.toast=e.message||"Unable to save.";render();return null;}
 }
-function nav(tab){ui.tab=tab;ui.vehicleId=null;ui.rentalId=null;ui.customerId=null;ui.dialog="";ui.gpsIndex=null;ui.search="";stopReplay();render();}
-function openVehicle(vid,sub="details"){if(!byId(vid))return;ui.tab="fleet";ui.vehicleId=vid;ui.sub=sub;ui.dialog="";ui.gpsIndex=null;stopReplay();render();}
+function nav(tab){ui.tab=tab;ui.vehicleId=null;ui.rentalId=null;ui.customerId=null;ui.dialog="";ui.gpsIndex=null;ui.gpsRentalId=null;ui.search="";stopReplay();render();}
+function openVehicle(vid,sub="details"){if(!byId(vid))return;ui.tab="fleet";ui.vehicleId=vid;ui.sub=sub;ui.dialog="";ui.gpsIndex=null;ui.gpsRentalId=core.active(data,vid)?.id||null;stopReplay();render();}
 function stopReplay(){if(ui.gpsTimer){clearInterval(ui.gpsTimer);ui.gpsTimer=null;}}
 function vehicleCard(v){
  const r=core.active(data,v.id),s=status(v);
@@ -73,10 +73,11 @@ function vehicleDetail(){
  return title(v.make+" "+v.model,"",true)+'<p class="subhead">'+esc(v.plate)+' · '+pill(status(v))+'</p><div class="filters sub-tabs">'+sections.map(([s,label])=>'<button data-action="vehicle-section" data-value="'+s+'" class="chip '+(ui.sub===s?"active":"")+'">'+label+'</button>').join("")+'</div>'+body;
 }
 function tracking(v){
- const route=v.route||[],last=route[route.length-1],at=ui.gpsIndex===null?route.length-1:ui.gpsIndex;
+ const route=core.routeFor(data,v.id,ui.gpsRentalId),at=ui.gpsIndex===null?route.length-1:ui.gpsIndex;
  const p=route[Math.max(0,at)],r=core.active(data,v.id);
  return card('<div class="card-head"><h2>GPS tracking</h2><span class="pill warn">Simulated GPS</span></div>'+
  '<p class="subtle">'+(v.trackerOnline?"Simulated tracker online":"Tracker offline · Last recorded data")+' · '+(p?dateTime(p.at):"No GPS data")+'</p>'+
+ '<label class="field"><span>Rental history / tracking period</span><select id="gps-rental"><option value="">Latest device sample</option>'+rentals(v.id).map(x=>'<option value="'+esc(x.id)+'" '+(ui.gpsRentalId===x.id?'selected':'')+'>'+esc(x.id)+' · '+date(x.start)+' · '+esc(cust(x.customerId)?.name||'Unknown')+'</option>').join('')+'</select></label>'+ 
  '<div id="gps-map" class="gps-map" role="img" aria-label="Interactive map of simulated vehicle route"></div>'+
  (p?'<div class="tracker-stats">'+[['Movement',p.speed>0?"Moving":"Stopped"],["Ignition",p.ignition?"On":"Off"],["Speed",p.speed+" km/h"],["Location",p.lat.toFixed(4)+", "+p.lng.toFixed(4)]].map(i=>'<div><small>'+i[0]+'</small><strong>'+i[1]+'</strong></div>').join("")+'</div>':'')+
  '<div class="card-head"><h2>Route replay</h2><span class="subtle">Fictional movement</span></div>'+
@@ -216,7 +217,7 @@ let map=null,mapMarker=null,mapLine=null;
 function mountMap(){
  const v=byId(ui.vehicleId);
  if(ui.sub!=="tracking"||!v||!document.getElementById("gps-map"))return;
- const route=v.route||[];
+ const route=core.routeFor(data,v.id,ui.gpsRentalId);
  if(!route.length)return;
  const index=ui.gpsIndex===null?route.length-1:ui.gpsIndex,point=route[Math.min(index,route.length-1)];
  if(window.L){
@@ -250,7 +251,7 @@ document.addEventListener("click",e=>{
  if(a==="close-dialog"){if(el.classList.contains("scrim")&&e.target!==el)return;ui.dialog="";render();return;}
  if(a==="vehicle"){ui.rentalId=null;ui.customerId=null;openVehicle(id);return;}
  if(a==="filter"){ui.filter=el.dataset.value;render();return;}
- if(a==="vehicle-section"){ui.sub=el.dataset.value;ui.rentalId=null;stopReplay();ui.gpsIndex=null;render();return;}
+ if(a==="vehicle-section"){ui.sub=el.dataset.value;ui.rentalId=null;stopReplay();ui.gpsRentalId=core.active(data,ui.vehicleId)?.id||null;ui.gpsIndex=null;render();return;}
  if(a==="back"){
    if(ui.rentalId){ui.rentalId=null;ui.sub="history";}
    else if(ui.customerId)ui.customerId=null;
@@ -259,7 +260,7 @@ document.addEventListener("click",e=>{
  }
  if(a==="customer"){ui.customerId=id;render();return;}
  if(a==="rental"){ui.rentalId=id;ui.customerId=null;ui.vehicleId= data.rentals.find(r=>r.id===id)?.vehicleId;render();return;}
- if(a==="rental-gps"){ui.rentalId=null;ui.sub="tracking";ui.gpsIndex=null;render();return;}
+ if(a==="rental-gps"){ui.gpsRentalId=ui.rentalId;ui.rentalId=null;ui.sub="tracking";ui.gpsIndex=null;render();return;}
  if(a==="new-vehicle"){ui.dialog="vehicle";render();return;}
  if(a==="new-customer"){ui.dialog="customer";render();return;}
  if(a==="new-rental"){ui.dialog="rental";render();return;}
@@ -269,8 +270,8 @@ document.addEventListener("click",e=>{
  if(a==="new-maintenance"){ui.dialog="maintenance";render();return;}
  if(a==="mark-available"||a==="mark-maintenance"){run(d=>core.setMaintenance(d,ui.vehicleId,a==="mark-maintenance"),"Vehicle status updated.");return;}
  if(a==="replay-start"){stopReplay();ui.gpsIndex=0;render();return;}
- if(a==="replay-end"){stopReplay();ui.gpsIndex=byId(ui.vehicleId)?.route?.length-1||0;render();return;}
- if(a==="replay"){if(ui.gpsTimer){stopReplay();render();return;}const steps=byId(ui.vehicleId)?.route?.length||0;if(!steps)return;ui.gpsIndex=ui.gpsIndex===null?0:ui.gpsIndex;ui.gpsTimer=setInterval(()=>{ui.gpsIndex++;if(ui.gpsIndex>=steps-1){ui.gpsIndex=steps-1;stopReplay();}render();},500);render();return;}
+ if(a==="replay-end"){stopReplay();ui.gpsIndex=core.routeFor(data,ui.vehicleId,ui.gpsRentalId).length-1||0;render();return;}
+ if(a==="replay"){if(ui.gpsTimer){stopReplay();render();return;}const steps=core.routeFor(data,ui.vehicleId,ui.gpsRentalId).length;if(!steps)return;ui.gpsIndex=ui.gpsIndex===null?0:ui.gpsIndex;ui.gpsTimer=setInterval(()=>{ui.gpsIndex++;if(ui.gpsIndex>=steps-1){ui.gpsIndex=steps-1;stopReplay();}render();},500);render();return;}
  if(a==="reset"){if(window.confirm("Restore all fictional vehicles, rentals and payments?")){stopReplay();data=core.seed();save();nav("fleet");ui.toast="Demo reset.";render();}return;}
 });
 document.addEventListener("input",e=>{
@@ -280,7 +281,7 @@ document.addEventListener("input",e=>{
  }
  if(e.target.id==="replay-range"){stopReplay();ui.gpsIndex=Number(e.target.value);render();}
 });
-document.addEventListener("change",e=>{if(e.target.id==="report-month"){ui.month=e.target.value;render();}});
+document.addEventListener("change",e=>{if(e.target.id==="report-month"){ui.month=e.target.value;render();}if(e.target.id==="gps-rental"){stopReplay();ui.gpsRentalId=e.target.value||null;ui.gpsIndex=null;render();}});
 document.addEventListener("submit",e=>{
  const form=e.target.closest("[data-form]");if(!form)return;
  e.preventDefault();const f=formData(form);
