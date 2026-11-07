@@ -57,7 +57,7 @@ test('Record Update keeps editable fields visible in its own Android full-screen
   assert.match(update, /<ScrollView keyboardShouldPersistTaps="handled"/);
   assert.match(update, /<Field label="Notes \(optional\)"/);
   assert.match(update, /<Field label="Next action \(required\)"/);
-  assert.equal((update.match(/dismissKeyboardOnOpen/g) || []).length, 7);
+  assert.equal((update.match(/dismissKeyboardOnOpen/g) || []).length, 6);
   assert.match(update, /Save & Stay/);
   assert.match(update, /Save & Next/);
   assert.doesNotMatch(update, /autoFocus/);
@@ -75,4 +75,30 @@ test('Lead Directory keeps search visible without replacing its FlatList', () =>
   assert.match(directory, /onBlur=\{\(\) => \{ searchFocused\.current = false; \}\}/);
   assert.match(directory, /onSubmitEditing=\{Keyboard\.dismiss\}/);
   assert.doesNotMatch(directory, /autoFocus/);
+});
+
+test('Record Update prefills suggested clock without scheduling an untouched reminder', () => {
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  const picker = read('mobile-app/src/components/NativeSchedulePicker.tsx');
+  assert.match(update, /const clock = defaultFollowupClock\(\)/);
+  assert.match(update, /setDate\(lead\.next_action \? \(lead\.next_action_at \|\| ''\) : clock\.date\)/);
+  assert.match(update, /setTime\(lead\.next_action \? \(lead\.next_action_time\?\.slice\(0,5\) \|\| ''\) : clock\.time\)/);
+  assert.match(update, /setScheduleTouched\(false\)/);
+  assert.match(update, /lead\.next_action\s*\?\s*scheduleTouched && followupFieldsChanged\s*:\s*scheduleTouched \|\| !!nextAction\.trim\(\)/);
+  assert.match(update, /mode: scheduling \? 'set' : 'keep'/);
+  assert.match(update, /<NativeSchedulePicker label="Date" mode="date" value=\{date\} decorated/);
+  assert.match(update, /<NativeSchedulePicker label="Time" mode="time" value=\{time\} decorated/);
+  assert.match(picker, /decorated = false/);
+});
+
+test('Record Update uses compact activity chips and keyboard-safe sticky save actions', () => {
+  const update = read('mobile-app/src/components/RecordUpdateSheet.tsx');
+  assert.match(update, /CHANNELS\.map\(option => <Pressable/);
+  assert.match(update, /option\.value \? option\.label : 'Note only'/);
+  assert.match(update, /!keyboardVisible \? <View/);
+  assert.match(update, /Keyboard\.addListener\('keyboardDidShow'/);
+  assert.match(update, /Keyboard\.addListener\('keyboardDidHide'/);
+  assert.match(update, /Save & Stay/);
+  assert.match(update, /Save & Next/);
+  assert.match(update, /<KeyboardAvoidingView style=\{\{flex:1\}\} behavior="padding">/);
 });

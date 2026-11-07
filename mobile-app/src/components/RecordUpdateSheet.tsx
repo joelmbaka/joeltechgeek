@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
+  Keyboard, KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Button, Field, useUIStyles } from './ui';
+import { SymbolView } from 'expo-symbols';
+import { Field, useUIStyles } from './ui';
 import { NativeSchedulePicker } from './NativeSchedulePicker';
 import { SelectSheet } from './SelectSheet';
 import { useTheme } from '@/lib/config';
@@ -48,6 +49,16 @@ const DISPOSITIONS = [
   {value:'competitor',label:'Classify as competitor'},
 ];
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
+const pad2 = (value: number) => String(value).padStart(2, '0');
+// Prefill a practical upcoming local time. Crossing midnight advances the date too.
+function defaultFollowupClock() {
+  const next = new Date(Date.now() + 15 * 60 * 1000);
+  next.setMinutes(Math.ceil(next.getMinutes() / 5) * 5, 0, 0);
+  return {
+    date: [next.getFullYear(), pad2(next.getMonth() + 1), pad2(next.getDate())].join('-'),
+    time: pad2(next.getHours()) + ':' + pad2(next.getMinutes()),
+  };
+}
 
 export function RecordUpdateSheet({
   visible, lead, contacts, onClose, onSave, savingKind,
@@ -72,20 +83,28 @@ export function RecordUpdateSheet({
   const [actionType, setActionType] = useState('call');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [scheduleTouched, setScheduleTouched] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [stage, setStage] = useState('');
   const [interactionContact, setInteractionContact] = useState('');
   const [followupContact, setFollowupContact] = useState('');
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const primary = contacts.find((c)=>c.is_primary)?.id || contacts[0]?.id || '';
   useEffect(() => {
     if (!visible) return;
     setChannel('call');setOutcome('');setNotes('');setStage('');setError('');
-    setDisposition('keep');setIncludeFollowup(true);
+    setDisposition('keep');setIncludeFollowup(true);setScheduleTouched(false);
     setNextAction(lead.next_action || '');
     setActionType(lead.next_action_type || 'call');
-    setDate(lead.next_action_at || '');
-    setTime(lead.next_action_time?.slice(0,5) || '');
+    const clock = defaultFollowupClock();
+    setDate(lead.next_action ? (lead.next_action_at || '') : clock.date);
+    setTime(lead.next_action ? (lead.next_action_time?.slice(0,5) || '') : clock.time);
     setInteractionContact(primary);
     // Preserve an explicitly company-level task; never silently select primary.
     setFollowupContact(lead.next_action ? (lead.next_action_contact_id || '') : primary);
@@ -101,17 +120,18 @@ export function RecordUpdateSheet({
   const completingSale = stage === 'won' || stage === 'lost' ||
     outcome === 'onboarding_completed' || outcome === 'not_interested';
   const followupOpen = includeFollowup && disposition === 'keep' && !completingSale;
-  // An expanded, untouched follow-up is not mandatory for a note-only or
-  // outcome-only update. Validate and save it only once any field is filled.
-  const scheduling = followupOpen && !!(nextAction.trim() || date || time);
-  const validSchedule = !scheduling || (!!nextAction.trim() && !!date);
-  const changedFollowup = scheduling && (
-    nextAction.trim() !== (lead.next_action || '') ||
+  // Prefilled date/time are suggestions, not an instruction to schedule.
+  // A note/outcome must never silently overwrite a saved reminder.
+  const followupFieldsChanged = nextAction.trim() !== (lead.next_action || '').trim() ||
     date !== (lead.next_action_at || '') ||
     time !== (lead.next_action_time?.slice(0, 5) || '') ||
     actionType !== (lead.next_action_type || 'call') ||
-    (followupContact || null) !== (lead.next_action_contact_id || null)
-  );
+    (followupContact || null) !== (lead.next_action_contact_id || null);
+  const scheduling = followupOpen && (lead.next_action
+    ? scheduleTouched && followupFieldsChanged
+    : scheduleTouched || !!nextAction.trim());
+  const validSchedule = !scheduling || (!!nextAction.trim() && !!date);
+  const changedFollowup = scheduling && followupFieldsChanged;
   const hasChange = !!(hasInteraction && outcome) || !!notes.trim() ||
     changedFollowup || disposition !== 'keep';
   const canSave = !savingKind && validSchedule && hasChange &&
@@ -153,27 +173,52 @@ export function RecordUpdateSheet({
     <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
     <SafeAreaView style={{flex:1,backgroundColor:theme.background}}>
       <KeyboardAvoidingView style={{flex:1}} behavior="padding">
-        <View style={{paddingHorizontal:18,paddingVertical:13,
-          borderBottomWidth:1,borderColor:theme.border,flexDirection:'row',
-          alignItems:'center',justifyContent:'space-between'}}>
-          <View style={{flex:1,gap:2}}>
-            <Text style={[styles.title,{fontSize:20}]}>Record update</Text>
-            <Text style={styles.subtitle}>One save for activity, notes and next steps</Text>
+        <View style={{paddingHorizontal:18,paddingVertical:12,
+          backgroundColor:theme.white,borderBottomWidth:1,borderColor:theme.border,
+          flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+          <View style={{flex:1,gap:3}}>
+            <Text style={[styles.title,{fontSize:21}]}>Record update</Text>
+            <Text numberOfLines={1} style={[styles.subtitle,{fontSize:13}]}>
+              {lead.company_name || lead.contact_name || 'Lead'}
+            </Text>
           </View>
           <Pressable accessibilityRole="button" disabled={!!savingKind} onPress={onClose}
-            style={{padding:9}}>
+            style={{padding:9,minHeight:44,justifyContent:'center'}}>
             <Text style={{color:theme.primaryDark,fontWeight:'800'}}>Cancel</Text>
           </Pressable>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{padding:18,paddingBottom:40,gap:14}}>
-          <Text style={[styles.value,{fontSize:16}]}>{lead.company_name || lead.contact_name || 'Lead'}</Text>
-          <View style={styles.card}>
-            <Text style={[styles.value,{fontSize:17}]}>1 · Interaction</Text>
-            <Text style={styles.subtitle}>Skip this if you only need a note or follow-up.</Text>
-            <SelectSheet title="Activity type (optional)" value={channel} options={CHANNELS} dismissKeyboardOnOpen
-              onChange={(v)=>{setChannel(v);setOutcome('');setStage('');
-                if (v && disposition==='competitor') setDisposition('keep'); }}/>
+          contentContainerStyle={{paddingHorizontal:16,paddingTop:16,paddingBottom:24,gap:14}}>
+          <View style={{backgroundColor:theme.white,borderRadius:18,borderWidth:1,
+            borderColor:theme.border,overflow:'hidden'}}>
+            <View style={{padding:15,borderBottomWidth:1,borderBottomColor:theme.border,
+              backgroundColor:theme.surfaceMuted,flexDirection:'row',alignItems:'center',gap:11}}>
+              <View style={{width:34,height:34,borderRadius:11,backgroundColor:theme.ink,
+                alignItems:'center',justifyContent:'center'}}>
+                <Text style={{color:theme.background,fontWeight:'900'}}>01</Text>
+              </View>
+              <View style={{flex:1,gap:2}}>
+                <Text style={[styles.value,{fontSize:17}]}>Interaction</Text>
+                <Text style={[styles.label,{fontWeight:'500'}]}>Record an outcome or leave a note</Text>
+              </View>
+            </View>
+            <View style={{padding:15,gap:13}}>
+              <Text style={styles.label}>Activity type</Text>
+              <View style={{flexDirection:'row',flexWrap:'wrap',gap:7}}>
+                {CHANNELS.map(option => <Pressable key={option.value || 'none'} accessibilityRole="button"
+                  accessibilityState={{selected:channel===option.value}}
+                  onPress={() => { Keyboard.dismiss();setChannel(option.value);setOutcome('');setStage('');
+                    if (option.value && disposition==='competitor') setDisposition('keep'); }}
+                  style={{paddingHorizontal:13,minHeight:42,alignItems:'center',justifyContent:'center',
+                    borderRadius:11,borderWidth:1,
+                    borderColor:channel===option.value?theme.primary:theme.border,
+                    backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
+                  <Text style={{color:channel===option.value?theme.chipHighText:theme.ink,
+                    fontWeight:channel===option.value?'800':'600',fontSize:13}}>
+                    {option.value ? option.label : 'Note only'}
+                  </Text>
+                </Pressable>)}
+              </View>
             {hasInteraction ? <>
               {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
                 options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
@@ -186,48 +231,74 @@ export function RecordUpdateSheet({
                   ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
                 onChange={setStage}/> : null}
             </> : null}
-            <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
-              placeholder="Conversation details, research, or a standalone note" multiline/>
+              <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
+                placeholder="Conversation details, research, or a standalone note" multiline/>
+            </View>
           </View>
-          <View style={styles.card}>
+          <View style={{backgroundColor:theme.white,borderRadius:18,borderWidth:1,
+            borderColor:followupOpen?theme.primary:theme.border,overflow:'hidden'}}>
             <Pressable accessibilityRole="checkbox"
               accessibilityState={{checked:followupOpen,disabled:disposition!=='keep'||completingSale}}
               disabled={!!savingKind || disposition!=='keep' || completingSale}
               onPress={()=>setIncludeFollowup(value=>!value)}
-              style={{flexDirection:'row',alignItems:'center',gap:10,minHeight:44}}>
-              <Text style={{fontSize:22,color:theme.primaryDark}}>
-                {followupOpen ? '☑' : '☐'}
-              </Text>
+              style={{flexDirection:'row',alignItems:'center',gap:11,minHeight:64,padding:15,
+                backgroundColor:followupOpen?theme.chipHighBg:theme.surfaceMuted}}>
+              <View style={{width:34,height:34,borderRadius:11,backgroundColor:theme.primary,
+                alignItems:'center',justifyContent:'center'}}>
+                <Text style={{color:theme.onPrimary,fontWeight:'900'}}>02</Text>
+              </View>
               <View style={{flex:1,gap:3}}>
-                <Text style={[styles.value,{fontSize:17}]}>2 · Schedule follow-up</Text>
-                <Text style={styles.subtitle}>
-                  {lead.next_action ? 'Edit the next task, or turn off to keep the existing reminder.'
-                    : 'Plan your next action, or leave these fields blank to save only an outcome or note.'}
+                <Text style={[styles.value,{fontSize:17}]}>Schedule follow-up</Text>
+                <Text style={[styles.label,{fontWeight:'500'}]}>
+                  {lead.next_action ? 'Edit the saved reminder' : 'Choose the next action and when to do it'}
                 </Text>
               </View>
+              <SymbolView name={{ios:followupOpen?'checkmark.circle.fill':'circle',
+                android:followupOpen?'check_circle':'radio_button_unchecked',
+                web:'check_circle'}} size={25} tintColor={theme.primaryDark}/>
             </Pressable>
-            {followupOpen ? <>
+            {followupOpen ? <View style={{padding:15,gap:13,borderTopWidth:1,borderTopColor:theme.border}}>
               {contacts.length>1 ? <SelectSheet title="Follow-up contact"
-                value={followupContact} options={choices} searchable dismissKeyboardOnOpen onChange={setFollowupContact}/> : null}
+                value={followupContact} options={choices} searchable dismissKeyboardOnOpen
+                onChange={(value)=>{setFollowupContact(value);setScheduleTouched(true);}}/> : null}
               <SelectSheet title="Action type" value={actionType} dismissKeyboardOnOpen
-                options={ACTION_TYPES} onChange={setActionType}/>
+                options={ACTION_TYPES} onChange={(value)=>{setActionType(value);setScheduleTouched(true);}}/>
               <Field label="Next action (required)" value={nextAction}
-                onChangeText={setNextAction} placeholder="e.g. Call to confirm proposal"/>
-              <View style={{flexDirection:'row',gap:12}}>
-                <NativeSchedulePicker label="Date (required)" mode="date" value={date}
-                  onChange={(v)=>{setDate(v);if(!v)setTime('');}}/>
-                <NativeSchedulePicker label="Time (optional)" mode="time" value={time}
-                  disabled={!date} onChange={setTime}/>
+                onChangeText={(value)=>{setNextAction(value);setScheduleTouched(true);}}
+                placeholder="e.g. Call to confirm proposal"/>
+              <View style={{backgroundColor:theme.surfaceMuted,borderRadius:15,
+                borderWidth:1,borderColor:theme.border,padding:12,gap:11}}>
+                <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+                  <SymbolView name={{ios:'calendar',android:'event',web:'event'}}
+                    size={19} tintColor={theme.primaryDark}/>
+                  <Text style={[styles.value,{fontSize:14}]}>Reminder</Text>
+                  <View style={{flex:1}}/>
+                  {!lead.next_action ? <Text style={[styles.label,{fontSize:11}]}>Suggested time</Text> : null}
+                </View>
+                <View style={{flexDirection:'row',gap:10}}>
+                  <NativeSchedulePicker label="Date" mode="date" value={date} decorated
+                    onChange={(v)=>{setDate(v);setScheduleTouched(true);if(!v)setTime('');}}/>
+                  <NativeSchedulePicker label="Time" mode="time" value={time} decorated
+                    disabled={!date} onChange={(v)=>{setTime(v);setScheduleTouched(true);}}/>
+                </View>
               </View>
-              <Text style={styles.subtitle}>
-                If no time is selected, the reminder defaults to 9:00 AM
-                or the next available same-day time.
-              </Text>
-            </> : lead.next_action && disposition==='keep' && !completingSale ?
-              <Text style={styles.subtitle}>Existing follow-up remains unchanged.</Text> : null}
+              {!lead.next_action ? <Text style={[styles.label,{fontWeight:'500'}]}>
+                The suggested date and time are not scheduled until you enter a next action and save.
+              </Text> : null}
+            </View> : lead.next_action && disposition==='keep' && !completingSale ?
+              <Text style={[styles.subtitle,{padding:15}]}>Existing follow-up remains unchanged.</Text> : null}
           </View>
-          <View style={styles.card}>
-            <Text style={[styles.value,{fontSize:17}]}>3 · Classification</Text>
+          <View style={{backgroundColor:theme.white,borderRadius:18,borderWidth:1,
+            borderColor:theme.border,overflow:'hidden'}}>
+            <View style={{backgroundColor:theme.surfaceMuted,padding:15,
+              flexDirection:'row',alignItems:'center',gap:11}}>
+              <View style={{width:34,height:34,borderRadius:11,backgroundColor:theme.ink,
+                alignItems:'center',justifyContent:'center'}}>
+                <Text style={{color:theme.background,fontWeight:'900'}}>03</Text>
+              </View>
+              <Text style={[styles.value,{fontSize:17}]}>Classification</Text>
+            </View>
+            <View style={{padding:15,gap:10}}>
             <SelectSheet title="Lead status" value={disposition} dismissKeyboardOnOpen
               options={DISPOSITIONS} onChange={(v)=>{
                 const next=v as 'keep'|'do_not_contact'|'competitor';
@@ -235,27 +306,36 @@ export function RecordUpdateSheet({
                 if (next!=='keep') { setIncludeFollowup(false);setStage(''); }
                 if (next==='competitor') {setChannel('');setOutcome('');}
               }}/>
-            {disposition !== 'keep' ? <Text style={styles.subtitle}>
-              Outreach will be blocked and outstanding reminders canceled.
-              The classification is retained in activity history.
-            </Text> : null}
+              {disposition !== 'keep' ? <Text style={styles.subtitle}>
+                Outreach will be blocked and outstanding reminders canceled.
+                The classification is retained in activity history.
+              </Text> : null}
+            </View>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <View style={{flexDirection:'row',gap:10}}>
-            <View style={{flex:1}}>
-              <Button disabled={!canSave} onPress={()=>void submit(false)}>
-                {savingKind==='stay'?'Saving…':'Save & Stay'}
-              </Button>
-            </View>
-            <View style={{flex:1}}>
-              <Button secondary disabled={!canSave} onPress={()=>void submit(true)}>
-                {savingKind==='next'?'Saving…':'Save & Next'}
-              </Button>
-            </View>
-          </View>
           {!hasInteraction && !notes.trim() && !changedFollowup && disposition==='keep' ?
             <Text style={styles.subtitle}>Record an outcome, add a note, or change a follow-up to enable Save.</Text> : null}
         </ScrollView>
+        {!keyboardVisible ? <View style={{flexDirection:'row',gap:10,paddingHorizontal:16,
+          paddingTop:12,paddingBottom:12,backgroundColor:theme.white,
+          borderTopWidth:1,borderTopColor:theme.border}}>
+          <Pressable accessibilityRole="button" disabled={!canSave}
+            onPress={()=>void submit(false)} style={{flex:1,minHeight:48,borderRadius:12,
+              backgroundColor:theme.surfaceMuted,borderWidth:1,borderColor:theme.border,
+              alignItems:'center',justifyContent:'center',opacity:canSave?1:.5}}>
+            <Text style={{color:theme.ink,fontWeight:'800'}}>
+              {savingKind==='stay'?'Saving…':'Save & Stay'}
+            </Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={!canSave}
+            onPress={()=>void submit(true)} style={{flex:1,minHeight:48,borderRadius:12,
+              backgroundColor:theme.primary,alignItems:'center',justifyContent:'center',
+              opacity:canSave?1:.5}}>
+            <Text style={{color:theme.onPrimary,fontWeight:'800'}}>
+              {savingKind==='next'?'Saving…':'Save & Next'}
+            </Text>
+          </Pressable>
+        </View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   </Modal>;
