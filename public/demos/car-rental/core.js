@@ -38,7 +38,7 @@ const sampleRoute=(base,seedNo)=>{const origin=[-1.2921+seedNo*.005,36.8219+seed
 function seed(now=ts()){
  const vehicles=vehiclesSeed.map((a,i)=>({id:"V-"+(i+1),plate:a[0],make:a[1],model:a[2],year:a[3],cc:a[4],seats:a[5],transmission:a[6],fuel:a[7],rate:a[8],odometer:a[9],maintenance:i===5||i===9,serviceKm:a[9]+(i%3+1)*350,trackerId:"SIM-"+(i+100),trackerOnline:i!==3&&i!==8,route:sampleRoute(shift(now,-(i+1)*.17),i),lastService:shift(now,-45-i*3)}));
  const customers=customersSeed.map((a,i)=>({id:"C-"+(i+1),name:a[0],phone:a[1],documentNo:a[2],email:""}));
- const d={version:1,seededAt:now,vehicles,customers,rentals:[],payments:[],expenses:[],maintenance:[],nextRental:1050};
+ const d={version:1,seededAt:now,vehicles,customers,rentals:[],payments:[],expenses:[],maintenance:[],nextRental:1060};
  const specs=[
  [0,0,-1,3,70,false],[1,1,-8,7,665,false],[3,2,-5,14,250,false],
  [6,3,-2,2,0,false],[7,4,-4,7,546,false],[8,5,-11,14,300,false],
@@ -164,7 +164,6 @@ function finance(d,month,vid=null){
  const vehicleExpenses=d.expenses.filter(e=>e.vehicleId&&ids.has(e.vehicleId)&&within(e.date));
  const generalExpenses=vid?[]:d.expenses.filter(e=>!e.vehicleId&&within(e.date));
  const services=d.maintenance.filter(m=>ids.has(m.vehicleId)&&within(m.date));
- const costs=round([...vehicleExpenses,...generalExpenses,...services].reduce((s,e)=>s+e.amount||s+e.cost,0)); // replaced below with explicit sum
  const spend=round(vehicleExpenses.reduce((s,e)=>s+e.amount,0)+generalExpenses.reduce((s,e)=>s+e.amount,0)+services.reduce((s,e)=>s+e.cost,0));
  return {month,revenue,collected,outstanding,expenses:spend,net:round(revenue-spend),rentalCount:completed.length};
 }
