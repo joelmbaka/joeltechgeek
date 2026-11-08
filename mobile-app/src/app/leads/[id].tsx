@@ -7,6 +7,8 @@ import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { SelectSheet } from '@/components/SelectSheet';
 import { LeadDetailSkeleton } from '@/components/Skeleton';
 import { LeadContacts } from '@/components/LeadContacts';
+import { LeadResearchGuide, LEAD_BRIEF_EXAMPLE, LEAD_DETAILS_EXAMPLE,
+  LEAD_FACT_LABEL_EXAMPLE, LEAD_FACT_VALUE_EXAMPLE } from '@/components/LeadResearchGuide';
 import { LeadContactActions } from '@/components/LeadContactActions';
 import { RecordUpdateSheet } from '@/components/RecordUpdateSheet';
 import type { UnifiedUpdate } from '@/components/RecordUpdateSheet';
@@ -446,10 +448,11 @@ export default function LeadScreen() {
           {activeLead.lead_facts?.map((fact,i)=><Text key={i} style={styles.subtitle}>
             {fact.label}: {fact.value}</Text>)}
         </> : <>
+          <LeadResearchGuide/>
           <Field label="Lead brief (max 220 characters)" value={briefDraft}
-            onChangeText={setBriefDraft} multiline/>
+            placeholder={LEAD_BRIEF_EXAMPLE} onChangeText={setBriefDraft} multiline/>
           <Field label="Important details" value={detailsDraft}
-            onChangeText={setDetailsDraft} multiline/>
+            placeholder={LEAD_DETAILS_EXAMPLE} onChangeText={setDetailsDraft} multiline/>
           {factsDraft.map((fact,i)=><View key={i}
             style={{flexDirection:'row',alignItems:'center',gap:10}}>
             <Text style={[styles.subtitle,{flex:1}]}>{fact.label}: {fact.value}</Text>
@@ -457,8 +460,10 @@ export default function LeadScreen() {
               <Text style={{color:theme.warning}}>Remove</Text>
             </Pressable>
           </View>)}
-          <Field label="Fact label" value={factLabel} onChangeText={setFactLabel}/>
-          <Field label="Fact value" value={factValue} onChangeText={setFactValue}/>
+          <Field label="Fact label" placeholder={LEAD_FACT_LABEL_EXAMPLE}
+            value={factLabel} onChangeText={setFactLabel}/>
+          <Field label="Fact value" placeholder={LEAD_FACT_VALUE_EXAMPLE}
+            value={factValue} onChangeText={setFactValue}/>
           <Button secondary disabled={!factLabel.trim()||!factValue.trim()||factsDraft.length>=12}
             onPress={()=>{setFactsDraft(v=>[...v,{label:factLabel.trim(),value:factValue.trim()}]);
               setFactLabel('');setFactValue('');}}>Add fact</Button>
