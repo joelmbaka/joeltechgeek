@@ -230,6 +230,11 @@ button.directory-item:hover{border-color:#9ccfbe}
 .fleet-history strong{font-size:11px;white-space:nowrap}
 .fleet-history span{font-size:11px;color:#667e88;overflow-wrap:anywhere}
 .fleet-no-history{font-size:11px;color:#84959d;margin-top:9px}
+.telemetry-map{border-radius:12px;overflow:hidden;background:#eaf2ee;border:1px solid var(--line);margin:10px 0 12px}
+.telemetry-map svg{display:block;width:100%;height:auto}
+.telemetry-map small{display:block;padding:7px 10px;font-size:10px;color:#637f86;background:#f6faf8}
+.telemetry-facts .data-row{padding:8px 0}
+
 .finance-record-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:13px}
 .finance-record-top strong{font-size:13px;color:var(--teal-dark);white-space:nowrap}
 .finance-record p{font-size:12px;color:var(--muted);margin-top:6px}
