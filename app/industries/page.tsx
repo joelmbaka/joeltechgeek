@@ -7,71 +7,101 @@ import CTA from '@/components/CTA';
 const base = SITE_URL;
 
 export const metadata: Metadata = {
-  title: 'Industry Experience | Joeltech Geek Systems',
+  title: 'Custom Software Development by Industry | JoelTechGeek',
   description:
-    'Explore software case studies across property management, school finance, construction, healthcare, logistics and voice AI at Joeltech Geek Systems.',
+    'Explore custom software development for logistics, automotive, construction, property management, education, healthcare and other industries.',
   alternates: { canonical: '/industries' },
   openGraph: {
     type: 'website',
     url: '/industries',
     title: 'Industry Experience | Joeltech Geek Systems',
-    description: 'Domain experience backed by production case studies, plus an industry-agnostic approach to web and mobile product engineering.',
+    description: 'Real business software case studies and fictional demos across transport, automotive, construction, property, education and healthcare.',
   },
-  twitter: { card: 'summary_large_image', title: 'Industry Experience | Joeltech Geek Systems', description: 'FinTech, PropTech, healthcare, logistics, SaaS, and industry-agnostic product engineering.' },
+  twitter: { card: 'summary_large_image', title: 'Custom Software Development by Industry | JoelTechGeek', description: 'Custom business systems for transport, automotive, construction, property, education, healthcare and more.' },
 };
 
-const proven = [
+const industryAreas = [
   {
-    title: 'FinTech, PropTech & accounting workflows',
-    body: 'RentPayor combines property operations with financial and accounting state: rent invoices, M-Pesa collection, automatic invoice reconciliation, partial balances, tenant credits, receipts, leases, units, tenants, and payment history.',
-    href: '/rentpayor',
-    serviceHref: '/services/payment-integrations',
-    serviceLabel: 'M-Pesa and reconciliation services',
+    title: "Transport, Logistics & Fleet Operations",
+    body: "Macsim Cargo demonstrates delivered software for cargo loads, driver assignments, fleet operations, trip activity, documents, financial workflows and administration.",
+    href: "/macsim",
+    proofLabel: "Real case study: Macsim Cargo",
+    serviceHref: "/demos/vehicle-tracking",
+    serviceLabel: "Fictional vehicle tracking demo",
   },
   {
-    title: 'Education & school-fee platforms',
-    body: 'SchoolPey combines Android parent access and web school administration with term fee schedules, student and guardian records, invoicing, M-Pesa collection, receipts and reconciliation.',
-    href: '/schoolpey',
-    serviceHref: '/services/web-app-development',
-    serviceLabel: 'Business systems development',
+    title: "Automotive & Vehicle Businesses",
+    body: "Explore illustrative systems for self-drive rental fleets, garage operations and automotive parts businesses. These are fictional interactive concepts, not claims of delivered client projects in all these niches.",
+    href: "/demos/car-rental",
+    proofLabel: "Fictional car rental demo",
+    serviceHref: "/demos/auto-parts",
+    serviceLabel: "Fictional automotive parts demo",
   },
   {
-    title: 'Construction & project operations',
-    body: 'Milliol Construction Manager is an Android-only solution for site progress, work items, procurement, stock and financial reporting.',
-    href: '/milliol',
-    serviceHref: '/services/web-app-development',
-    serviceLabel: 'Custom operations software',
+    title: "Construction & Project Operations",
+    body: "Milliol Construction Manager is an Android application for site progress, work items, procurement, stock and financial reporting.",
+    href: "/milliol",
+    proofLabel: "Real case study: Milliol",
+    serviceHref: "/demos/construction",
+    serviceLabel: "Fictional construction demo",
   },
   {
-    title: 'Healthcare & HMIS',
-    body: 'CliviQue HMIS connects patient registration, clinical departments, inpatient/outpatient workflows, billing, facility operations, permissions, and facility-bound M-Pesa patient payments.',
-    href: '/clivique-hmis',
-    serviceHref: '/services/web-app-development',
-    serviceLabel: 'Web apps and dashboards',
+    title: "Property & Real Estate Management",
+    body: "RentPayor connects property operations with rent invoicing, M-Pesa collections, partial balances, receipts, leases, units, tenants and payment reconciliation.",
+    href: "/rentpayor",
+    proofLabel: "Real case study: RentPayor",
+    serviceHref: "/demos/property",
+    serviceLabel: "Fictional property demo",
   },
   {
-    title: 'Logistics, transport & operational finance',
-    body: 'Macsim Cargo covers loads, reservations, drivers, fleet, trip operations, documents, administration, finance, Daraja collection funding, and guarded B2C driver payouts.',
-    href: '/macsim',
-    serviceHref: '/services/web-app-development',
-    serviceLabel: 'Custom business systems',
+    title: "Education & School Finance",
+    body: "SchoolPey connects an Android parent experience with web school finance, fee schedules, student records, invoices, M-Pesa payments and reconciliation.",
+    href: "/schoolpey",
+    proofLabel: "Real case study: SchoolPey",
+    serviceHref: "/demos/education",
+    serviceLabel: "Fictional school demo",
   },
   {
-    title: 'Voice, consumer SaaS & applied AI',
-    body: 'JournPad is a voice-first journaling product spanning audio capture, transcription, AI-assisted organization, goals, reminders, playback, subscriptions, and production mobile release.',
-    href: '/journpad',
-    serviceHref: '/services/react-native-app-development',
-    serviceLabel: 'Mobile app development',
+    title: "Healthcare & Hospital Management",
+    body: "CliviQue HMIS connects patient registration, clinical departments, inpatient and outpatient workflows, billing, facility operations and payment processing.",
+    href: "/clivique-hmis",
+    proofLabel: "Real case study: CliviQue HMIS",
+    serviceHref: "/demos/healthcare",
+    serviceLabel: "Fictional hospital demo",
   },
+  {
+    title: "Retail, Wholesale & Distribution",
+    body: "Explore fictional point-of-sale, inventory and automotive parts workflows for businesses managing their own sales, stock and distribution.",
+    href: "/demos/retail",
+    proofLabel: "Fictional retail demo",
+    serviceHref: "/demos/auto-parts",
+    serviceLabel: "Fictional automotive parts demo",
+  },
+  {
+    title: "Security & Field Operations",
+    body: "Explore fictional guard attendance, site incidents, technician dispatch and customer reporting workflows. These demos illustrate possibilities, not verified client deliveries in these sectors.",
+    href: "/demos/security",
+    proofLabel: "Fictional security demo",
+    serviceHref: "/demos/field-services",
+    serviceLabel: "Fictional field services demo",
+  },
+  {
+    title: "AI-Enabled Applications",
+    body: "JournPad demonstrates mobile application delivery with voice capture, transcription, AI-assisted organization, reminders and playback.",
+    href: "/journpad",
+    proofLabel: "Real case study: JournPad",
+    serviceHref: "/services/ai-api-integrations",
+    serviceLabel: "AI integrations & automation",
+  }
 ];
 
-const openIndustries = ['Construction', 'Finance', 'Banking', 'Insurance', 'Trade & commerce', 'Healthcare', 'Education', 'Legal', 'Government', 'Agriculture', 'Real estate', 'Property management', 'Transport', 'Logistics', 'Retail', 'Professional services', 'B2B SaaS', 'Consumer apps'];
+const openIndustries = ['Transport', 'Logistics', 'Automotive', 'Construction', 'Real estate', 'Education', 'Healthcare', 'Wholesale & distribution', 'Retail', 'Security', 'Field services', 'Finance', 'Banking', 'Insurance', 'Agriculture', 'Legal', 'Government', 'Professional services', 'B2B platforms', 'Consumer apps'];
 
 export default function IndustriesPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Industry experience — Joeltech Geek Systems',
+    name: 'Custom software development by industry — Joeltech Geek Systems',
     url: `${base}/industries`,
     about: { '@id': `${base}/#organization` },
   };
@@ -81,20 +111,20 @@ export default function IndustriesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <header className="max-w-4xl">
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-palm-green">Industry experience</p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Software built around how your industry actually works.</h1>
+        <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">Custom software for businesses across industries.</h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
-          Our published work spans property and finance, education, construction, healthcare, logistics and consumer AI. We remain industry-agnostic: if your business needs mobile or web interfaces, APIs, databases, payments, automation or operations software, we can begin with your specific workflows.
+          From transport and vehicle operations to construction, healthcare, property and education, we build mobile apps, web platforms and business systems around how your organization operates. Our current focus includes fleet-related businesses, but we welcome custom software projects across sectors.
         </p>
         <Link href="/demos" className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full border border-palm-green px-5 py-2.5 text-sm font-semibold text-palm-green transition hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Explore interactive software demos <ArrowRight className="h-4 w-4" aria-hidden /></Link>
       </header>
 
-      <section className="mt-12 grid gap-5 md:grid-cols-2" aria-label="Proven domain experience">
-        {proven.map((item) => (
+      <section className="mt-12 grid gap-5 md:grid-cols-2" aria-label="Industry software experience and examples">
+        {industryAreas.map((item) => (
           <article key={item.title} className="rounded-3xl border border-gray-200 bg-white p-7 dark:border-gray-800 dark:bg-gray-900/70">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h2>
             <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">{item.body}</p>
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold">
-              <Link href={item.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">See case study <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+              <Link href={item.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.proofLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
               <Link href={item.serviceHref} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.serviceLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
             </div>
           </article>
@@ -104,7 +134,7 @@ export default function IndustriesPage() {
       <section className="mt-16 rounded-3xl border border-gray-200 bg-gray-50 p-7 dark:border-gray-800 dark:bg-gray-900/50 sm:p-9">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Open industries</p>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">We work across industries where software can make a meaningful difference.</h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">Examples include the sectors below. This list indicates sectors we can discuss, not claims of completed work in every industry. The case studies above document actual experience.</p>
+        <p className="mt-4 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">These are examples of sectors we can discuss, not limits on the clients we serve. Real case studies and fictional interactive demos are labeled separately above.</p>
         <div className="mt-6 flex flex-wrap gap-2">
           {openIndustries.map((industry) => <span key={industry} className="rounded-full bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm dark:bg-gray-800 dark:text-gray-300">{industry}</span>)}
         </div>
