@@ -13,10 +13,11 @@ export const metadata: Metadata = {
 };
 
 const businessWorkflows = [
-  { title: 'Rent collection and reconciliation', description: 'Invoices, tenant balances, receipts and payment matching in property operations.', href: '/rentpayor', proof: 'RentPayor · Our product' },
-  { title: 'School fee administration', description: 'Student fee structures, term invoices, parent payments and financial records.', href: '/schoolpey', proof: 'SchoolPey · Our product' },
   { title: 'Transport and dispatch operations', description: 'Loads, drivers, reservations, fleet activity and operational finance.', href: '/macsim', proof: 'Macsim Cargo · Client project' },
   { title: 'Construction project operations', description: 'Site progress, procurement, materials, stock and financial reporting.', href: '/milliol', proof: 'Milliol · Client project' },
+  { title: 'Rent collection and reconciliation', description: 'Invoices, tenant balances, receipts and payment matching in property operations.', href: '/rentpayor', proof: 'RentPayor · Company-developed product' },
+  { title: 'School fee administration', description: 'Student fee structures, term invoices, parent payments and financial records.', href: '/schoolpey', proof: 'SchoolPey · Company-developed product' },
+  { title: 'Healthcare operations and billing', description: 'Patient encounters, facility workflows, service billing and financial records.', href: '/clivique-hmis', proof: 'CliviQue HMIS · Company-developed product' },
 ];
 
 const serviceCardCopy: Record<string, { title: string; summary: string }> = {
@@ -101,7 +102,7 @@ export default function ServicesPage() {
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">Practical business outcomes</p>
           <h2 id="business-workflows-title" className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Business systems grounded in real workflows</h2>
           <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">
-            These examples are from our published portfolio. We distinguish our own software products from commissioned client projects.
+            These examples show real software we have developed across different industries, including client commissions and our own products. Each case study explains the project context.
           </p>
         </div>
         <div className="mt-7 grid gap-5 md:grid-cols-2">
@@ -141,10 +142,10 @@ export default function ServicesPage() {
       <section className="mt-16 rounded-3xl border border-gray-200 p-7 dark:border-gray-800 sm:p-9">
         <h2 className="text-2xl font-bold">See actual software, not just a capabilities list.</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Our portfolio distinguishes products we develop for our own business from work commissioned by clients. Explore the real workflows, platforms, stack and engineering responsibilities behind each system.
+          Explore the real workflows, platforms, engineering responsibilities and business problems behind the custom systems and applications we&apos;ve built.
         </p>
         <Link href="/work" className="mt-5 inline-flex items-center gap-2 font-semibold text-palm-green hover:underline">
-          View products and client projects <ArrowRight className="h-4 w-4" aria-hidden />
+          Explore our work <ArrowRight className="h-4 w-4" aria-hidden />
         </Link>
       </section>
       <CTA />
