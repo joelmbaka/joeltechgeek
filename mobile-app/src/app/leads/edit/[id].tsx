@@ -4,7 +4,7 @@ import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Text, View } from 'react-native';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { EditLeadSkeleton } from '@/components/Skeleton';
-import { LeadResearchGuide, LEAD_BRIEF_EXAMPLE, LEAD_DETAILS_EXAMPLE } from '@/components/LeadResearchGuide';
+import { LeadResearchGuide, getLeadResearchExamples } from '@/components/LeadResearchGuide';
 import { SelectSheet } from '@/components/SelectSheet';
 import { useTheme } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
@@ -114,11 +114,11 @@ export default function EditLead() {
             onChange={setPriority} hideTriggerLabel dismissKeyboardOnOpen/>
         </View>
       </View>
-      <LeadResearchGuide/>
+      <LeadResearchGuide category={industry}/>
       <Field label="Lead brief (max 220 characters)" value={brief}
-        placeholder={LEAD_BRIEF_EXAMPLE} onChangeText={setBrief} multiline/>
+        placeholder={getLeadResearchExamples(industry).brief} onChangeText={setBrief} multiline/>
       <Field label="Important details" value={details}
-        placeholder={LEAD_DETAILS_EXAMPLE} onChangeText={setDetails} multiline/>
+        placeholder={getLeadResearchExamples(industry).details} onChangeText={setDetails} multiline/>
       <Text style={styles.subtitle}>Edit contact names, phone numbers and emails in Lead Details → Contacts.</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button disabled={!valid} onPress={()=>void save()}>{busy?'Saving…':'Save changes'}</Button>
