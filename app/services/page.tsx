@@ -116,9 +116,16 @@ export default function ServicesPage() {
             </article>
           ))}
         </div>
-        <p className="mt-5 text-sm text-gray-600 dark:text-gray-300">
-          Evaluating a new workflow? <Link href="/demos" className="font-semibold text-palm-green hover:underline">Explore interactive software concepts</Link> using fictional data.
-        </p>
+        <div className="mt-6 text-sm text-gray-600 dark:text-gray-300">
+          <p>Want to see an example of a similar system? Try an interactive concept using fictional data:</p>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 font-semibold">
+            <Link href="/demos/logistics" className="text-palm-green hover:underline">Cargo dispatch demo <ArrowRight className="inline h-4 w-4" aria-hidden /></Link>
+            <Link href="/demos/car-rental" className="text-palm-green hover:underline">Car rental demo <ArrowRight className="inline h-4 w-4" aria-hidden /></Link>
+            <Link href="/demos/auto-parts" className="text-palm-green hover:underline">Auto parts demo <ArrowRight className="inline h-4 w-4" aria-hidden /></Link>
+            <Link href="/demos/garage" className="text-palm-green hover:underline">Garage demo <ArrowRight className="inline h-4 w-4" aria-hidden /></Link>
+          </div>
+          <p className="mt-4">For other industries, <Link href="/demos" className="font-semibold text-palm-green hover:underline">browse all interactive demos</Link>.</p>
+        </div>
       </section>
 
       <section className="mt-16 grid gap-5 lg:grid-cols-3" aria-label="How we work">
