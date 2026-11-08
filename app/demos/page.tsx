@@ -23,7 +23,8 @@ export default function DemosPage() {
         </p>
       </header>
       <section aria-labelledby="available-demos" className="mt-12">
-        <h2 id="available-demos" className="text-2xl font-bold text-gray-900 dark:text-white">Available demos</h2<article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
+        <h2 id="available-demos" className="text-2xl font-bold text-gray-900 dark:text-white">Available demos</h2>
+        <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="grid lg:grid-cols-[1fr_1.05fr]">
             <div className="flex flex-col p-7 sm:p-10">
               <div className="flex items-center gap-3">
@@ -52,7 +53,6 @@ export default function DemosPage() {
             </div>
           </div>
         </article>
-        >
         <article className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="grid lg:grid-cols-[1fr_1.05fr]">
             <div className="flex flex-col p-7 sm:p-10">
