@@ -21,6 +21,8 @@ const workflowAreas = [
   { title: 'Vehicle tracking & fleet visibility', demo: '/demos/vehicle-tracking', demoLabel: 'Vehicle tracking concept' },
   { title: 'Logistics, fleet & cargo dispatch', caseStudy: '/macsim', caseLabel: 'Macsim Cargo', demo: '/demos/logistics', demoLabel: 'Cargo dispatch concept' },
   { title: 'Car rental & fleet management', demo: '/demos/car-rental', demoLabel: 'Rental fleet management concept' },
+  { title: 'Automotive parts & inventory', demo: '/demos/auto-parts', demoLabel: 'Automotive parts management concept' },
+  { title: 'Garage & vehicle repair', demo: '/demos/garage', demoLabel: 'Garage operations concept' },
   { title: 'Construction & site operations', caseStudy: '/milliol', caseLabel: 'Milliol', demo: '/demos/construction', demoLabel: 'Construction workflow concept' },
   { title: 'Property management & rent collection', caseStudy: '/rentpayor', caseLabel: 'RentPayor', demo: '/demos/property', demoLabel: 'Property rental management concept' },
   { title: 'School fees & student finance', caseStudy: '/schoolpey', caseLabel: 'SchoolPey', demo: '/demos/education', demoLabel: 'School fee management concept' },
