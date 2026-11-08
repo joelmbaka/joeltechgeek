@@ -10,8 +10,8 @@
   try{data=JSON.parse(localStorage.getItem(KEY)||"null");if(data?.version!==1||!Array.isArray(data.products)||!Array.isArray(data.sales))data=core.seed();}catch(e){data=core.seed();}
   const ui={role:"counter",view:"sale",query:"",cart:[],customerId:"",method:"Cash",modal:"",receiptId:"",notice:"",month:new Date().toISOString().slice(0,7),supplierId:data.suppliers[0]?.id||"",purchaseLines:[],purchaseProduct:"",purchaseQty:"",purchaseCost:"",filter:""};
   const roleNav={
-    counter:[["sale","New sale","▣"],["history","Sales & receipts","▤"],["customers","Customers","♙"],["stock","Products","◫"]],
-    office:[["stock","Products","◫"],["purchases","Purchases","⇩"],["suppliers","Suppliers","▱"],["history","Sales & receipts","▤"],["customers","Customers","♙"],["expenses","Expenses","◎"],["reports","Reports","▥"]]
+    counter:[["sale","New sale","▣"],["history","Sales & receipts","▤"],["stock","Products","◫"],["customers","Customers","♙"]],
+    office:[["sale","New sale","▣"],["stock","Products","◫"],["history","Sales & receipts","▤"],["purchases","Purchases","⇩"],["suppliers","Suppliers","▱"],["customers","Customers","♙"],["expenses","Expenses","◎"],["reports","Reports","▥"]]
   };
   const roles={counter:"Sales Counter",office:"Back Office"};
   const product=id=>data.products.find(p=>p.id===id);
@@ -37,7 +37,7 @@
       '<div class="sales-layout"><section class="card padded"><h2>Find products</h2><div class="search-wrap"><input id="product-search" type="search" placeholder="Search product, brand or SKU" value="'+esc(ui.query)+'" autocomplete="off" aria-label="Search products"></div><div class="product-list">'+(results||blank("No products match your search."))+'</div></section>'+
       '<section class="card padded checkout-panel"><h2>Cart</h2>'+(cart||blank("Choose products to start a sale."))+'<div class="total-row"><strong>Total</strong><strong>'+usd(saleTotal())+'</strong></div>'+
       '<form data-form="checkout"><label class="field"><span>Customer (optional)</span><select name="customerId" id="sale-customer"><option value="">Walk-in customer</option>'+selectOptions(data.customers.map(c=>[c.id,c.name]),ui.customerId)+'</select></label>'+
-      '<label class="field"><span>Payment</span><select name="method" id="sale-method">'+selectOptions(["Cash","Card","Bank transfer","Other"].map(s=>[s,s]),ui.method)+'</select></label>'+
+      '<label class="field"><span>Payment</span><select name="method" id="sale-method">'+selectOptions(["Cash","Card","M-Pesa","Bank transfer","Other"].map(s=>[s,s]),ui.method)+'</select></label>'+
       '<label class="field" id="tender-field" '+(ui.method!=="Cash"?'hidden':'')+'><span>Cash received</span><input name="tendered" type="number" min="0" step=".01" value="'+saleTotal()+'" /></label>'+
       '<button type="submit" class="btn primary full" '+(ui.cart.length?"":"disabled")+'>Complete sale & view receipt</button></form></section></div>';
   }

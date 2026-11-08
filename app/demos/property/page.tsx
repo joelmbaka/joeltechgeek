@@ -6,13 +6,13 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Rental Property Management Interactive Demo | JoelTechGeek Systems',
+  title: 'Property Management Interactive Demo | JoelTechGeek Systems',
   description: 'Explore Property Manager and Tenant views with tenant rent filters, shared invoices, receipts, leases, payments, property expenses and owner positions.',
   alternates: { canonical: '/demos/property' },
   openGraph: {
     type: 'website',
     url: '/demos/property',
-    title: 'Rental Management | Interactive Mobile Demo',
+    title: 'Property Management | Interactive Mobile Demo',
     description: 'Explore property rent collections and tenant balances inside one fictional mobile landlord workspace.',
   },
 };
@@ -40,7 +40,7 @@ const areas = [
   },
 ];
 
-export default function RentalManagementDemoPage() {
+export default function PropertyManagementDemoPage() {
   return (
     <main className="site-container pb-20 pt-28">
       <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -53,10 +53,10 @@ export default function RentalManagementDemoPage() {
       <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">
-            Rental operations · Interactive mobile concept
+            Property operations · Interactive mobile concept
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
-            Rental Management
+            Property Management
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-gray-600 dark:text-gray-300">
             Explore fictional rent management through Property Manager and Tenant views,
@@ -81,7 +81,7 @@ export default function RentalManagementDemoPage() {
         <aside className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-7 dark:border-emerald-900/50 dark:bg-emerald-950/20 sm:p-8">
           <Building2 className="h-9 w-9 text-palm-green" aria-hidden />
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">
-            A preloaded rental portfolio
+            A preloaded property portfolio
           </h2>
           <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">
             Explore two fictional properties, six rentable units, five active leases,

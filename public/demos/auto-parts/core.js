@@ -98,7 +98,7 @@ const autoPartsCore = (function () {
     });
     if(fields.customerId&& !d.customers.some(c=>c.id===fields.customerId))throw new Error("Customer not found.");
     const method=String(fields.method||"Cash");
-    if(!["Cash","Card","Bank transfer","Other"].includes(method))throw new Error("Choose a payment method.");
+    if(!["Cash","Card","M-Pesa","Bank transfer","Other"].includes(method))throw new Error("Choose a payment method.");
     const total=money(verified.reduce((n,l)=>n+l.total,0));
     const payment=method==="Cash"?positive(fields.tendered??total,"Amount received",true):total;
     if(payment<total)throw new Error("Amount received is less than total.");

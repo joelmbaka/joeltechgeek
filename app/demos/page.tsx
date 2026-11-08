@@ -65,7 +65,7 @@ export default function DemosPage() {
                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><CarFront className="h-6 w-6" aria-hidden /></span>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Car rental &amp; leasing · Owner mobile app concept</span>
               </div>
-              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Car Rental Fleet Management</h3>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Car Rental Management</h3>
               <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Manage rented and available vehicles, rental deadlines, partial payments, returns, maintenance, GPS route replay and owner finances from one mobile-style app.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Fleet · Alerts · Finance · Customers</span>
@@ -196,7 +196,7 @@ export default function DemosPage() {
                 <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-palm-green dark:bg-emerald-950/40"><Building2 className="h-6 w-6" aria-hidden /></span>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-palm-green">Property & rent management · Concept</span>
               </div>
-              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Rental Management</h3>
+              <h3 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Property Management</h3>
               <p className="mt-3 text-base leading-7 text-gray-600 dark:text-gray-300">Explore Property Manager and Tenant mobile views, with tenant-filtered invoices, rent receipts, leases, collections, expenses and owner positions.</p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                 <span className="rounded-full border border-gray-200 px-3 py-1.5 dark:border-gray-700">Interactive workflow</span>
@@ -210,7 +210,7 @@ export default function DemosPage() {
             <div className="flex min-h-72 flex-col justify-center bg-gradient-to-br from-[#0A2836] via-[#164454] to-[#047857] p-7 text-white sm:p-10">
               <div className="rounded-2xl border border-white/20 bg-white/10 p-5 shadow-xl">
                 <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-4">
-                  <div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Rental Management workflow</span></div>
+                  <div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-emerald-300" aria-hidden /><span className="font-semibold">Property Management workflow</span></div>
                   <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs">Concept preview</span>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3">
