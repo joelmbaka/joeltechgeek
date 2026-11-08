@@ -130,7 +130,7 @@ export default function Home() {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Our portfolio</p>
             <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">We build software that runs businesses.</h2>
             <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
-              Explore mobile applications and web platforms we've developed across logistics, construction, property management, education, healthcare, and more.
+              Explore mobile applications and web platforms we&apos;ve developed across logistics, construction, property management, education, healthcare, and more.
             </p>
           </div>
           <ProjectsCarousel projects={featuredProjects} />
