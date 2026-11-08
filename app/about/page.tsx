@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/about',
     title: 'About Joeltech Geek Systems | Founder-led Engineering',
-    description: 'Meet Joeltech Geek Systems, a Kenya-registered software business building SaaS products and custom applications for businesses across markets.',
+    description: 'Meet Joeltech Geek Systems, a founder-led custom software development business building mobile apps, web platforms and business systems for clients across markets.',
   },
 };
 
@@ -29,7 +29,7 @@ export default function AboutPage() {
       <header className="max-w-4xl">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Our story</p>
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">A software business built on engineering ownership.</h1>
-        <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">Joeltech Geek Systems is a Kenya-registered software development business. We build our own commercial products and deliver custom mobile applications, web platforms, SaaS systems and backends for clients.</p>
+        <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">Joeltech Geek Systems is a Kenya-registered custom software development business. We design and deliver mobile applications, web platforms, business management systems and integrations for clients, alongside selected products of our own.</p>
         <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">We welcome project enquiries from businesses in the US, Kenya and other markets and collaborate remotely across time zones. Our core mobile framework is React Native/Expo; our web and backend specialization is Next.js, React, Python/FastAPI and PostgreSQL. Engineering work is founder-led, with collaboration scoped for each engagement.</p>
       </header>
 
@@ -69,7 +69,7 @@ export default function AboutPage() {
         <h2 className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">Registered in Kenya. Available internationally.</h2>
         <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">Joeltech Geek Systems is registered under Kenya&apos;s Registration of Business Names Act (registration BN-P7SEWW57). The business is owned and led by Joel Mbaka and operates with a remote-first delivery approach.</p>
         <div className="mt-6 flex flex-wrap gap-5 text-sm font-semibold">
-          <Link href="/work" className="inline-flex items-center gap-2 text-palm-green hover:underline">Portfolio: products & client work <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+          <Link href="/work" className="inline-flex items-center gap-2 text-palm-green hover:underline">Explore our software work <ArrowRight className="h-4 w-4" aria-hidden /></Link>
           <Link href="/founder" className="inline-flex items-center gap-2 text-palm-green hover:underline">Founder profile <ArrowRight className="h-4 w-4" aria-hidden /></Link>
         </div>
       </section>
