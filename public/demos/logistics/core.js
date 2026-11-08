@@ -48,6 +48,7 @@ function upgrade(d){
  for(const l of d.loads){
   if(l.status==="Booked"){l.status="Assigned";if(l.id==="LD-3087"){l.driver={id:d.driver.id,name:d.driver.name,truckPlate:d.driver.truckPlate};}if(!l.truck)l.truck={location:loc(l.originId)?.name||"Unknown",miles:0,updatedAt:l.updatedAt||now()};}
   if(l.id==="LD-3081"&&l.driver){l.driver={id:d.driver.id,name:d.driver.name,truckPlate:d.driver.truckPlate};}
+  if(l.driver){const roster=ROSTER.find(x=>x.truckPlate===l.driver.truckPlate);if(roster)l.driver={id:roster.id,name:roster.name,truckPlate:roster.truckPlate};}
   if(l.driver&&!l.telemetry){l.telemetry=sampleTelemetry(l);}
  }
  d.version=3;return d;
@@ -123,7 +124,7 @@ function pay(d,id){
 const sample=(id,from,to,status,payAmount,weight,miles,plate,milesDone,where,name,payment="Unpaid")=>{
  const load={id,originId:from,destinationId:to,cargo:"40-ft shipping container · general cargo",containerFeet:40,returnId:"mombasa-port",consignee:"Harbor Freight Co.",weightTons:weight,
   driverPay:payAmount,routeMiles:miles,containerNo:"DEMO-"+id,status,createdAt:"2026-10-30T08:00:00Z",updatedAt:"2026-10-31T12:00:00Z",
-  driver:name?{id:name==="Kevin Mwangi (fictional)"?"DRV-DEMO-001":"SAMPLE-"+id,name,truckPlate:plate}:null,
+  driver:name?{id:ROSTER.find(x=>x.truckPlate===plate)?.id||"SAMPLE-"+id,name,truckPlate:plate}:null,
   truck:name?{miles:milesDone,location:where+" · sample",updatedAt:"2026-10-31T12:00:00Z"}:null,
   evidence:{pickup:null,delivery:null,eir:null},
   payment:{status:payment,reference:payment==="Paid"?"SIM-PAY-"+id:null,paidAt:payment==="Paid"?"2026-10-31T12:00:00Z":null}
