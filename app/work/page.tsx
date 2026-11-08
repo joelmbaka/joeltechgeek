@@ -92,7 +92,7 @@ export default function WorkPage() {
       <section id="portfolio-projects" className="mt-16 scroll-mt-24" aria-labelledby="portfolio-projects-title">
         <h2 id="portfolio-projects-title" className="text-3xl font-bold text-gray-900 dark:text-white">Our projects</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Applications and business systems we've developed. Explore each case study for details about the project and our contribution.
+          Applications and business systems we&apos;ve developed. Explore each case study for details about the project and our contribution.
         </p>
         <div className="mt-8"><ProjectsCarousel projects={orderedProjects} /></div>
       </section>
