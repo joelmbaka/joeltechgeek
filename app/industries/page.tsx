@@ -31,11 +31,13 @@ const industryAreas = [
   },
   {
     title: "Automotive & Vehicle Businesses",
-    body: "Explore illustrative systems for self-drive rental fleets, garage operations and automotive parts businesses. These are fictional interactive concepts, not claims of delivered client projects in all these niches.",
+    body: "Explore illustrative systems for self-drive rental fleets, automotive parts and inventory management, and garage repair operations. These are fictional interactive concepts, not claims of delivered client projects in all these niches.",
     href: "/demos/car-rental",
     proofLabel: "Fictional car rental demo",
     serviceHref: "/demos/auto-parts",
     serviceLabel: "Fictional automotive parts demo",
+    extraDemoHref: "/demos/garage",
+    extraDemoLabel: "Fictional garage management demo",
   },
   {
     title: "Construction & Project Operations",
@@ -126,6 +128,9 @@ export default function IndustriesPage() {
             <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold">
               <Link href={item.href} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.proofLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
               <Link href={item.serviceHref} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.serviceLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+              {'extraDemoHref' in item && item.extraDemoHref && (
+                <Link href={item.extraDemoHref} className="inline-flex items-center gap-2 text-palm-green hover:underline">{item.extraDemoLabel} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+              )}
             </div>
           </article>
         ))}
