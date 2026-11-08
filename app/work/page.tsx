@@ -26,10 +26,12 @@ const workflowAreas = [
 ];
 
 export default function WorkPage() {
-  const owned = publicProjects.filter((project) => project.engagement === 'Product');
-  const commissioned = publicProjects.filter((project) => project.engagement === 'Client project');
-  const experiments = publicProjects.filter((project) => project.engagement === 'Experiment');
-  const orderedProjects = [...owned, ...commissioned, ...experiments];
+  const portfolioOrder = ['macsim', 'milliol', 'rentpayor', 'schoolpey', 'clivique-hmis', 'journpad'];
+  const orderedProjects = [
+    ...portfolioOrder.map((id) => publicProjects.find((project) => project.id === id))
+      .filter((project): project is (typeof publicProjects)[number] => Boolean(project)),
+    ...publicProjects.filter((project) => !portfolioOrder.includes(project.id)),
+  ];
   const base = SITE_URL;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -55,12 +57,10 @@ export default function WorkPage() {
           Business software products and client projects
         </h1>
         <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
-          Joeltech Geek Systems develops commercial software products and takes on commissioned engineering projects. We separate the two below so you can see exactly what is an in-house product, what was built for a client, and any currently featured experiments.
+          Explore mobile applications and web platforms developed by Joeltech Geek Systems across logistics, construction, property management, education, healthcare, and other industries. Each case study retains its actual project attribution.
         </p>
         <nav className="mt-7 flex flex-wrap gap-3 text-sm font-semibold" aria-label="Portfolio sections">
-          <a href="#our-products" className="rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">Our products</a>
-          <a href="#client-projects" className="rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">Client projects</a>
-          {experiments.length > 0 && <a href="#experiments" className="rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">Experiments</a>}
+          <a href="#portfolio-projects" className="rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">Projects</a>
         </nav>
       </header>
 
@@ -89,34 +89,13 @@ export default function WorkPage() {
         </p>
       </section>
 
-      <section id="our-products" className="mt-16 scroll-mt-24" aria-labelledby="our-products-title">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">01 · Products developed by our business</p>
-        <h2 id="our-products-title" className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Our software products</h2>
+      <section id="portfolio-projects" className="mt-16 scroll-mt-24" aria-labelledby="portfolio-projects-title">
+        <h2 id="portfolio-projects-title" className="text-3xl font-bold text-gray-900 dark:text-white">Our projects</h2>
         <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Applications and SaaS platforms developed for our own product roadmap and commercial activity. Some are founder-led or co-founded ventures; a listing here is not a claim of exclusive intellectual-property ownership.
+          Applications and business systems we've developed. Explore each case study for details about the project and our contribution.
         </p>
-        <div className="mt-8"><ProjectsCarousel projects={owned} /></div>
+        <div className="mt-8"><ProjectsCarousel projects={orderedProjects} /></div>
       </section>
-
-      <section id="client-projects" className="mt-20 scroll-mt-24" aria-labelledby="client-projects-title">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">02 · Commissioned engineering</p>
-        <h2 id="client-projects-title" className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Software built for clients</h2>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-          Client-commissioned systems built to streamline operations and service delivery. These case studies show our technical contribution; client project attribution does not imply Joeltech Geek Systems owns the client&apos;s business or software.
-        </p>
-        <div className="mt-8"><ProjectsCarousel projects={commissioned} /></div>
-      </section>
-
-      {experiments.length > 0 && (
-        <section id="experiments" className="mt-20 scroll-mt-24" aria-labelledby="experiments-title">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-palm-green">03 · Research & experimentation</p>
-          <h2 id="experiments-title" className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">Exploratory applications</h2>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-gray-600 dark:text-gray-300">
-            Engineering experiments that explore useful experiences or integrations, without implying commercial launch or active customer adoption.
-          </p>
-          <div className="mt-8"><ProjectsCarousel projects={experiments} /></div>
-        </section>
-      )}
 
       <section className="mt-16 rounded-3xl bg-gray-50 p-7 dark:bg-gray-900/60 sm:p-9">
         <h2 className="text-2xl font-bold">Need similar software for your organisation?</h2>
