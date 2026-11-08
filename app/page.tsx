@@ -23,12 +23,12 @@ const delivery = [
 ];
 
 export default function Home() {
-  const ownProducts = ['rentpayor', 'schoolpey', 'clivique-hmis', 'journpad']
-    .map((id) => publicProjects.find((project) => project.id === id))
-    .filter((project): project is (typeof publicProjects)[number] => Boolean(project));
-  const clientProjects = ['macsim', 'milliol']
-    .map((id) => publicProjects.find((project) => project.id === id))
-    .filter((project): project is (typeof publicProjects)[number] => Boolean(project));
+  const portfolioOrder = ['macsim', 'milliol', 'rentpayor', 'schoolpey', 'clivique-hmis', 'journpad'];
+  const featuredProjects = [
+    ...portfolioOrder.map((id) => publicProjects.find((project) => project.id === id))
+      .filter((project): project is (typeof publicProjects)[number] => Boolean(project)),
+    ...publicProjects.filter((project) => !portfolioOrder.includes(project.id)),
+  ];
   const base = SITE_URL;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -128,15 +128,12 @@ export default function Home() {
           <div className="site-container">
           <div className="mb-8 max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Our portfolio</p>
-            <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">We build products. We build for clients.</h2>
+            <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">We build software that runs businesses.</h2>
             <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
-              Our company develops commercial software and also delivers commissioned projects. They are different types of work, and we make the distinction clear.
+              Explore mobile applications and web platforms we've developed across logistics, construction, property management, education, healthcare, and more.
             </p>
           </div>
-          <h3 className="mb-5 text-2xl font-bold">Our software products</h3>
-          <ProjectsCarousel projects={ownProducts} />
-          <h3 className="mb-5 mt-12 text-2xl font-bold">Client-commissioned work</h3>
-          <ProjectsCarousel projects={clientProjects} />
+          <ProjectsCarousel projects={featuredProjects} />
           <Link href="/work" className="mt-7 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-palm-green hover:underline">
             View full portfolio and case studies <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
