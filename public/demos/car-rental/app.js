@@ -23,7 +23,7 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){ui.t
 const pill=(v)=>'<span class="pill '+(v==="Available"||v==="Paid"?"good":v==="Rented"||v==="Partially paid"?"info":v==="Overdue"?"bad":"warn")+'">'+esc(v)+'</span>';
 const btn=(txt,act,style="",attrs="")=>'<button type="button" class="btn '+style+'" data-action="'+act+'" '+attrs+'>'+txt+'</button>';
 const row=(left,right)=>'<div class="detail-row"><span>'+left+'</span><b>'+right+'</b></div>';
-const input=(label,name,value="",type="text",extra="")=>'<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+extra+' required></label>';
+const input=(label,name,value="",type="text",extra="")=>'<label class="field"><span>'+label+' <span aria-hidden="true" class="required-mark">*</span></span><input name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+extra+' required></label>';
 const optional=(label,name,value="",type="text")=>'<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+type+'" value="'+esc(value)+'"></label>';
 const select=(label,name,items,value)=>'<label class="field"><span>'+label+'</span><select name="'+name+'">'+items.map(i=>'<option value="'+esc(i[0])+'" '+(String(i[0])===String(value)?"selected":"")+'>'+esc(i[1])+'</option>').join("")+'</select></label>';
 const blank=text=>'<p class="empty">'+esc(text)+'</p>';
@@ -123,12 +123,16 @@ function alertsPage(){
 }
 function financePage(){
  const f=core.finance(data,ui.month);
+ const vehicleProfit=data.vehicles.map(v=>({vehicle:v,report:core.finance(data,ui.month,v.id)}));
  return title("Finance",btn("+ Expense","new-expense","primary"))+
  card('<label class="field month"><span>Reporting month</span><input type="month" id="report-month" value="'+esc(ui.month)+'"></label>'+
  '<div class="finance-highlight"><small>Net operating result</small><strong>'+usd(f.net)+'</strong></div>'+
  row("Completed rental revenue",usd(f.revenue))+row("Payments collected",usd(f.collected))+row("Outstanding balances (all rentals)",usd(f.outstanding))+
  row("Expenses including maintenance",usd(f.expenses))+
  '<p class="subtle">Simplified operating result = completed rental revenue minus recorded expenses. It excludes depreciation, tax and financing. A refundable deposit is not included as revenue.</p>')+
+ card('<h2>Net P/L by vehicle</h2><div class="vehicle-profit-list">'+vehicleProfit.map(({vehicle,report})=>
+   '<button type="button" class="detail-row vehicle-profit-row" data-action="vehicle" data-id="'+esc(vehicle.id)+'" aria-label="Open '+esc(vehicle.make+" "+vehicle.model)+' details"><span><b>'+esc(vehicle.make+" "+vehicle.model)+'</b><small>'+esc(vehicle.plate)+' · Revenue '+usd(report.revenue)+' · Costs '+usd(report.expenses)+'</small></span><b class="'+(report.net<0?'bad-text':'good-text')+'">'+usd(report.net)+'</b></button>'
+  ).join('')+'</div>')+
  card('<h2>Recent expenses</h2>'+[
  ...data.expenses.map(e=>({id:e.id,date:e.date,vehicleId:e.vehicleId,name:e.category,amount:e.amount,description:e.description})),
  ...data.maintenance.map(m=>({id:m.id,date:m.date,vehicleId:m.vehicleId,name:m.type,amount:m.cost,description:"Maintenance"}))
