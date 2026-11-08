@@ -6,13 +6,13 @@ import CTA from '@/components/CTA';
 
 export const metadata: Metadata = {
   title: 'About Joeltech Geek Systems | Founder-led Engineering',
-  description: 'Meet Joeltech Geek Systems, a Kenya-registered software development business led by Joel Mbaka. Open to projects from the US, Kenya and beyond.',
+  description: 'Meet Joeltech Geek Systems, a founder-led custom software development agency registered in Kenya and serving businesses internationally.',
   alternates: { canonical: '/about' },
   openGraph: {
     type: 'website',
     url: '/about',
     title: 'About Joeltech Geek Systems | Founder-led Engineering',
-    description: 'Meet Joeltech Geek Systems, a founder-led custom software development business building mobile apps, web platforms and business systems for clients across markets.',
+    description: 'Joeltech Geek Systems is a founder-led custom software development agency building mobile apps, web platforms and business systems for businesses across industries.',
   },
 };
 
@@ -28,8 +28,8 @@ export default function AboutPage() {
     <main className="site-container pb-16 pt-28">
       <header className="max-w-4xl">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Our story</p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">A software business built on engineering ownership.</h1>
-        <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">Joeltech Geek Systems is a Kenya-registered custom software development business. We design and deliver mobile applications, web platforms, business management systems and integrations for clients, alongside selected products of our own.</p>
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">A founder-led software development agency.</h1>
+        <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">Joeltech Geek Systems is a founder-led custom software development agency and a Kenya-registered business. We design and deliver mobile applications, web platforms, business management systems and integrations for clients across industries, alongside selected products of our own.</p>
         <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">We welcome project enquiries from businesses in the US, Kenya and other markets and collaborate remotely across time zones. Our core mobile framework is React Native/Expo; our web and backend specialization is Next.js, React, Python/FastAPI and PostgreSQL. Engineering work is founder-led, with collaboration scoped for each engagement.</p>
       </header>
 
