@@ -44,6 +44,26 @@ const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
 const PAGE_SIZE = 50;
+const CATEGORY_FACT_EXAMPLES: Record<string, [string, string]> = {
+  'Transport & Logistics': ['Fleet size', '100+ trucks — company-reported'],
+  'Vehicle Tracking & Telematics': ['Tracking platform', 'Wialon — company-reported, vendor unverified'],
+  'Courier & Distribution': ['Delivery fleet', '40 vehicles — company-reported'],
+  'Passenger Transport': ['Active buses', '25 — company-reported'],
+  'Car Rental & Leasing': ['Rental fleet', '20 vehicles — company-reported'],
+  'Auto Dealerships & Importers': ['Vehicles in stock', '60 — company-reported'],
+  'Garages & Automotive Repair': ['Service bays', '8 — company-reported'],
+  'Automotive Parts & Supplies': ['Branches', '4 — company-reported'],
+  'Fleet Owners & Operators': ['Owned vehicles', '35 — company-reported'],
+  'Roadside & Recovery': ['Recovery trucks', '12 — company-reported'],
+  'Vehicle Finance & Insurance': ['Branch offices', '6 — company-reported'],
+  'Fuel & Electric Mobility': ['Active stations', '18 — company-reported'],
+  'Vehicle Services & Compliance': ['Inspection sites', '3 — company-reported'],
+  'Vehicle Manufacturing': ['Annual output', '120 units — company-reported'],
+};
+function factExamplesFor(category: string): [string,string] {
+  return CATEGORY_FACT_EXAMPLES[category] || ['Employees','150 — company-reported'];
+}
+
 function leadPageUrl(filters: { workView: WorkView; industry: string; query: string; alphabetical: boolean }, offset = 0) {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
@@ -551,18 +571,18 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
               {researchGuideOpen && <div className="mt-2 space-y-2 text-slate-600 dark:text-slate-300">
                 <p><strong>Brief:</strong> One sentence describing the business and its operating area.</p>
                 <p><strong>Important details:</strong> Short operational context, technology claims, uncertainties and what to establish on the call.</p>
-                <p><strong>Facts:</strong> One label/value per attribute, e.g. Fleet size: 100+ trucks (company-reported); Employees: 150 (company-reported); Software: vendor unverified.</p>
+                <p><strong>Facts:</strong> One label/value per attribute. For this category, e.g. {factExamplesFor(lead.industry)[0]}: {factExamplesFor(lead.industry)[1]}. Other useful facts: founding year, staffing, operational metrics, existing software and app status.</p>
                 <p><strong>Evidence:</strong> Distinguish independently verified, company-reported, third-party-reported, unverified and unknown. A responsive site is not evidence of a native app; partner fleets are not owned fleets.</p>
               </div>}
             </div>
             <label className="block text-xs font-semibold">Lead brief (220 characters)
               <textarea className={input} rows={2} maxLength={220} value={contextBrief}
-                placeholder="e.g. Mombasa-based cargo transporter serving regional routes."
+                placeholder="e.g. Regional business operating multiple locations or service areas."
                 onChange={(e)=>setContextBrief(e.target.value)} />
             </label>
             <label className="block text-xs font-semibold">Important details
               <textarea className={input} rows={4} maxLength={5000} value={contextDetails}
-                placeholder="e.g. Reports GPS tracking; vendor and management app unverified. Ask how dispatch works."
+                placeholder="e.g. Company reports management software; vendor and actual mobile app unverified. Confirm daily workflow."
                 onChange={(e)=>setContextDetails(e.target.value)} />
             </label>
             <div className="space-y-2">
@@ -576,12 +596,12 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
               </div>)}
               <label className="block text-xs font-semibold">Fact label
                 <input className={input} maxLength={80} value={newFactLabel}
-                  placeholder="e.g. Fleet size"
+                  placeholder={factExamplesFor(lead.industry)[0]}
                   onChange={(e)=>setNewFactLabel(e.target.value)}/>
               </label>
               <label className="block text-xs font-semibold">Fact value
                 <input className={input} maxLength={300} value={newFactValue}
-                  placeholder="e.g. 100+ trucks — company-reported"
+                  placeholder={factExamplesFor(lead.industry)[1]}
                   onChange={(e)=>setNewFactValue(e.target.value)}/>
               </label>
               <button type="button" disabled={contextFacts.length>=12 || !newFactLabel.trim() ||
