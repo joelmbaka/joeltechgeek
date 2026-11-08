@@ -246,7 +246,7 @@ function render(){
   if(a==="assign"&&role==="dispatcher"){
    const available=core.ROSTER.filter(d=>!core.active(data,d.id)&&core.find(data,id)?.weightTons<=d.capacityTons);
    if(!available.length){toast="No available driver meets this load capacity.";render();return;}
-   const choice=window.prompt("Assign driver by number:\\n"+available.map((d,i)=>(i+1)+". "+d.name+" · "+d.truckPlate).join("\\n"),"1");
+   const choice=window.prompt("Assign driver by number:\n"+available.map((d,i)=>(i+1)+". "+d.name+" · "+d.truckPlate).join("\n"),"1");
    if(choice===null)return;
    const index=Number(choice)-1;if(!Number.isInteger(index)||!available[index]){toast="Choose a valid driver number.";render();return;}
    done(()=>core.assign(data,id,available[index].id),"Load assigned to "+available[index].name+".");return;
