@@ -234,6 +234,7 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
   const [companyName, setCompanyName] = useState(lead.company_name);
   const [contextBrief, setContextBrief] = useState(lead.lead_brief || '');
   const [contextDetails, setContextDetails] = useState(lead.important_details || '');
+  const [researchGuideOpen, setResearchGuideOpen] = useState(false);
   const [contextFacts, setContextFacts] = useState(lead.lead_facts || []);
   const [newFactLabel, setNewFactLabel] = useState('');
   const [newFactValue, setNewFactValue] = useState('');
@@ -541,12 +542,27 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
           </button>
           {editingContext && <form onSubmit={(e)=>void saveContext(e)}
             className="mt-3 space-y-3">
+            <div className="rounded-lg border border-slate-200 p-3 text-xs dark:border-slate-700">
+              <button type="button" aria-expanded={researchGuideOpen}
+                onClick={()=>setResearchGuideOpen(open=>!open)}
+                className="font-semibold text-emerald-700 dark:text-emerald-300">
+                {researchGuideOpen ? 'Hide research examples' : 'Research guide & examples'}
+              </button>
+              {researchGuideOpen && <div className="mt-2 space-y-2 text-slate-600 dark:text-slate-300">
+                <p><strong>Brief:</strong> One sentence describing the business and its operating area.</p>
+                <p><strong>Important details:</strong> Short operational context, technology claims, uncertainties and what to establish on the call.</p>
+                <p><strong>Facts:</strong> One label/value per attribute, e.g. Fleet size: 100+ trucks (company-reported); Employees: 150 (company-reported); Software: vendor unverified.</p>
+                <p><strong>Evidence:</strong> Distinguish independently verified, company-reported, third-party-reported, unverified and unknown. A responsive site is not evidence of a native app; partner fleets are not owned fleets.</p>
+              </div>}
+            </div>
             <label className="block text-xs font-semibold">Lead brief (220 characters)
               <textarea className={input} rows={2} maxLength={220} value={contextBrief}
+                placeholder="e.g. Mombasa-based cargo transporter serving regional routes."
                 onChange={(e)=>setContextBrief(e.target.value)} />
             </label>
             <label className="block text-xs font-semibold">Important details
               <textarea className={input} rows={4} maxLength={5000} value={contextDetails}
+                placeholder="e.g. Reports GPS tracking; vendor and management app unverified. Ask how dispatch works."
                 onChange={(e)=>setContextDetails(e.target.value)} />
             </label>
             <div className="space-y-2">
@@ -560,12 +576,12 @@ function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
               </div>)}
               <label className="block text-xs font-semibold">Fact label
                 <input className={input} maxLength={80} value={newFactLabel}
-                  placeholder="e.g. Current system"
+                  placeholder="e.g. Fleet size"
                   onChange={(e)=>setNewFactLabel(e.target.value)}/>
               </label>
               <label className="block text-xs font-semibold">Fact value
                 <input className={input} maxLength={300} value={newFactValue}
-                  placeholder="e.g. Google Sheets"
+                  placeholder="e.g. 100+ trucks — company-reported"
                   onChange={(e)=>setNewFactValue(e.target.value)}/>
               </label>
               <button type="button" disabled={contextFacts.length>=12 || !newFactLabel.trim() ||
