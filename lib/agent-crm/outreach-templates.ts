@@ -22,6 +22,6 @@ export function automotivePartsEmailTemplate(companyName: string): OutreachEmail
       'Best regards,',
       'Joel Mbaka',
       'JoelTechGeek',
-    ].join('\\n'),
+    ].join('\n'),
   };
 }
