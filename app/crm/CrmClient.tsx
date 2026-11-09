@@ -10,6 +10,7 @@ import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcom
 import type { Agent, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
 import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
 import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
+import { automotivePartsEmailTemplate } from '@/lib/agent-crm/outreach-templates';
 import { AddLeadModal } from './AddLeadModal';
 import { LeadContactsPanel } from './LeadContactsPanel';
 
@@ -219,6 +220,8 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [classificationError, setClassificationError] = useState('');
   const [error, setError] = useState('');
   const [planFromCall, setPlanFromCall] = useState(false);
+  const [copiedEmailPart, setCopiedEmailPart] = useState<'subject' | 'body' | null>(null);
+  const [emailCopyError, setEmailCopyError] = useState('');
 
   const [editingFollowup, setEditingFollowup] = useState(false);
   const [followupAction, setFollowupAction] = useState(lead.next_action || '');
@@ -405,6 +408,19 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const primaryContact = contacts?.find((contact) => contact.is_primary);
   const primaryDisplay = contacts === null ? lead.contact_name : primaryContact?.name;
   const primaryPhone = contacts === null ? lead.phone : primaryContact?.phone;
+  const autoPartsEmail = lead.industry === 'Automotive Parts & Supplies'
+    ? automotivePartsEmailTemplate(companyName)
+    : null;
+  async function copyEmailPart(part: 'subject' | 'body') {
+    if (!autoPartsEmail) return;
+    setEmailCopyError('');
+    try {
+      await navigator.clipboard.writeText(autoPartsEmail[part]);
+      setCopiedEmailPart(part);
+    } catch {
+      setEmailCopyError('Clipboard unavailable. Select and copy the text shown below.');
+    }
+  }
   async function refreshContacts() {
     const data = await api<{ ok: boolean; contacts: LeadContact[] }>('/api/agent-crm/leads/' + lead.id);
     setContacts(data.contacts);
@@ -505,6 +521,33 @@ function LeadDialog({ lead, onClose, onSaved }: {
           </p>
         ) : (
           <>
+            {autoPartsEmail && (
+              <details className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
+                  POS & inventory email template
+                </summary>
+                <div className="mt-4 space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Subject</p>
+                    <p className="mt-1 break-words text-sm">{autoPartsEmail.subject}</p>
+                    <button type="button" onClick={() => void copyEmailPart('subject')}
+                      className="mt-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-white dark:border-slate-700 dark:hover:bg-slate-800">
+                      {copiedEmailPart === 'subject' ? 'Subject copied' : 'Copy subject'}
+                    </button>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Message</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-sm leading-6">{autoPartsEmail.body}</pre>
+                    <button type="button" onClick={() => void copyEmailPart('body')}
+                      className="mt-3 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-white dark:border-slate-700 dark:hover:bg-slate-800">
+                      {copiedEmailPart === 'body' ? 'Message copied' : 'Copy message'}
+                    </button>
+                  </div>
+                  {emailCopyError && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{emailCopyError}</p>}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Confirm the greeting before sending. Copying does not log an email or update this lead.</p>
+                </div>
+              </details>
+            )}
             {/* Scheduling is not another phone call. */}
             <section className="mt-6 rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-800/50 dark:bg-sky-950/20">
               <div className="flex flex-wrap items-start justify-between gap-3">
