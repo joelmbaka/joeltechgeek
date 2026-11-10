@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import type { Lead } from '@/lib/agent-crm/types';
 
@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ id: string }> };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function fail(error: string, status: number) {
   return NextResponse.json({ ok: false, error },
@@ -20,7 +20,7 @@ function fail(error: string, status: number) {
  */
 export async function PATCH(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead.', 400);
@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: Params) {
     await client.query('BEGIN');
     const locked = await client.query<{ stage: string; do_not_contact: boolean }>(
       `SELECT stage, do_not_contact FROM public.crm_leads
-       WHERE id = $1 AND agent_id = $2 FOR UPDATE`, [id, access.agent.id],
+       WHERE id = $1 AND user_id = $2 FOR UPDATE`, [id, access.user.id],
     );
     const current = locked.rows[0];
     if (!current) {
@@ -70,24 +70,24 @@ export async function PATCH(request: Request, { params }: Params) {
     const action = status === 'competitor' ? 'Classified as competitor' : 'Reopened as prospect';
     await client.query(
       `UPDATE public.crm_leads
-       SET stage = $3, priority = CASE WHEN $3 = 'competitor' THEN 'low' ELSE 'normal' END,
+       SET stage = $3::varchar, priority = CASE WHEN $3::varchar = 'competitor' THEN 'low' ELSE 'normal' END,
            do_not_contact = false,
            next_action = NULL, next_action_at = NULL, next_action_time = NULL,
            next_action_timezone = NULL, next_action_due_at = NULL,
-           last_notes = concat_ws(E'\\n\\n', NULLIF(last_notes, ''), $4),
+           last_notes = concat_ws(E'\\n\\n', NULLIF(last_notes, ''), $4::text),
            updated_at = now()
-       WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, status, reason],
+       WHERE id = $1 AND user_id = $2`,
+      [id, access.user.id, status, reason],
     );
     await client.query(
       `INSERT INTO public.crm_lead_events
-       (lead_id, agent_id, event_type, action, notes)
-       VALUES ($1, $2, 'action_completed', $3, $4)`,
-      [id, access.agent.id, action, reason],
+       (lead_id, event_type, action, notes)
+       VALUES ($1,'action_completed', $2, $3)`,
+      [id, action, reason],
     );
     const result = await client.query<Lead>(
-      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
     return NextResponse.json({ ok: true, lead: result.rows[0] },

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { LEAD_STAGES, stageForOutcome, resolveActivityChannel } from '@/lib/agent-crm/types';
-import type { ActivityOutcome, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
+import type { ActivityOutcome, CrmUser, Lead, LeadStage, LeadStats } from '@/lib/agent-crm/types';
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
+import { getSmartPagedLeads } from '@/lib/agent-crm/work-queue';
+import { parseActionType } from '@/lib/agent-crm/action-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +18,9 @@ const CONTACT_SEARCH_COLUMN = `(SELECT string_agg(concat_ws(' ', c.name, c.phone
   FROM public.crm_lead_contacts c WHERE c.lead_id = crm_leads.id) AS contacts_search`;
 
 
-/** A paginated, server-searchable response for Android. Web GET remains unchanged. */
-async function getPagedLeads(params: URLSearchParams, agentId: string) {
+/** Paginated, server-searchable leads shared by web and Android. */
+async function getPagedLeads(params: URLSearchParams, user: CrmUser) {
+  const userId = user.id;
   const rawLimit = params.get('limit') || '25';
   const rawOffset = params.get('offset') || '0';
   if (!/^\d+$/.test(rawLimit) || !/^\d+$/.test(rawOffset))
@@ -33,13 +36,13 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
   const sort = params.get('sort') || 'recommended';
   const industry = (params.get('industry') || '').trim();
   if (!['all','due','to_call','interested'].includes(queue) ||
-      !['recommended','recent','company','priority','followup'].includes(sort) ||
+      !['recommended','recent','company','priority','followup','industry'].includes(sort) ||
       industry.length > 100) return badInput('Invalid filter.');
 
   const due = "(next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))))";
   const active = "NOT do_not_contact AND stage NOT IN ('won','lost','competitor')";
-  const filters: string[] = ['agent_id = $1'];
-  const args: unknown[] = [agentId];
+  const filters: string[] = ['user_id = $1'];
+  const args: unknown[] = [userId];
   const bind = (value: unknown) => { args.push(value); return '$' + args.length; };
   if (industry === '__uncategorized__') filters.push("btrim(industry) = ''");
   else if (industry && industry !== 'all') filters.push('industry = ' + bind(industry));
@@ -56,6 +59,9 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         'phone ILIKE ' + p + " ESCAPE '!' OR " +
         'email ILIKE ' + p + " ESCAPE '!' OR " +
         'industry ILIKE ' + p + " ESCAPE '!' OR " +
+        'city ILIKE ' + p + " ESCAPE '!' OR " +
+        'country ILIKE ' + p + " ESCAPE '!' OR " +
+        'problem_summary ILIKE ' + p + " ESCAPE '!' OR " +
         'EXISTS (SELECT 1 FROM public.crm_lead_contacts c WHERE c.lead_id=crm_leads.id ' +
         "AND (coalesce(c.name,'') ILIKE " + p + " ESCAPE '!' OR " +
         "coalesce(c.phone,'') ILIKE " + p + " ESCAPE '!' OR " +
@@ -68,10 +74,11 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
     company: "NULLIF(lower(btrim(company_name)), '') ASC NULLS LAST, lower(coalesce(contact_name,'')) ASC, id ASC",
     priority: "CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, updated_at DESC, id DESC",
     followup: 'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, id ASC',
+    industry: "lower(btrim(industry)) ASC, lower(btrim(company_name)) ASC, id ASC",
   };
   try {
     const db = getCrmPool();
-    // Build SQL + placeholders before executing. Both are scoped to agent_id.
+    // Build SQL + placeholders before executing. Both are scoped to user_id.
     const where = filters.join(' AND ');
     const countArgs = [...args];
     const lim = bind(limit + 1);
@@ -87,16 +94,16 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
         "count(*) FILTER (WHERE stage IN ('interested','meeting','proposal','negotiation'))::int AS interested, " +
         "count(*) FILTER (WHERE stage = 'meeting')::int AS meetings, " +
         "count(*) FILTER (WHERE stage = 'won')::int AS won " +
-        'FROM public.crm_leads WHERE agent_id = $1',
-        [agentId],
+        'FROM public.crm_leads WHERE user_id = $1',
+        [userId],
       ),
       db.query<{ industry: string; count: number }>(
-        "SELECT industry, count(*)::int AS count FROM public.crm_leads WHERE agent_id = $1 AND btrim(industry) <> '' GROUP BY industry ORDER BY industry",
-        [agentId],
+        "SELECT c.name AS industry, count(l.id)::int AS count FROM public.crm_business_categories c LEFT JOIN public.crm_leads l ON l.business_category_id = c.id AND l.user_id = c.user_id WHERE c.user_id = $1 GROUP BY c.id, c.name ORDER BY lower(c.name)",
+        [userId],
       ),
     ]);
     return NextResponse.json({
-      ok: true, leads: leads.rows.slice(0, limit),
+      ok: true, user, leads: leads.rows.slice(0, limit),
       has_more: leads.rows.length > limit, filtered_total: filteredCount.rows[0]?.total ?? 0, limit, offset,
       stats: summary.rows[0], industries: industryRows.rows.map((row) => row.industry),
       industry_counts: Object.fromEntries(industryRows.rows.map((row) => [row.industry, row.count])),
@@ -105,23 +112,24 @@ async function getPagedLeads(params: URLSearchParams, agentId: string) {
 }
 
 export async function GET(request: Request) {
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
 
   const searchParams = new URL(request.url).searchParams;
+  if (searchParams.has('view')) return getSmartPagedLeads(searchParams, access.user);
   if (searchParams.has('limit')) {
-    return getPagedLeads(searchParams, access.agent.id);
+    return getPagedLeads(searchParams, access.user);
   }
   try {
     const db = getCrmPool();
     const [leadsResult, statsResult] = await Promise.all([
       db.query<Lead>(
         'SELECT ' + LEAD_COLUMNS + ', ' + CONTACT_SEARCH_COLUMN +
-        ' FROM public.crm_leads WHERE agent_id = $1 ' +
+        ' FROM public.crm_leads WHERE user_id = $1 ' +
         "ORDER BY CASE WHEN next_action_at IS NOT NULL AND ((next_action_due_at IS NOT NULL AND next_action_due_at <= now()) OR (next_action_due_at IS NULL AND next_action_at <= ((now() AT TIME ZONE COALESCE(next_action_timezone, 'Africa/Nairobi'))::date))) THEN 0 " +
         'WHEN last_contacted_at IS NULL THEN 1 ELSE 2 END, ' +
         'next_action_at ASC NULLS LAST, next_action_due_at ASC NULLS LAST, updated_at DESC LIMIT 1000',
-        [access.agent.id],
+        [access.user.id],
       ),
       db.query<LeadStats>(
         `SELECT count(*)::int AS total,
@@ -138,15 +146,16 @@ export async function GET(request: Request) {
            )::int AS interested,
            count(*) FILTER (WHERE stage = 'meeting')::int AS meetings,
            count(*) FILTER (WHERE stage = 'won')::int AS won
-         FROM public.crm_leads WHERE agent_id = $1`,
-        [access.agent.id],
+         FROM public.crm_leads WHERE user_id = $1`,
+        [access.user.id],
       ),
     ]);
 
     return NextResponse.json(
       {
         ok: true,
-        agent: access.agent,
+        user: access.user,
+        agent: access.user, // Legacy response alias for older web client
         leads: leadsResult.rows,
         stats: statsResult.rows[0],
         has_more: (statsResult.rows[0]?.total || 0) > leadsResult.rows.length,
@@ -180,7 +189,7 @@ function normalizedUrl(value: string): string | null {
 
 export async function POST(request: Request) {
   if (!validCrmWriteOrigin(request)) return badInput('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
 
   let body: Record<string, unknown>;
@@ -217,7 +226,6 @@ export async function POST(request: Request) {
 
   const identity = normalizeLeadIdentity(body);
   if (!identity.ok) return badInput(identity.error);
-  if (!values.country) return badInput('Country is required.');
   const priority = values.priority || 'normal';
   const stageValue = values.stage || 'new';
   if (!['high', 'normal', 'low'].includes(priority)) return badInput('Invalid priority.');
@@ -241,6 +249,8 @@ export async function POST(request: Request) {
   if (!parsedSchedule.ok) return badInput(parsedSchedule.error);
   const schedule = parsedSchedule.value;
   const dueDate = schedule.next_action_at;
+  const parsedType = parseActionType(body.next_action_type, values.next_action);
+  if (!parsedType.ok) return badInput(parsedType.error);
   if (dueDate && !values.next_action) return badInput('Enter a next action for this date.');
   const stage = outcome
     ? stageForOutcome(stageValue as LeadStage, outcome as ActivityOutcome)
@@ -249,15 +259,15 @@ export async function POST(request: Request) {
   let client: PoolClient | undefined;
   try {
     // Validate before acquiring a transaction connection to avoid pool starvation.
-    if (values.industry && !(await canUseBusinessCategory(access.agent.id, values.industry))) {
+    if (values.industry && !(await canUseBusinessCategory(access.user.id, values.industry))) {
       return badInput('Choose a saved business category or create a new one.');
     }
     client = await getCrmPool().connect();
     await client.query('BEGIN');
 
-    // Agent ownership always comes from the verified cookie, never the body.
+    // User ownership comes from the authenticated session, never the request body.
     const columns = [
-      'agent_id', 'company_name', 'industry', 'country', 'city', 'website',
+      'user_id', 'company_name', 'industry', 'country', 'city', 'website',
       'contact_name', 'contact_role', 'phone', 'email', 'existing_system',
       'problem_summary', 'qualification_reason', 'source_url', 'priority',
       'stage', 'last_outcome_v2', 'last_notes', 'next_action', 'next_action_at',
@@ -266,7 +276,7 @@ export async function POST(request: Request) {
     ] as const;
     const nullIfEmpty = (value: string) => value || null;
     const params = [
-      access.agent.id, identity.identity.company_name, values.industry, values.country,
+      access.user.id, identity.identity.company_name, values.industry, values.country,
       nullIfEmpty(values.city), nullIfEmpty(values.website),
       nullIfEmpty(identity.identity.contact_name), nullIfEmpty(values.contact_role),
       nullIfEmpty(values.phone), nullIfEmpty(values.email),
@@ -288,6 +298,13 @@ export async function POST(request: Request) {
       params,
     );
     const id = inserted.rows[0].id;
+    const brief = body.lead_brief;
+    if (brief !== undefined && (typeof brief !== 'string' || brief.length > 220)) {
+      await client.query('ROLLBACK'); return badInput('Lead brief must be under 220 characters.');
+    }
+    if (brief !== undefined || parsedType.value !== null) await client.query(
+      'UPDATE public.crm_leads SET lead_brief=$2, next_action_type=$3 WHERE id=$1 AND user_id=$4',
+      [id, typeof brief === 'string' ? brief.trim() || null : null, parsedType.value, access.user.id]);
 
     // Persist the first contact in the dedicated table, preserving legacy
     // fields on the lead as the primary contact snapshot for older clients.
@@ -311,22 +328,22 @@ export async function POST(request: Request) {
     if (outcome) {
       await client.query(
         `INSERT INTO public.crm_lead_events
-          (lead_id, agent_id, event_type, outcome, notes, next_action, next_action_at,
+          (lead_id, event_type, outcome, notes, next_action, next_action_at,
            next_action_time, next_action_timezone, next_action_due_at,
-           contact_id, contact_name_snapshot, channel)
-          VALUES ($1, $2, 'outreach', $3, $4, $5, $6::date, $7::time, $8,
-            ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10, $11)`,
-        [id, access.agent.id, outcome, nullIfEmpty(values.notes),
+           contact_id, contact_name_snapshot, channel, next_action_type)
+          VALUES ($1,'outreach', $2, $3, $4, $5::date, $6::time, $7,
+            ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10, $11)`,
+        [id, outcome, nullIfEmpty(values.notes),
           nullIfEmpty(values.next_action), dueDate, schedule.next_action_time, schedule.next_action_timezone,
           primaryContactId, primaryContactId
             ? (identity.identity.contact_name || values.phone || values.email || values.contact_role || 'Contact')
-            : null, channel],
+            : null, channel, parsedType.value],
       );
     }
     const read = await client.query<Lead>(
       'SELECT ' + LEAD_COLUMNS +
-      ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
 

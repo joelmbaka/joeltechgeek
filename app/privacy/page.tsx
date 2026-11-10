@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | JoelTechGeek CRM & Website',
-  description: 'How Joeltech Geek Systems collects, uses, protects and handles personal information on its website and JoelTechGeek CRM Android app.',
+  title: 'Privacy Policy | CallsBound & JoelTechGeek Website',
+  description: 'How Joeltech Geek Systems collects, uses, protects and handles personal information on its website and CallsBound Android app.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     type: 'website',
     url: '/privacy',
-    title: 'Privacy Policy | JoelTechGeek CRM & Website',
-    description: 'Privacy information for JoelTechGeek CRM and the Joeltech Geek Systems website.',
+    title: 'Privacy Policy | CallsBound & JoelTechGeek Website',
+    description: 'Privacy information for CallsBound and the Joeltech Geek Systems website.',
   },
 };
 
@@ -37,7 +37,7 @@ const sections = [
     id: 'sign-in-and-app',
     title: '3. Google sign-in, mobile storage and notifications',
     paragraphs: [
-      'The JoelTechGeek CRM Android app uses Google sign-in for approved agents. Google verifies identity; the CRM checks the registered email against its own access list. A separate fictional review workspace may be available to app reviewers.',
+      'The CallsBound Android app uses Google sign-in for approved agents. Google verifies identity; the CRM checks the registered email against its own access list. A separate fictional review workspace may be available to app reviewers.',
       'The Android app stores a refresh token in device-protected secure storage to keep you signed in. CRM leads and contact lists are fetched from the server rather than maintained as a separate local lead database.',
       'If you grant notification permission, the app can schedule local reminders for your follow-ups. Reminder messages are generic; opening a reminder fetches current lead information from the server. You can disable notifications in Android settings.',
       'The CRM does not require access to your device contacts, precise GPS location, microphone or photographs for its core functions.',
@@ -73,7 +73,7 @@ const sections = [
     title: '7. Your choices, rights and deletion requests',
     paragraphs: [
       'You may request access to, correction of, or deletion of personal information we hold about you, or object to certain uses of it, subject to applicable law. Business contacts can ask us to stop outreach or correct inaccurate contact details.',
-      'For a JoelTechGeek CRM agent account, email us from your registered address with the subject "CRM account and data deletion". We will verify the request and explain any information that must be retained for legal or legitimate record-keeping reasons. Removing the app from your phone does not delete server-held records.',
+      'For a CallsBound agent account, email us from your registered address with the subject "CRM account and data deletion". We will verify the request and explain any information that must be retained for legal or legitimate record-keeping reasons. Removing the app from your phone does not delete server-held records.',
       'To make a privacy request, write to mbakajoe26@gmail.com. You do not need to provide a password or Google authentication token. We may ask for reasonable information to verify that a request concerns your own data.',
     ],
   },
@@ -102,12 +102,12 @@ export default function PrivacyPage() {
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Privacy Policy
           </h1>
-          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Effective date: 3 November 2026</p>
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Effective date: 7 November 2026</p>
           <p className="mt-6 text-base leading-8 text-gray-700 dark:text-gray-300">
             This policy describes how <strong className="text-gray-900 dark:text-white">Joeltech Geek Systems</strong>,
             a business based in Kenya and founded by Joel Mbaka, handles personal information in connection
             with the public website at joeltechgeek.com, the private web CRM and the
-            <strong className="text-gray-900 dark:text-white"> JoelTechGeek CRM</strong> Android app.
+            <strong className="text-gray-900 dark:text-white"> CallsBound</strong> Android app.
           </p>
           <p className="mt-3 text-sm leading-7 text-gray-600 dark:text-gray-400">
             It does not replace the separate privacy policies of unrelated apps or products shown in our portfolio.

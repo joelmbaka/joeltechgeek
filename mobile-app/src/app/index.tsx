@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { FlatList, Image, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { FlatList, Image, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { LoadingState } from '@/components/LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useUIStyles } from '@/components/ui';
@@ -14,6 +15,8 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import { useDailyMantra } from '@/lib/dailyMantra';
 import type { Lead, LeadList } from '@/lib/types';
+import { outcomeLabel, activityChannelLabel } from '@/lib/types';
+import { formatFollowupDue } from '@/lib/followup-display';
 
 // Keep the review login flow intact for future Play review submissions.
 // Switch to true when reviewer access must be visible in a new Android build.
@@ -24,12 +27,14 @@ function todayLabel(date: Date): string {
     weekday: 'short', month: 'short', day: 'numeric',
   }).format(date).replace(',', '');
 }
-const SORTS: SelectOption[] = [
-  { value: 'recommended', label: 'Default' },
-  { value: 'recent', label: 'Recent' },
-  { value: 'company', label: 'A–Z' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'followup', label: 'Follow-up' },
+const WORK_VIEWS: SelectOption[] = [
+  { value: 'for_you', label: 'For You' },
+  { value: 'to_call', label: 'To Call' },
+  { value: 'followups', label: 'Follow-ups' },
+  { value: 'done_today', label: 'Done Today' },
+  { value: 'priority', label: 'High Priority' },
+  { value: 'all', label: 'All Leads' },
+  { value: 'closed', label: 'Closed & Excluded' },
 ];
 
 function BrandMark({ dark }: { dark: boolean }) {
@@ -39,7 +44,7 @@ function BrandMark({ dark }: { dark: boolean }) {
     source={dark ? require('../../assets/images/auth-logo-dark.png') : require('../../assets/images/auth-logo.png')}
     style={{ width: 108, height: 108, alignSelf: 'center' }}
     resizeMode="contain"
-    accessibilityLabel="JoelTechGeek logo" />;
+    accessibilityLabel="CallsBound logo" />;
 }
 
 export default function HomeScreen() {
@@ -47,14 +52,19 @@ export default function HomeScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
   const { mantra, now } = useDailyMantra();
-  const { ready, agent, login, reviewLogin, error: authError } = useAuth();
+  const { ready, user, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
   const [offset, setOffset] = useState(0);
-  const [queue, setQueue] = useState('all');
+  const [view, setView] = useState('for_you');
+  const [closedStatus, setClosedStatus] = useState('all');
   const [industry, setIndustry] = useState('all');
-  const [sort, setSort] = useState('recommended');
+  const [alphabetical, setAlphabetical] = useState(false);
+  // Snapshot the exact API view and ordering the user is looking at.
+  const apiView = view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
+    view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view;
   const [data, setData] = useState<LeadList | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -64,14 +74,29 @@ export default function HomeScreen() {
   const requestVersion = useRef(0);
   const listRef = useRef<FlatList<Lead>>(null);
   const listHeaderHeight = useRef(0);
+  const searchRowY = useRef(0);
+  const searchFocused = useRef(false);
   const pendingPageScroll = useRef(false);
 
-  useEffect(() => { setOffset(0); }, [debounced, queue, industry, sort]);
+  useEffect(() => { setOffset(0); }, [debounced, view, closedStatus, industry, alphabetical]);
+
+  // The search input sits below the dashboard controls inside the FlatList header.
+  // When Android opens the keyboard, scroll the actual input into view.
+  useEffect(() => {
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (!searchFocused.current) return;
+      listRef.current?.scrollToOffset({
+        offset: Math.max(0, searchRowY.current + 14 - 24),
+        animated: true,
+      });
+    });
+    return () => subscription.remove();
+  }, []);
 
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
   useEffect(() => {
-    if (!ready || agent) { setReviewAvailable(false); return; }
+    if (!ready || user) { setReviewAvailable(false); return; }
     const controller = new AbortController();
     void fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
       signal: controller.signal, cache: 'no-store',
@@ -82,17 +107,19 @@ export default function HomeScreen() {
         if (!controller.signal.aborted) setReviewAvailable(false);
       });
     return () => controller.abort();
-  }, [ready, agent?.id]);
+  }, [ready, user?.id]);
 
   const fetchPage = useCallback((signal: AbortSignal) => {
-    if (!agent) return;
+    if (!user) return;
     const version = ++requestVersion.current;
     setLoading(true);
     setMessage(null);
     setData(null); // Never show a previous page as current during a new request.
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
-      q: debounced, queue, industry, sort,
+      q: debounced,
+      view: apiView,
+      industry, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
       .then((result) => {
@@ -109,7 +136,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [agent?.id, offset, debounced, queue, industry, sort]);
+  }, [user?.id, offset, debounced, apiView, industry]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -134,6 +161,12 @@ export default function HomeScreen() {
     fetchPage(new AbortController().signal);
   };
   const openLead = (id: string) => {
+    // Snapshot before clearing the list: a save may reorder or remove this lead.
+    const queueIds = (data?.leads || []).map(row => row.id);
+    const queueOffset = offset;
+    const queueMore = data?.has_more === true;
+    const queueQuery = debounced;
+    const queueView = apiView;
     // Prepare the list's loading state BEFORE navigating. The underlying
     // screen remains mounted in the stack; when Android Back returns, users
     // immediately see skeleton cards, not stale results or an empty viewport.
@@ -143,7 +176,11 @@ export default function HomeScreen() {
     // Returning from a searched lead should show the ordinary lead list.
     setSearch('');
     setOffset(0);
-    router.push({ pathname: '/leads/[id]', params: { id } });
+    router.push({ pathname: '/leads/[id]', params: {
+      id, view, industry, queueIds: queueIds.join(','),
+      queueOffset: String(queueOffset), queueMore: queueMore ? '1' : '0',
+      queueView, queueQuery,
+    } });
   };
 
   const openReview = async () => {
@@ -155,7 +192,7 @@ export default function HomeScreen() {
   if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
     <LoadingState label="Restoring your session…" fullScreen/>
   </SafeAreaView>;
-  if (!agent) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+  if (!user) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ flex: 1, padding: 22, justifyContent: 'center', alignItems: 'center' }}>
       <View style={{
         width: '100%', maxWidth: 360, padding: 24, gap: 14,
@@ -164,7 +201,7 @@ export default function HomeScreen() {
         shadowColor: '#000', shadowOpacity: .08, shadowRadius: 16, shadowOffset: { width: 0, height: 5 },
       }}>
         <BrandMark dark={brandScheme === 'dark'}/>
-        <Text style={[styles.title, { textAlign: 'center', fontSize: 22 }]}>JoelTechGeek CRM</Text>
+        <Text style={[styles.title, { textAlign: 'center', fontSize: 22 }]}>CallsBound</Text>
         <Text style={[styles.subtitle, { textAlign: 'center', marginBottom: 6 }]}>Sign in to continue</Text>
         {authError ? <Text style={[styles.error, { textAlign: 'center' }]}>{authError}</Text> : null}
         <Button onPress={() => void login()}>Continue with Google</Button>
@@ -176,20 +213,23 @@ export default function HomeScreen() {
   </SafeAreaView>;
 
   const stats = loading ? null : data?.stats || null;
-  const queueOptions: SelectOption[] = [
-    { value: 'all', label: 'All leads' },
-    { value: 'to_call', label: 'To call' },
-    { value: 'due', label: 'Follow-ups due' },
-    { value: 'interested', label: 'Interested' },
-  ];
+  // Counts are global to this user's leads (not the current filtered page).
+  const categoryCounts = data?.industry_counts;
+  const categorizedCount = Object.values(categoryCounts || {})
+    .reduce((total, count) => total + count, 0);
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All categories' },
-    { value: '__uncategorized__', label: 'No category' },
-    ...(data?.industries || (industry === 'all' ? [] : [industry])).map((name) => ({
-      value: name, label: name,
-    })),
+    { value: 'all', label: 'All categories', count: data?.industries?.length },
+    ...[...(data?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry]))]
+      .sort((a, b) => (categoryCounts?.[b] ?? 0) - (categoryCounts?.[a] ?? 0) || a.localeCompare(b))
+      .map((name) => ({
+        value: name, label: name, count: categoryCounts?.[name] ?? 0,
+      })),
+    { value: '__uncategorized__', label: 'Other',
+      count: data?.stats?.total === undefined ? undefined :
+        Math.max(0, data.stats.total - categorizedCount) },
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerHeight}>
     <FlatList
       ref={listRef}
       data={loading ? [] : (data?.leads || [])}
@@ -232,16 +272,16 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', gap: 9 }}>
           {([
             { label: 'To call', value: stats?.to_call, queue: 'to_call' },
-            { label: 'Follow-ups due', value: stats?.followups_due, queue: 'due' },
+            { label: 'Follow-ups due', value: stats?.followups_due, queue: 'followups' },
           ] as const).map((metric) => (
             <Pressable key={metric.queue}
               accessibilityRole="button"
               accessibilityLabel={metric.label + ', ' + (metric.value ?? 'loading') + ' leads'}
-              onPress={() => setQueue(metric.queue)}
+              onPress={() => setView(metric.queue)}
               style={[styles.card, {
                 flex: 1, minWidth: 0, minHeight: 70, paddingHorizontal: 13,
                 paddingVertical: 10, gap: 5,
-                borderColor: queue === metric.queue ? theme.primary : theme.border,
+                borderColor: view === metric.queue ? theme.primary : theme.border,
               }]}>
               <Text numberOfLines={1} style={[styles.label, { fontSize: 12 }]}>
                 {metric.label}
@@ -257,14 +297,23 @@ export default function HomeScreen() {
         </View>
         <View style={{ flexDirection: 'row', gap: 9 }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <SelectSheet title="Work queue" value={queue}
-              options={queueOptions} onChange={setQueue}/>
+            <SelectSheet title="View" value={view} options={WORK_VIEWS}
+              onChange={setView}/>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="Business category" value={industry}
-              options={industryOptions} onChange={setIndustry} searchable/>
+              options={industryOptions} onChange={setIndustry} searchable
+              loading={loading} loadingError={message}/>
           </View>
         </View>
+        {view === 'closed' ? <SelectSheet title="Closed status" value={closedStatus}
+          onChange={setClosedStatus} options={[
+            {value:'all',label:'All closed & excluded'},
+            {value:'competitor',label:'Competitors'},
+            {value:'dnc',label:'Do Not Contact'},
+            {value:'won',label:'Won'},
+            {value:'lost',label:'Lost'},
+          ]}/> : null}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
           justifyContent: 'space-between', gap: 8, marginTop: 2,
@@ -277,15 +326,25 @@ export default function HomeScreen() {
             }}>
             {mantra}
           </Text>
-          <SelectSheet title="Sort" value={sort}
-            options={SORTS} onChange={setSort} compact/>
+          {view === 'all' ? <Pressable accessibilityRole="button"
+            onPress={() => setAlphabetical((v) => !v)}
+            style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10,
+              borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceMuted }}>
+            <Text style={{ color: theme.ink, fontSize: 12, fontWeight: '700' }}>
+              {alphabetical ? 'Recent' : 'A–Z'}
+            </Text>
+          </Pressable> : null}
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
+          onLayout={(event) => { searchRowY.current = event.nativeEvent.layout.y; }}>
           <TextInput
             style={[styles.input, { flex: 1 }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search leads"
+            onFocus={() => { searchFocused.current = true; }}
+            onBlur={() => { searchFocused.current = false; }}
+            onSubmitEditing={Keyboard.dismiss}
+            placeholder="Search company, contact, phone or email"
             placeholderTextColor={theme.muted}
             autoCapitalize="none" autoCorrect={false}
             returnKeyType="search"
@@ -339,32 +398,73 @@ export default function HomeScreen() {
           </View>
         </View> : undefined}
     />
+    </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
 function LeadRow({ lead, onPress }: { lead: Lead; onPress: () => void }) {
   const theme = useTheme();
   const styles = useUIStyles();
+  const lastActivity = lead.last_outcome
+    ? 'Last ' + activityChannelLabel(lead.last_activity_channel, lead.last_outcome) +
+      ': ' + outcomeLabel(lead.last_outcome)
+    : 'Not contacted';
+  const dueTime = lead.next_action_at ? formatFollowupDue(lead) : null;
+  const due = lead.work_state === 'due';
+  const statusText: Record<string,string> = {
+    done_today:'Done today', cooldown:'Retry cooldown',
+    fix_contact:'Correct contact details', review:'Retry needs review',
+    needs_next_step:'Needs next step', closed:'Closed',
+  };
+  const extraStatus = statusText[lead.work_state || ''];
   return <Pressable accessibilityRole="button"
-    accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')} onPress={onPress} style={styles.card}>
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{lead.company_name || lead.contact_name || 'Unnamed lead'}</Text>
-      <PriorityChip priority={lead.priority}/>
+    accessibilityLabel={'Open ' + (lead.company_name || lead.contact_name || 'Unnamed lead')}
+    onPress={onPress} style={styles.card}>
+    <View style={{flexDirection:'row',alignItems:'flex-start',gap:8}}>
+      <Text style={[styles.value,{flex:1,minWidth:0,fontSize:16}]} numberOfLines={2}>
+        {lead.company_name || lead.contact_name || 'Unnamed lead'}
+      </Text>
+      <View style={{flexDirection:'row',alignItems:'center',gap:5,flexShrink:0}}>
+        {due ? <View style={{borderRadius:15,borderWidth:1,
+          borderColor:theme.dueBorder,backgroundColor:theme.dueBg,
+          paddingHorizontal:7,paddingVertical:4}}>
+          <Text style={{color:theme.dueText,fontWeight:'800',fontSize:11}}>Due now</Text>
+        </View> : null}
+        <PriorityChip priority={lead.priority}/>
+      </View>
     </View>
-    <Text style={styles.subtitle}>
+    <Text style={styles.subtitle} numberOfLines={2}>
       {lead.company_name ? (lead.contact_name || 'No contact') : (lead.contact_role || 'No company')}
       {lead.industry ? ' · ' + lead.industry : ''}
     </Text>
-    {lead.phone ? <Text style={styles.subtitle}>{lead.phone}</Text> : null}
-    <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5,
-      backgroundColor: theme.surfaceMuted, borderColor: lead.stage === 'competitor' ? theme.warning : theme.border,
-      borderWidth: 1, borderRadius: 20 }}>
-      <Text style={[styles.label, { color: lead.stage === 'competitor' ? theme.warning : theme.muted, textTransform: 'capitalize' }]}>
-        {lead.stage.replace(/_/g, ' ')}
-      </Text>
-    </View>
-    {lead.next_action ? <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>
-      Next: {lead.next_action}{lead.next_action_at ? ' · ' + lead.next_action_at : ''}
+    {lead.lead_brief || lead.problem_summary ? <Text numberOfLines={2}
+      style={{color:theme.ink,fontSize:13,lineHeight:19}}>
+      {lead.lead_brief || lead.problem_summary}
     </Text> : null}
+    <View style={{flexDirection:'row',alignItems:'center',flexWrap:'wrap',gap:7}}>
+      <View style={{paddingHorizontal:9,paddingVertical:5,
+        backgroundColor:theme.surfaceMuted,
+        borderColor:lead.stage==='competitor'?theme.warning:theme.border,
+        borderWidth:1,borderRadius:20}}>
+        <Text style={[styles.label,{
+          color:lead.stage==='competitor'?theme.warning:theme.muted,
+          textTransform:'capitalize',
+        }]}>{lead.stage.replace(/_/g,' ')}</Text>
+      </View>
+      <Text style={[styles.subtitle,{flexShrink:1,fontSize:12}]} numberOfLines={2}>
+        {lastActivity}
+      </Text>
+      {extraStatus && !lead.next_action_at ? <Text style={{
+        color:extraStatus==='Correct contact details'?theme.warning:theme.muted,
+        fontSize:12,fontWeight:'700',
+      }}>· {extraStatus}</Text> : null}
+    </View>
+    {lead.next_action ? <View style={{gap:5,marginTop:2}}>
+      <Text numberOfLines={2} style={{color:theme.primaryDark,fontWeight:'700',fontSize:13}}>
+        Next: {lead.next_action}
+      </Text>
+      {dueTime ? <Text style={[styles.subtitle,{fontSize:12}]}>◷ {dueTime}</Text> : null}
+    </View> : lead.retry_eligible_at && lead.work_state==='cooldown' ?
+      <Text style={styles.subtitle}>Retry eligible: {lead.retry_eligible_at}</Text> : null}
   </Pressable>;
 }

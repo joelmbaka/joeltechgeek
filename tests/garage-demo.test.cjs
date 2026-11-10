@@ -1,0 +1,604 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const demoDir = path.join(__dirname, '..', 'public', 'demos', 'garage');
+const source = fs.readFileSync(path.join(demoDir, 'core.js'), 'utf8');
+const c = vm.runInNewContext(source + '\n;garageCore', {});
+
+function createDiagnosed() {
+  const d = c.seed();
+  const owner = c.createCustomer(d, { name: 'Demo Client', phone: '0712345678' });
+  const vehicle = c.createVehicle(d, {
+    customerId: owner.id, plate: 'KDW 900Q', model: 'Toyota Fielder',
+    year: 2018, mileage: 84000,
+  });
+  const t = c.createTicket(d, {vehicleId: vehicle.id, complaint: 'Brake noise while stopping'});
+  c.diagnose(d, t.id, {findings: 'Front brake pads worn and fluid needs replacement', feasible: 'yes'});
+  return { d, t };
+}
+function approveWithPart(d,t,quantity=1) {
+  c.addService(d,t.id,{description:'Replace worn pads',quantity:1,unitPrice:2100,discount:0,kind:'repair'});
+  c.requireInventory(d,t.id,'SKU-1',quantity,0);
+  c.requestApproval(d,t.id);c.approve(d,t.id);
+}
+function issue(d,t,item='SKU-1',qty=1) {
+  c.addToCart(d,t.id,item,qty,0);
+  return c.issueCart(d,t.id);
+}
+test('fixture has complete modules and realistic starting tickets', () => {
+  const d=c.seed();
+  assert.equal(c.valid(d),true);
+  assert.ok(d.tickets.length>=7);
+  assert.ok(d.inventory.some(x=>x.quantity===0));
+  assert.ok(d.tickets.some(x=>x.status==='released'));
+  assert.ok(d.tickets.some(x=>x.status==='awaiting-approval'));
+});
+test('new customer and vehicle create an open ticket without duplicate registration', () => {
+  const {d,t}=createDiagnosed();
+  assert.equal(t.status,'estimating');
+  assert.equal(c.customerFor(d,t).name,'Demo Client');
+  assert.throws(()=>c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDW 900Q',model:'Mazda Demio',year:2017,mileage:1}),/Registration already exists/);
+});
+
+test('customer can exist without a vehicle and can own multiple vehicles', () => {
+  const d=c.seed(), before=d.vehicles.length;
+  const owner=c.createCustomer(d,{name:'Amina Njeri',phone:'0712345678'});
+  assert.equal(d.vehicles.length,before);
+  assert.equal(d.customers.find(x=>x.id===owner.id).name,'Amina Njeri');
+  const one=c.createVehicle(d,{customerId:owner.id,plate:'KDW 123A',model:'Toyota Axio',year:2017,mileage:53000});
+  const two=c.createVehicle(d,{customerId:owner.id,plate:'KDW 456B',model:'Honda Fit',year:2018,mileage:72000});
+  assert.equal(one.customerId,owner.id);
+  assert.equal(two.customerId,owner.id);
+  assert.equal(d.vehicles.filter(x=>x.customerId===owner.id).length,2);
+});
+test('vehicle registration requires an existing customer and rejects duplicate plates', () => {
+  const d=c.seed();
+  assert.throws(()=>c.createVehicle(d,{customerId:'MISSING',plate:'KDW 123A',model:'Toyota Axio',year:2017,mileage:53000}),/Customer not found/);
+  assert.throws(()=>c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDM 123A',model:'Toyota Axio',year:2017,mileage:53000}),/Registration already exists/);
+});
+test('new ticket requires a registered vehicle and does not create customers', () => {
+  const d=c.seed(), count=d.customers.length;
+  assert.throws(()=>c.createTicket(d,{vehicleId:'MISSING',complaint:'Brake inspection needed'}),/Vehicle not found/);
+  const vehicle=c.createVehicle(d,{customerId:d.customers[0].id,plate:'KDW 777X',model:'Toyota Corolla',year:2016,mileage:67000});
+  const ticket=c.createTicket(d,{vehicleId:vehicle.id,complaint:'Brake inspection needed'});
+  assert.equal(ticket.vehicleId,vehicle.id);
+  assert.equal(d.customers.length,count);
+});
+test('customer and vehicle actions are kept out of new ticket dialog', () => {
+  const source=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+  const dialog=source.split('}else if(kind==="ticket"){')[1].split('}else if(kind==="appointment"){')[0];
+  assert.ok(!dialog.includes('Add customer'));
+  assert.ok(!dialog.includes('Add vehicle'));
+  assert.ok(!dialog.includes('open-customer'));
+  assert.ok(dialog.includes('Customer complaint'));
+});
+
+test('active appointment blocks direct ticket creation and converts only through booking', () => {
+  const d=c.seed(),booking=d.appointments.find(a=>a.id==='APT-23');
+  assert.equal(booking.vehicleId,'VH-9');
+  assert.throws(()=>c.createTicket(d,{vehicleId:booking.vehicleId,complaint:'Vehicle arrived for suspension inspection'}),/active appointment/i);
+  const t=c.createTicket(d,{vehicleId:booking.vehicleId,complaint:booking.concern,appointmentId:booking.id});
+  assert.equal(t.appointmentId,booking.id);
+  assert.equal(booking.ticketId,t.id);
+  assert.equal(booking.status,'Completed');
+  assert.equal(d.appointments.filter(c.activeAppointment).some(a=>a.id===booking.id),false);
+  assert.throws(()=>c.createTicket(d,{vehicleId:booking.vehicleId,complaint:booking.concern,appointmentId:booking.id}),/active ticket/i);
+});
+test('walk-in vehicle without appointment can create a ticket', () => {
+  const d=c.seed();
+  const t=c.createTicket(d,{vehicleId:'VH-8',complaint:'Routine inspection required today'});
+  assert.equal(t.vehicleId,'VH-8');
+  assert.equal(t.appointmentId,null);
+});
+test('appointment conversion cannot use another vehicle or a completed booking', () => {
+  const d=c.seed(),a=d.appointments.find(x=>x.id==='APT-23');
+  assert.throws(()=>c.createTicket(d,{vehicleId:'VH-8',complaint:a.concern,appointmentId:a.id}),/cannot be converted/i);
+  const t=c.createTicket(d,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
+  assert.equal(t.appointmentId,a.id);
+  assert.throws(()=>c.createTicket(d,{vehicleId:'VH-8',complaint:'Routine inspection required today',appointmentId:a.id}),/cannot be converted/i);
+});
+test('ticket back navigation retains Reports as the origin instead of always using Tickets', () => {
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ assert.ok(app.includes('ui.returnPage=ui.ticketId?(ui.returnPage||"tickets"):(ui.page||"tickets")'));
+ assert.ok(app.includes('navigate(ui.returnPage||"tickets")'));
+ const makeViews=vm.runInNewContext(views+'\n;garageViews',{});
+ const data=c.seed(),ticket=data.tickets.find(t=>t.invoice);
+ const base={page:'tickets',ticketId:ticket.id,tab:'overview',search:'',filter:'all',modal:null,document:null};
+ const reportTicket=makeViews(data,{...base,returnPage:'reports'},c).main();
+ assert.ok(reportTicket.includes('← Reports'));
+ const ordinaryTicket=makeViews(data,{...base,returnPage:'tickets'},c).main();
+ assert.ok(ordinaryTicket.includes('← Tickets'));
+ const dashboardTicket=makeViews(data,{...base,returnPage:'dashboard'},c).main();
+ assert.ok(dashboardTicket.includes('← Dashboard'));
+});
+test('sidebar and labels distinguish create from open', () => {
+  const source=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+  const nav=source.slice(source.indexOf('const NAV='),source.indexOf('const btn='));
+  assert.ok(nav.indexOf('"appointments"')<nav.indexOf('"tickets"'));
+  assert.ok(source.includes('Create ticket'));
+  assert.ok(source.includes('Open ticket'));
+  assert.ok(source.includes('filter(a=>c.activeAppointment(a))'));
+});
+
+test('custom part requirements never create stock or parts revenue', () => {
+ const d=c.seed(),t=c.ticket(d,'T-1042'),before=d.inventory.length;
+ const requirement=c.addRequirement(d,t.id,{description:'Imported custom steering linkage',quantity:2,itemId:null,discount:0});
+ assert.equal(requirement.itemId,null);
+ assert.equal(requirement.description,'Imported custom steering linkage');
+ assert.equal(d.inventory.length,before);
+ assert.equal(c.charges(t).parts,0);
+});
+test('catalogue name and source are separate controls with a custom-name choice', () => {
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ const form=views.slice(views.indexOf('}else if(kind==="requirement"){'),views.indexOf('}else if(kind==="cart"){'));
+ assert.ok(form.includes('select("Part name","partChoice"'));
+ assert.ok(form.includes('Not in catalogue — enter part name'));
+ assert.ok(form.includes('select("Source","source"'));
+ assert.ok(form.indexOf('select("Part name"')<form.indexOf('select("Source"'));
+ assert.ok(form.includes('custom-part-field'));
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('function syncRequirementForm(form)'));
+ assert.ok(app.includes('custom?p.description:chosen.name'));
+});
+test('five ticket tabs keep later stages visible and replace premature content with a large lock', () => {
+ const views=fs.readFileSync(path.join(demoDir,'views.js'),'utf8');
+ const makeViews=vm.runInNewContext(views+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'cart',search:'',filter:'all',modal:null,document:null};
+ const rendered=makeViews(d,ui,c).main();
+ for(const id of ['overview','diagnosis','cart','billing','history'])assert.ok(rendered.includes('data-tab="'+id+'"'));
+ assert.ok(!rendered.includes('data-tab="requirements"'));
+ assert.ok(!rendered.includes('data-tab="services"'));
+ assert.ok(rendered.includes('class="stage-lock"'));
+ assert.ok(rendered.includes('Customer approval required'));
+ assert.ok(rendered.includes('data-tab="diagnosis"'));
+ assert.ok(!rendered.includes('data-action="issue-cart"'));
+ assert.ok(!rendered.includes('Pending cart'));
+});
+test('full diagnosis workspace is visible before inspection is recorded', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ for(const label of ['1 · Inspection findings','2 · Services & labour estimate','3 · Parts Requirements & Price List','4 · Customer approval'])
+  assert.ok(html.includes(label));
+ assert.ok(html.includes('Record diagnosis'));
+ assert.ok(html.includes('Add service fee'));
+ assert.ok(html.includes('Add part'));
+ assert.ok(html.includes('disabled title="Record inspection findings first"'));
+ assert.ok(!html.includes('data-action="request-approval"'));
+ assert.ok(!html.includes('data-action="issue-cart"'));
+});
+test('diagnosis and estimate includes services, required parts and customer decision in one tab', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1042',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ for(const label of ['Inspection findings','Services & labour estimate','Parts Requirements & Price List','Customer approval'])
+  assert.ok(html.includes(label));
+ assert.ok(html.includes('View diagnosis report'));
+ assert.ok(html.includes('Share diagnosis report'));
+ assert.ok(!html.includes('View / share list'));
+ assert.ok(!html.includes('id="requirements-cart"'));
+});
+test('parts cart contains only independent pending, issued and externally sourced parts', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1043',tab:'cart',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ assert.ok(!html.includes('class="stage-lock"'));
+ assert.ok(!html.includes('Select from parts requirements'));
+ assert.ok(!html.includes('Parts still required before billing'));
+ assert.ok(html.includes('Add from inventory'));
+ assert.ok(!html.includes('＋ Record outside part'));
+ assert.ok(html.includes('Parts obtained outside the garage'));
+});
+test('billing can be visited before repair completion and hosts its only complete-repair action', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1044',tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const visible=makeViews(d,ui,c).main();
+ assert.ok(!visible.includes('class="stage-lock"'));
+ assert.ok(visible.includes('Repair completion'));
+ assert.ok(visible.includes('Complete repair'));
+ assert.ok(visible.includes('Create invoice'));
+ ui.tab='diagnosis';
+ const diagnosis=makeViews(d,ui,c).main();
+ assert.ok(!diagnosis.includes('data-action="finish-repair"'));
+ ui.tab='overview';
+ const overview=makeViews(d,ui,c).main();
+ assert.ok(!overview.includes('Next action'));
+ assert.ok(!overview.includes('data-action="finish-repair"'));
+});
+
+
+test('record diagnosis is shown once outside inspection findings and no separate approval request exists', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed(),ui={page:'tickets',ticketId:'T-1041',tab:'diagnosis',search:'',filter:'all',modal:null,document:null};
+ const html=makeViews(d,ui,c).main();
+ assert.equal((html.match(/data-action="modal" data-id="diagnosis"/g)||[]).length,1);
+ assert.ok(!html.includes('Request customer approval'));
+ assert.ok(!html.includes('Next action'));
+ const ticket=makeViews(d,{...ui,ticketId:'T-1042'},c).main();
+ assert.ok(ticket.includes('Customer approved'));
+ assert.ok(ticket.includes('Customer rejected'));
+ assert.ok(!ticket.includes('Request customer approval'));
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('window.confirm?.("Confirm that the customer approved'));
+ assert.ok(app.includes('window.confirm?.("Confirm that the customer rejected'));
+});
+test('customer approval and rejection can be recorded directly after diagnosis', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Repair brake pads',quantity:1,unitPrice:800,discount:0,kind:'repair'});
+ c.approve(d,t.id);
+ assert.equal(t.approval.decision,'Approved');
+ const other=createDiagnosed();
+ c.addService(other.d,other.t.id,{description:'Repair brake pads',quantity:1,unitPrice:800,discount:0,kind:'repair'});
+ c.reject(other.d,other.t.id);
+ assert.equal(other.t.status,'rejected');
+});
+test('posting invoice before service completion does not permit early release', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ const inv=c.invoiceTicket(d,t.id);
+ assert.equal(inv.total,2950);
+ assert.equal(t.status,'invoiced');
+ c.payment(d,t.id,{amount:inv.total,method:'Cash'});
+ assert.throws(()=>c.release(d,t.id),/Complete repair before releasing/i);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'invoiced');
+ assert.equal(t.repairCompleted,true);
+ assert.equal(t.invoice.total,inv.total);
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
+});
+test('finishing repairs before invoicing also works, and invoice amount is stable', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'ready-for-billing');
+ const invoice=c.invoiceTicket(d,t.id);
+ assert.equal(invoice.total,2950);
+ c.payment(d,t.id,{amount:2950,method:'Cash'});
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
+});
+
+
+test('saving diagnosis navigates to Diagnosis & Estimate', () => {
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.",()=>{ui.tab="diagnosis";}'));
+});
+test('a pending cart item blocks invoicing but suggested parts do not', () => {
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ c.addToCart(d,t.id,'SKU-1',1,0);
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const before=makeViews(d,ui,c).main();
+ assert.ok(!before.includes('class="stage-lock"'));
+ assert.ok(!before.includes('Required parts not yet fulfilled'));
+ assert.ok(!before.includes('data-action="invoice"'));
+ assert.throws(()=>c.invoiceTicket(d,t.id),/pending cart|Clear pending cart/i);
+ c.removeCart(d,t.id,t.cart[0].id);
+ const after=makeViews(d,ui,c).main();
+ assert.ok(after.includes('Create invoice'));
+ const result=c.invoiceTicket(d,t.id);
+ assert.equal(result.total,2100);
+});
+test('recording an outside part requires no matching requirement or garage stock', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ const stockBefore=d.inventory.map(x=>x.quantity);
+ const external=c.recordOutsidePart(d,t.id,{name:'Rear bumper',quantity:1,source:'external'});
+ assert.equal(external.source,'Purchased outside');
+ assert.equal(t.externalParts.length,1);
+ assert.equal(t.cart.length,0);
+ assert.equal(t.issues.length,0);
+ assert.equal(c.charges(t).parts,0);
+ assert.equal(d.inventory.every((x,i)=>x.quantity===stockBefore[i]),true);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const h=makeViews(d,{page:'tickets',ticketId:t.id,tab:'cart',search:'',filter:'all',modal:null,document:null},c).main();
+ assert.ok(h.includes('Rear bumper'));
+ assert.ok(h.includes('Purchased outside'));
+});
+test('informational parts estimate does not prevent invoice or repair completion', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Inspect and repair steering',quantity:1,unitPrice:1500,discount:0,kind:'repair'});
+ const r=c.addRequirement(d,t.id,{description:'Suggested steering linkage',quantity:2,itemId:null});
+ c.approve(d,t.id);
+ assert.equal(t.status,'in-repair');
+ assert.equal(t.requirements.length,1);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ const inv=c.invoiceTicket(d,t.id);
+ assert.equal(inv.total,1500);
+ assert.equal(t.requirements[0].id,r.id);
+ assert.equal(t.issues.length,0);
+});
+test('outside parts received from customer are separate from estimated suggestions', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Install supplied part',quantity:1,unitPrice:1000,discount:0,kind:'repair'});
+ c.approve(d,t.id);
+ const p=c.recordOutsidePart(d,t.id,{name:'Used radiator',quantity:1,source:'customer'});
+ assert.equal(p.source,'Customer supplied');
+ assert.equal(t.requirements.length,0);
+ c.completeService(d,t.id,t.services[0].id);
+ c.finishRepair(d,t.id);
+ assert.equal(c.invoiceTicket(d,t.id).total,1000);
+});
+
+test('parts requirements are informational and do not deduct stock', () => {
+  const {d,t}=createDiagnosed();
+  const initial=c.stock(d,'SKU-1').quantity;
+  c.requireInventory(d,t.id,'SKU-1',1,100);
+  assert.equal(c.stock(d,'SKU-1').quantity,initial);
+  assert.equal(t.issues.length,0);
+  assert.equal(c.charges(t).parts,0);
+});
+test('approval required before adding cart or issuing parts', () => {
+  const {d,t}=createDiagnosed();
+  assert.throws(()=>c.addToCart(d,t.id,'SKU-1',1),/approval/i);
+  approveWithPart(d,t);
+  assert.ok(['awaiting-parts','in-repair'].includes(t.status));
+});
+test('confirming cart deducts quantity and preserves historical unit cost', () => {
+  const {d,t}=createDiagnosed();
+  approveWithPart(d,t);
+  const initial=c.stock(d,'SKU-1').quantity;
+  c.addToCart(d,t.id,'SKU-1',1,0);
+  assert.equal(c.stock(d,'SKU-1').quantity,initial);
+  const rows=c.issueCart(d,t.id);
+  assert.equal(c.stock(d,'SKU-1').quantity,initial-1);
+  assert.equal(rows[0].unitCost,520);
+  assert.equal(c.charges(t).parts,850);
+  assert.equal(c.charges(t).cost,520);
+  assert.equal(t.cart.length,0);
+});
+test('an item not on requirements can still be issued from stock', () => {
+  const {d,t}=createDiagnosed();
+  approveWithPart(d,t);
+  issue(d,t,'SKU-6',1);
+  assert.equal(c.stock(d,'SKU-6').quantity,11);
+  assert.equal(c.charges(t).parts,350);
+});
+test('returning issued stock restores quantity, sales and cost', () => {
+  const {d,t}=createDiagnosed();
+  approveWithPart(d,t,2);
+  const initial=c.stock(d,'SKU-1').quantity;
+  const [row]=issue(d,t,'SKU-1',2);
+  assert.equal(c.charges(t).parts,1700);
+  c.returnIssue(d,t.id,row.id,1);
+  assert.equal(c.stock(d,'SKU-1').quantity,initial-1);
+  assert.equal(c.charges(t).parts,850);
+  assert.equal(c.charges(t).cost,520);
+  assert.throws(()=>c.returnIssue(d,t.id,row.id,2),/exceeds issued quantity/);
+});
+test('customer-supplied actual part does not affect suggestions, stock or garage parts revenue', () => {
+ const {d,t}=createDiagnosed();
+ c.addService(d,t.id,{description:'Fit customer-provided bumper',quantity:1,unitPrice:2000,discount:0,kind:'repair'});
+ c.addRequirement(d,t.id,{description:'Rear bumper suggested',quantity:1});
+ c.approve(d,t.id);
+ const before=c.stock(d,'SKU-1').quantity;
+ const part=c.recordOutsidePart(d,t.id,{name:'Bumper supplied by customer',quantity:1,source:'customer'});
+ assert.equal(part.source,'Customer supplied');
+ assert.equal(t.requirements.length,1);
+ assert.equal(t.externalParts.length,1);
+ assert.equal(t.status,'in-repair');
+ assert.equal(c.stock(d,'SKU-1').quantity,before);
+ assert.equal(c.charges(t).parts,0);
+});
+test('rejecting an estimate does not bill uncompleted repairs', () => {
+  const {d,t}=createDiagnosed();
+  c.addService(d,t.id,{description:'Diagnosis fee',quantity:1,unitPrice:1000,discount:0,kind:'diagnosis'});
+  c.addService(d,t.id,{description:'Replacement labour',quantity:1,unitPrice:3000,discount:0,kind:'repair'});
+  c.requestApproval(d,t.id);c.reject(d,t.id,'Customer declined repair');
+  assert.equal(c.charges(t).services,1000);
+  c.invoiceTicket(d,t.id);
+  assert.equal(t.invoice.total,1000);
+  assert.throws(()=>c.release(d,t.id),/balance|settle/i);
+  c.payment(d,t.id,{amount:1000,method:'Cash'});
+  c.release(d,t.id);
+  assert.equal(t.status,'released');
+});
+test('repair unavailable can be released with no diagnosis fee', () => {
+  const d=c.seed(),t=c.ticket(d,'T-1045');
+  c.diagnose(d,t.id,{findings:'Repair equipment unavailable at this workshop',feasible:'no'});
+  assert.equal(t.status,'cannot-repair');
+  c.release(d,t.id);
+  assert.equal(t.status,'released');
+});
+test('complete repair, invoice, partial payment and release only after settlement', () => {
+  const {d,t}=createDiagnosed();
+  approveWithPart(d,t);
+  issue(d,t);
+  const sv=t.services[0];c.completeService(d,t.id,sv.id);
+  c.finishRepair(d,t.id);
+  c.invoiceTicket(d,t.id);
+  assert.equal(t.invoice.total,2950);
+  assert.throws(()=>c.payment(d,t.id,{amount:3000,method:'Cash'}),/exceeds/i);
+  c.payment(d,t.id,{amount:1000,method:'Cash'});
+  assert.throws(()=>c.release(d,t.id),/outstanding/i);
+  c.payment(d,t.id,{amount:1950,method:'M-Pesa (sample)'});
+  c.release(d,t.id);
+  assert.equal(t.status,'released');
+  assert.equal(c.charges(t).outstanding,0);
+});
+
+test('a posted invoice is one document with services and parts sections', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const doc=makeViews(d,ui,c).documentView();
+ assert.ok(doc.includes('Repair & Service Invoice'));
+ assert.ok(doc.includes('1 · Services & labour'));
+ assert.ok(doc.includes('2 · Parts issued from inventory'));
+ assert.ok(doc.includes('Replace worn pads'));
+ assert.ok(doc.includes('Brake fluid 1L'));
+ assert.ok(doc.includes('2,950'));
+ assert.ok(doc.includes('Unpaid'));
+ assert.ok(doc.includes('Invoice total'));
+ assert.ok(doc.includes('Balance due'));
+ const billing=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(billing.includes('View invoice'));
+ assert.ok(!billing.includes('Service invoice'));
+ assert.ok(!billing.includes('View parts receipt'));
+ assert.ok(!billing.includes('data-action="show-document" data-id="parts"'));
+});
+test('one invoice remains viewable with correct balances before partial and full settlement', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ const invoice=c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const show=()=>makeViews(d,ui,c).documentView();
+ assert.ok(show().includes('Unpaid'));
+ c.payment(d,t.id,{amount:1000,method:'Cash'});
+ assert.ok(show().includes('Partially paid'));
+ assert.ok(show().includes('1,950'));
+ assert.ok(show().includes('Payments received'));
+ assert.ok(makeViews(d,{...ui,document:null},c).main().includes('View invoice'));
+ c.payment(d,t.id,{amount:1950,method:'M-Pesa (sample)'});
+ assert.equal(c.charges(t).outstanding,0);
+ assert.ok(show().includes('Paid in full'));
+ assert.equal(invoice.id,t.invoice.id);
+ assert.ok(makeViews(d,{...ui,document:null},c).main().includes('View invoice'));
+});
+test('invoice view refuses to create a document before an invoice is posted', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:'T-1041',tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:'T-1041',kind:'invoice'}};
+ assert.equal(makeViews(d,ui,c).documentView(),'');
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('kind==="invoice"&&!d.tickets.find'));
+});
+
+test('fully paid invoice can complete repair without per-service completion', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ issue(d,t);
+ const invoice=c.invoiceTicket(d,t.id);
+ c.payment(d,t.id,{amount:invoice.total,method:'Cash'});
+ assert.equal(t.services[0].done,false);
+ assert.throws(()=>c.release(d,t.id),/Complete repair before releasing/);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:null};
+ const billing=makeViews(d,ui,c).main();
+ assert.ok(billing.includes('data-action="finish-repair"'));
+ assert.ok(!billing.includes('data-action="finish-repair" data-id="'+t.id+'" disabled'));
+ const estimate=makeViews(d,{...ui,tab:'diagnosis'},c).main();
+ assert.ok(!estimate.includes('data-action="complete-service"'));
+ c.finishRepair(d,t.id);
+ assert.equal(t.status,'invoiced');
+ assert.equal(t.repairCompleted,true);
+ assert.equal(t.services[0].done,true);
+ assert.equal(t.invoice.total,invoice.total);
+ c.release(d,t.id);
+ assert.equal(t.status,'released');
+});
+test('repair completion clears all unfinished authorized services in one action', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);
+ c.addService(d,t.id,{description:'Additional diagnostic test',quantity:1,unitPrice:250,discount:0,kind:'diagnosis'});
+ // The added service revises the estimate; approve the resulting revision again.
+ c.approve(d,t.id);
+ assert.ok(t.services.some(x=>!x.done));
+ c.finishRepair(d,t.id);
+ assert.ok(t.services.every(x=>x.done));
+ assert.equal(t.repairCompleted,true);
+});
+
+
+test('diagnosis report combines findings first, then service fees and suggested parts', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:'T-1042',tab:'diagnosis',search:'',filter:'all',modal:null,document:{ticketId:'T-1042',kind:'diagnosis'}};
+ const html=makeViews(d,ui,c).documentView();
+ const a=html.indexOf('1 · Diagnosis'),b=html.indexOf('2 · Services & labour estimate'),third=html.indexOf('3 · Suggested parts & price list');
+ assert.ok(a>0&&b>a&&third>b);
+ assert.ok(html.includes('Diagnosis Report'));
+ assert.ok(html.includes('Share to WhatsApp'));
+ assert.ok(html.includes('Print / Save as PDF'));
+ assert.ok(html.includes('Repair feasible:'));
+ const page=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(page.includes('class="report-actions"'));
+ assert.ok(page.includes('View diagnosis report'));
+ assert.ok(!page.includes('View / share list'));
+});
+test('diagnosis report requires recorded inspection and shares all three sections', () => {
+ const d=c.seed(),makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ assert.equal(makeViews(d,{page:'tickets',ticketId:'T-1041',tab:'diagnosis',document:{ticketId:'T-1041',kind:'diagnosis'},modal:null,search:'',filter:'all'},c).documentView(),'');
+ const app=fs.readFileSync(path.join(demoDir,'app.js'),'utf8');
+ assert.ok(app.includes('function diagnosisReportText(t)'));
+ assert.ok(app.includes('DIAGNOSIS'));
+ assert.ok(app.includes('SERVICES & FEES'));
+ assert.ok(app.includes('SUGGESTED PARTS'));
+ assert.ok(!app.includes('function whatsappText('));
+});
+test('unified invoice has final diagnosis section and payment actions share width', () => {
+ const {d,t}=createDiagnosed();
+ approveWithPart(d,t);issue(d,t);
+ const inv=c.invoiceTicket(d,t.id);
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const ui={page:'tickets',ticketId:t.id,tab:'billing',search:'',filter:'all',modal:null,document:{ticketId:t.id,kind:'invoice'}};
+ const html=makeViews(d,ui,c).documentView();
+ const diag=html.indexOf('class="invoice-section invoice-diagnosis"');
+ const payments=html.indexOf('class="invoice-summary"');
+ assert.ok(diag>payments);
+ assert.ok(html.includes('Diagnosis'));
+ assert.ok(html.includes(t.diagnosis.findings));
+ const billing=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(billing.includes('class="report-actions"'));
+ assert.ok(billing.includes('Record payment'));
+ assert.ok(billing.includes('View invoice'));
+ c.payment(d,t.id,{amount:inv.total,method:'Cash'});
+ const paid=makeViews(d,{...ui,document:null},c).main();
+ assert.ok(paid.includes('View invoice'));
+ assert.ok(paid.includes('Payment receipt'));
+});
+
+test('invoice and released tickets cannot be mutated', () => {
+  const d=c.seed(),t=c.ticket(d,'T-1048');
+  assert.throws(()=>c.addToCart(d,t.id,'SKU-1',1),/closed/i);
+  assert.throws(()=>c.release(d,t.id),/Already released/);
+});
+test('persisted fictional data validates and reset returns fresh state', () => {
+  const {d}=createDiagnosed();
+  const restored=JSON.parse(JSON.stringify(d));
+  assert.equal(c.valid(restored),true);
+  const reset=c.seed();
+  assert.equal(reset.tickets.length,8);
+  assert.notEqual(reset.tickets.length,d.tickets.length);
+});
+test('garage panel gutters inset overview rows and payment actions consistently', () => {
+ const css=fs.readFileSync(path.join(demoDir,'styles.css'),'utf8');
+ for(const selector of ['.panel>.pair{','.panel>.success-line{','.panel>.payment-status{',
+  '.panel>.report-actions{','.panel>.payment-secondary{','.panel>.note{',
+  '.panel>.paragraph{','.panel>.empty{','.panel-head{']) {
+  assert.ok(css.includes(selector), 'Missing spacing rule '+selector);
+ }
+ assert.ok(css.includes('margin-inline:var(--panel-gutter)'));
+ assert.ok(css.includes('width:auto;'));
+ assert.ok(css.includes('@media(max-width:570px)'));
+ const makeViews=vm.runInNewContext(fs.readFileSync(path.join(demoDir,'views.js'),'utf8')+'\n;garageViews',{});
+ const d=c.seed();
+ const ui={page:'tickets',ticketId:'T-1041',tab:'overview',search:'',filter:'all',modal:null,document:null};
+ const overview=makeViews(d,ui,c).main();
+ assert.ok(overview.includes('class="pair"'));
+ assert.ok(overview.includes('Ticket financials'));
+ const paid=d.tickets.find(t=>t.invoice);
+ const billing=makeViews(d,{...ui,ticketId:paid.id,tab:'billing'},c).main();
+ assert.ok(billing.includes('class="report-actions"'));
+ assert.ok(billing.includes('class="success-line"'));
+});
+
+test('demo HTML loads existing assets and never embeds a live payment gateway', () => {
+  const html=fs.readFileSync(path.join(demoDir,'demo.html'),'utf8');
+  for(const asset of ['styles.css','core.js','views.js','app.js'])assert.ok(html.includes('/demos/garage/'+asset));
+  const page=fs.readFileSync(path.join(__dirname,'..','app','demos','garage','page.tsx'),'utf8');
+  assert.match(page,/browser-local|locally/);
+  assert.match(page,/no database|There is no database/i);
+});

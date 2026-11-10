@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import type { Lead } from '@/lib/agent-crm/types';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { resolveContactTarget } from '@/lib/agent-crm/contact-attribution';
+import { parseActionType } from '@/lib/agent-crm/action-types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function POST(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) {
     return fail('Invalid request origin.', 403);
   }
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead.', 400);
@@ -50,6 +51,8 @@ export async function POST(request: Request, { params }: Params) {
     return fail('Check the notes and next action.', 400);
   }
   const action = nextAction.trim() || null;
+  const parsedType=parseActionType(body.next_action_type,action);
+  if(!parsedType.ok)return fail(parsedType.error,400);
   if (schedule.next_action_at && !action) return fail('A follow-up date needs a next action.', 400);
 
   let client: PoolClient | undefined;
@@ -58,8 +61,8 @@ export async function POST(request: Request, { params }: Params) {
     await client.query('BEGIN');
     const locked = await client.query<{ next_action: string | null; next_action_contact_id: string | null; do_not_contact: boolean; stage: string }>(
       `SELECT next_action, next_action_contact_id::text, do_not_contact, stage FROM public.crm_leads
-       WHERE id = $1 AND agent_id = $2 FOR UPDATE`,
-      [id, access.agent.id],
+       WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+      [id, access.user.id],
     );
     const lead = locked.rows[0];
     if (!lead) {
@@ -95,28 +98,28 @@ export async function POST(request: Request, { params }: Params) {
     // This records completion of a task, not a new telephone call.
     await client.query(
       `INSERT INTO public.crm_lead_events
-         (lead_id, agent_id, event_type, action, notes, next_action, next_action_at,
+         (lead_id, event_type, action, notes, next_action, next_action_at,
         next_action_time, next_action_timezone, next_action_due_at, contact_id,
-        contact_name_snapshot)
-       VALUES ($1, $2, 'action_completed', $3, $4, $5, $6::date,
-         $7::time, $8, ${followupDueAtSQL(6, 7, 8)}, $9::uuid, $10)`,
-      [id, access.agent.id, lead.next_action, notes.trim() || null, action,
+        contact_name_snapshot, next_action_type)
+       VALUES ($1,'action_completed', $2, $3, $4, $5::date,
+         $6::time, $7, ${followupDueAtSQL(5, 6, 7)}, $8::uuid, $9, $10)`,
+      [id, lead.next_action, notes.trim() || null, action,
         schedule.next_action_at, schedule.next_action_time, schedule.next_action_timezone,
-        completedContact.id, completedContact.name],
+        completedContact.id, completedContact.name, parsedType.value],
     );
     await client.query(
       `UPDATE public.crm_leads
        SET next_action = $3, next_action_at = $4::date,
            next_action_time = $5::time, next_action_timezone = $6,
            next_action_due_at = ${followupDueAtSQL(4, 5, 6)},
-           next_action_contact_id = $7::uuid, updated_at = now()
-       WHERE id = $1 AND agent_id = $2`,
-      [id, access.agent.id, action, schedule.next_action_at,
-        schedule.next_action_time, schedule.next_action_timezone, nextContact.id],
+           next_action_contact_id = $7::uuid, next_action_type=$8, updated_at = now()
+       WHERE id = $1 AND user_id = $2`,
+      [id, access.user.id, action, schedule.next_action_at,
+        schedule.next_action_time, schedule.next_action_timezone, nextContact.id,parsedType.value],
     );
     const result = await client.query<Lead>(
-      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
     return NextResponse.json(

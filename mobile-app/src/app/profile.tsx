@@ -4,7 +4,7 @@ import { useAppDialog } from '@/components/AppDialog';
 import { Page, useUIStyles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
-import { AgentAvatar } from '@/components/AgentAvatar';
+import { UserAvatar } from '@/components/UserAvatar';
 
 function DetailRow({ title, value }: { title: string; value: string }) {
   const styles = useUIStyles();
@@ -16,34 +16,34 @@ function DetailRow({ title, value }: { title: string; value: string }) {
 export default function ProfileScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const showDialog = useAppDialog();
-  if (!agent) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
+  if (!user) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
   const signOut = () => showDialog({
-    title: 'Sign out of CRM?',
-    message: 'Your session on this device will end. To access your workspace again, sign in with your authorized Google account.',
+    title: 'Sign out of CallsBound?',
+    message: 'Your session on this device will end. To access your workspace again, sign in with your Google account.',
     cancelLabel: 'Stay signed in',
     confirmLabel: 'Sign out',
     onConfirm: () => router.replace('/signing-out'),
   });
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-      <AgentAvatar name={agent.name || agent.email} pictureUrl={agent.picture_url} size={50} />
+      <UserAvatar name={user.name || user.email} pictureUrl={user.picture_url} size={50} />
       <View style={{ flex: 1 }}>
-        <Text style={[styles.value, { fontSize: 18 }]}>{agent.name}</Text>
-        <Text numberOfLines={1} style={styles.subtitle}>{agent.email}</Text>
+        <Text style={[styles.value, { fontSize: 18 }]}>{user.name}</Text>
+        <Text numberOfLines={1} style={styles.subtitle}>{user.email}</Text>
       </View>
     </View>
     <Text style={styles.label}>ACCOUNT DETAILS</Text>
     <View style={[styles.card, { gap: 0 }]}>
-      <DetailRow title="Name" value={agent.name}/>
+      <DetailRow title="Name" value={user.name}/>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <DetailRow title="Email" value={agent.email}/>
+      <DetailRow title="Email" value={user.email}/>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <DetailRow title="Phone" value={agent.phone || 'Not provided'}/>
+      <DetailRow title="Phone" value={user.phone || 'Not provided'}/>
     </View>
-    <Text style={styles.label}>PRIVACY</Text>
+    <Text style={styles.label}>LEGAL & PRIVACY</Text>
     <View style={[styles.card, { padding: 0 }]}>
       <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/privacy')
         .catch(() => showDialog({ title: 'Privacy Policy unavailable', message: 'Unable to open the link. You can read the policy at joeltechgeek.com/privacy.' }))}
@@ -53,7 +53,15 @@ export default function ProfileScreen() {
         <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
       <View style={{ height: 1, backgroundColor: theme.border }}/>
-      <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=JoelTechGeek%20CRM%20account%20and%20data%20deletion')
+      <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://joeltechgeek.com/terms')
+        .catch(() => showDialog({ title: 'Terms of Service unavailable', message: 'Unable to open the link. You can read the terms at joeltechgeek.com/terms.' }))}
+        style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
+          justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontWeight: '700', color: theme.primaryDark }}>Terms of Service</Text>
+        <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
+      </Pressable>
+      <View style={{ height: 1, backgroundColor: theme.border }}/>
+      <Pressable accessibilityRole="button" onPress={() => void Linking.openURL('mailto:mbakajoe26@gmail.com?subject=CallsBound%20account%20and%20data%20deletion')
         .catch(() => showDialog({ title: 'Email app unavailable', message: 'Please email mbakajoe26@gmail.com to request account or data deletion.' }))}
         style={{ minHeight: 54, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>

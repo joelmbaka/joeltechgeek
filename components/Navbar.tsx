@@ -10,6 +10,7 @@ import { BrandLogo } from './BrandLogo';
 const primaryLinks = [
   ['/services', 'Services'],
   ['/work', 'Portfolio'],
+  ['/industries', 'Industries'],
   ['/demos', 'Demos'],
   ['/about', 'About'],
   ['/mentorship', 'Mentorship'],
@@ -58,7 +59,7 @@ export function Navbar() {
       {mobileOpen && (
         <nav id="mobile-navigation" className="border-t border-gray-200/70 bg-white px-4 pb-5 pt-3 shadow-lg dark:border-gray-800/70 dark:bg-gray-950 lg:hidden" aria-label="Mobile navigation">
           <div className="site-container grid gap-1">
-            {[...primaryLinks, ['/industries', 'Industries'] as const, ...(!isContactPage ? [['/contact', 'Start a project'] as const] : [])].map(([href, label]) => (
+            {[...primaryLinks, ...(!isContactPage ? [['/contact', 'Start a project'] as const] : [])].map(([href, label]) => (
               <Link key={href} href={href} onClick={closeMobile} className="flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-gray-800 transition hover:bg-gray-100 hover:text-palm-green dark:text-gray-200 dark:hover:bg-gray-900">
                 {label}
               </Link>

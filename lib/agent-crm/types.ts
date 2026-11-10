@@ -1,4 +1,4 @@
-export type Agent = { id: string; name: string; email: string; phone?: string | null; picture_url?: string | null };
+export type CrmUser = { id: string; name: string; email: string; phone?: string | null; picture_url?: string | null };
 
 export type LeadStage =
   | 'new' | 'contacted' | 'interested' | 'meeting' | 'proposal'
@@ -113,6 +113,7 @@ export type LeadContact = {
 export type Lead = {
   id: string;
   company_name: string;
+  business_category_id: string | null;
   industry: string;
   country: string;
   city: string | null;
@@ -125,6 +126,16 @@ export type Lead = {
   existing_system: string | null;
   problem_summary: string | null;
   qualification_reason: string | null;
+  lead_brief: string | null;
+  important_details: string | null;
+  lead_facts: Array<{ label:string; value:string }>;
+  work_state?: string;
+  callable_phone?: string | null;
+  last_call_at?: string | null;
+  failed_call_streak?: number;
+  retry_eligible_at?: string | null;
+  last_worked_at?: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   source_url: string | null;
   priority: 'high' | 'normal' | 'low';
   stage: LeadStage;
@@ -153,6 +164,7 @@ export type LeadUpdate = {
   next_action_at: string | null;
   next_action_time: string | null;
   next_action_timezone: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   contact_id: string | null;
   contact_name_snapshot: string | null;
   created_at: string;

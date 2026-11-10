@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
-import { requireCrmAgent, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
+import { requireCrmUser, crmError, validCrmWriteOrigin } from '@/lib/agent-crm/auth';
 import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { parseContactFields, syncPrimaryContact } from '@/lib/agent-crm/contacts';
 import type { Lead } from '@/lib/agent-crm/types';
@@ -15,7 +15,7 @@ const fail = (error: string, status: number) => NextResponse.json(
 /** Legacy primary-contact edit endpoint kept for already-published Android clients. */
 export async function PATCH(request: Request, { params }: Params) {
   if (!validCrmWriteOrigin(request)) return fail('Invalid request origin.', 403);
-  const access = await requireCrmAgent(request);
+  const access = await requireCrmUser(request);
   if ('response' in access) return access.response;
   const { id } = await params;
   if (!UUID.test(id)) return fail('Invalid lead ID.', 400);
@@ -35,9 +35,9 @@ export async function PATCH(request: Request, { params }: Params) {
     await client.query('BEGIN');
     const lead = await client.query<{ id: string; company_name: string }>(
       `SELECT id::text, company_name FROM public.crm_leads
-         WHERE id = $1 AND agent_id = $2
+         WHERE id = $1 AND user_id = $2
            AND NOT do_not_contact AND stage <> 'competitor'
-         FOR UPDATE`, [id, access.agent.id],
+         FOR UPDATE`, [id, access.user.id],
     );
     if (!lead.rows.length) {
       await client.query('ROLLBACK');
@@ -65,8 +65,8 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     await syncPrimaryContact(client, id);
     const updated = await client.query<Lead>(
-      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND agent_id = $2',
-      [id, access.agent.id],
+      'SELECT ' + LEAD_COLUMNS + ' FROM public.crm_leads WHERE id = $1 AND user_id = $2',
+      [id, access.user.id],
     );
     await client.query('COMMIT');
     return NextResponse.json({ ok: true, lead: updated.rows[0] }, { headers: { 'Cache-Control': 'private, no-store' } });

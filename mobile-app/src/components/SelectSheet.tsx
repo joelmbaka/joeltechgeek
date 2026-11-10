@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text,
+  Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text,
   TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
 import { useUIStyles } from './ui';
+import { CategoryOptionSkeleton } from './Skeleton';
 
-export type SelectOption = { value: string; label: string; count?: number };
+export type SelectOption = { value: string; label: string; icon?: string; count?: number };
 
 function ChevronDown() {
   const theme = useTheme();
@@ -28,7 +29,8 @@ function ChevronDown() {
 
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
-  disabled = false, placeholder, compact = false, onCreateOption,
+  disabled = false, placeholder, compact = false, onCreateOption, dismissKeyboardOnOpen = false,
+  hideTriggerLabel = false, loading = false, loadingError,
 }: {
   title: string;
   value: string;
@@ -39,34 +41,51 @@ export function SelectSheet({
   placeholder?: string;
   compact?: boolean;
   onCreateOption?: (name: string) => Promise<string>;
+  dismissKeyboardOnOpen?: boolean;
+  /** Keep the sheet title for accessibility and the modal; render only its selected value in a row. */
+  hideTriggerLabel?: boolean;
+  /** Show category-shaped placeholders until the server response is complete. */
+  loading?: boolean;
+  loadingError?: string | null;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [newName, setNewName] = useState('');
   const [savingNew, setSavingNew] = useState(false);
   const [createError, setCreateError] = useState('');
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
-  const selectedLabel = selected?.label || placeholder || 'Select';
+  const selectedLabel = loading ? 'Loading categories…' :
+    loadingError ? 'Categories unavailable' : selected?.label || placeholder || 'Select';
   const visible = useMemo(() => options.filter((option) =>
     (option.label + ' ' + option.value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   ), [options, query]);
+  const existingCategories = useMemo(() => [...new Set(options
+    .filter((option) => option.value !== '')
+    .map((option) => option.label))], [options]);
 
   const close = () => {
     if (savingNew) return;
     setOpen(false);
     setQuery('');
     setAdding(false);
+    setShowAllCategories(false);
     setNewName('');
     setCreateError('');
   };
   const saveNew = async () => {
     const name = newName.trim().replace(/\s+/g, ' ');
     if (!onCreateOption || !name || savingNew) return;
+    if (existingCategories.some((category) =>
+      category.trim().replace(/\s+/g, ' ').toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setCreateError('Category already exists.');
+      return;
+    }
     setSavingNew(true);
     setCreateError('');
     try {
@@ -77,6 +96,7 @@ export function SelectSheet({
       setOpen(false);
       setQuery('');
       setAdding(false);
+      setShowAllCategories(false);
       setNewName('');
       setCreateError('');
     } catch (error) {
@@ -90,14 +110,14 @@ export function SelectSheet({
       accessibilityRole="button"
       accessibilityLabel={title + ', ' + selectedLabel}
       disabled={disabled}
-      onPress={() => setOpen(true)}
+      onPress={() => { if (dismissKeyboardOnOpen) Keyboard.dismiss(); setOpen(true); }}
       style={compact ? {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         minHeight: 36, maxWidth: 195, borderRadius: 10,
         borderWidth: 1, borderColor: theme.border, backgroundColor: theme.white,
         paddingHorizontal: 10, gap: 5, opacity: disabled ? .55 : 1,
       } : [styles.input, {
-        justifyContent: 'center', minHeight: 58,
+        justifyContent: 'center', minHeight: hideTriggerLabel ? 44 : 58,
         paddingVertical: 8, opacity: disabled ? .55 : 1,
       }]}>
       {compact ? <>
@@ -107,12 +127,14 @@ export function SelectSheet({
         }}>{selectedLabel}</Text>
         <ChevronDown/>
       </> : <>
-        <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text>
-        <View style={{ paddingRight: 19 }}>
-          <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700' }}>
+        {!hideTriggerLabel ? <Text style={[styles.label, { marginBottom: 2 }]}>{title}</Text> : null}
+        <View style={{ paddingRight: 19, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '700', flexShrink: 1 }}>
             {selectedLabel}
             {selected?.count !== undefined ? ' (' + selected.count + ')' : ''}
           </Text>
+          {selected?.icon ? <Text accessibilityElementsHidden
+            style={{fontSize:17}}>{selected.icon}</Text> : null}
         </View>
         <View pointerEvents="none" style={{
           position: 'absolute', right: 10, top: 0, bottom: 0,
@@ -126,7 +148,7 @@ export function SelectSheet({
       statusBarTranslucent={false}>
       <KeyboardAvoidingView
         style={{ flex: 1, justifyContent: 'flex-end' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' || adding ? 'padding' : undefined}>
         <Pressable
           accessibilityRole="button" accessibilityLabel="Close selection"
           onPress={close}
@@ -148,49 +170,78 @@ export function SelectSheet({
             flexDirection: 'row', alignItems: 'center',
             justifyContent: 'space-between', marginBottom: 12,
           }}>
-            <Text style={[styles.title, { fontSize: 19 }]}>{title}</Text>
+            <Text style={[styles.title, { fontSize: 19 }]}>{adding ? 'New category' : title}</Text>
             <Pressable onPress={close} accessibilityRole="button"
               accessibilityLabel="Close sheet" hitSlop={12}>
               <Text style={{ color: theme.muted, fontWeight: '700', fontSize: 16 }}>Done</Text>
             </Pressable>
           </View>
-          {searchable ? <TextInput
+          {searchable && !adding && !loading && !loadingError ? <TextInput
             autoCorrect={false} autoCapitalize="none"
             value={query} onChangeText={setQuery}
             placeholder={'Search ' + title.toLowerCase()}
             placeholderTextColor={theme.muted}
             style={[styles.input, { marginBottom: 8 }]}
           /> : null}
-          {onCreateOption ? (adding ? <View style={{ gap: 9, paddingVertical: 10 }}>
-            <Text style={styles.label}>New business category</Text>
-            <TextInput value={newName} onChangeText={setNewName} autoFocus
-              maxLength={100} placeholder="e.g. Fleet Operators"
-              placeholderTextColor={theme.muted} style={styles.input}
-              onSubmitEditing={() => void saveNew()} returnKeyType="done"/>
-            {createError ? <Text style={styles.error}>{createError}</Text> : null}
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+          {adding && onCreateOption ? <View style={{ gap: 14, paddingVertical: 10 }}>
+            <View style={{ gap: 5 }}>
+              <Text style={styles.label}>Category name</Text>
+              <TextInput value={newName}
+                onChangeText={(text) => { setNewName(text); setCreateError(''); }}
+                autoFocus autoCorrect={false} maxLength={100}
+                placeholder="Enter category name" placeholderTextColor={theme.muted}
+                style={styles.input}
+                onSubmitEditing={() => void saveNew()} returnKeyType="done"/>
+              {createError ? <Text style={styles.error}>{createError}</Text> : null}
+            </View>
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.label}>Your existing categories</Text>
+                <Text style={{ color: theme.muted, fontSize: 12 }}>{existingCategories.length} total</Text>
+              </View>
+              {existingCategories.length === 0 ? <Text style={styles.subtitle}>No categories yet.</Text> :
+                <ScrollView nestedScrollEnabled style={showAllCategories ? { maxHeight: Math.min(170, height * .23) } : undefined}
+                  keyboardShouldPersistTaps="handled">
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 3 }}>
+                    {(showAllCategories ? existingCategories : existingCategories.slice(0, 5)).map((name) =>
+                      <View key={name} style={{ backgroundColor: theme.background, borderRadius: 20,
+                        borderWidth: .5, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <Text style={{ color: theme.ink, fontSize: 12 }}>{name}</Text>
+                      </View>)}
+                  </View>
+                </ScrollView>}
+              {existingCategories.length > 5 ? <Pressable accessibilityRole="button"
+                onPress={() => setShowAllCategories((current) => !current)}>
+                <Text style={{ color: theme.primaryDark, fontWeight: '700', fontSize: 13 }}>
+                  {showAllCategories ? 'Show fewer' : 'Show all ' + existingCategories.length + ' categories'}
+                </Text>
+              </Pressable> : null}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end', paddingTop: 10 }}>
               <Pressable accessibilityRole="button" disabled={savingNew}
-                onPress={() => { setAdding(false); setCreateError(''); }}
-                style={{ paddingVertical: 10, flex: 1 }}>
+                onPress={() => { setAdding(false); setShowAllCategories(false); setNewName(''); setCreateError(''); }}
+                style={{ paddingVertical: 11, paddingHorizontal: 14 }}>
                 <Text style={{ color: theme.muted, fontWeight: '700' }}>Cancel</Text>
               </Pressable>
-              <Pressable accessibilityRole="button"
-                disabled={savingNew || !newName.trim()}
+              <Pressable accessibilityRole="button" disabled={savingNew || !newName.trim()}
                 onPress={() => void saveNew()}
-                style={{ paddingVertical: 10, flex: 1, alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>
+                style={{ paddingVertical: 11, paddingHorizontal: 16, borderRadius: 10,
+                  backgroundColor: theme.primary, opacity: savingNew || !newName.trim() ? .5 : 1 }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
                   {savingNew ? 'Saving…' : 'Save category'}
                 </Text>
               </Pressable>
             </View>
-          </View> : <Pressable accessibilityRole="button"
-            onPress={() => { setAdding(true); setNewName(query); setCreateError(''); }}
+          </View> : !adding && onCreateOption && !loading && !loadingError ? <Pressable accessibilityRole="button"
+            onPress={() => { setAdding(true); setShowAllCategories(false); setNewName(''); setCreateError(''); }}
             style={{ paddingVertical: 15, borderBottomColor: theme.border, borderBottomWidth: 1 }}>
             <Text style={{ color: theme.primaryDark, fontWeight: '800', fontSize: 15 }}>
               + Add new category
             </Text>
-          </Pressable>) : null}
-          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
+          </Pressable> : null}
+          {!adding && loading ? <CategoryOptionSkeleton/> :
+            !adding && loadingError ? <Text style={[styles.error,{paddingVertical:18}]}>{loadingError}</Text> :
+            !adding ? <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}>
             {visible.map((option) => <Pressable key={option.value}
@@ -201,19 +252,24 @@ export function SelectSheet({
                 borderBottomColor: theme.border, borderBottomWidth: .6,
                 flexDirection: 'row', alignItems: 'center', gap: 8,
               }}>
-              <Text numberOfLines={2} style={{
-                color: value === option.value ? theme.primaryDark : theme.ink,
-                fontWeight: value === option.value ? '800' : '500',
-                flex: 1, fontSize: 15,
-              }}>
-                {option.label}
-                {option.count !== undefined ? ' (' + option.count + ')' : ''}
-              </Text>
+              <View style={{flexDirection:'row',alignItems:'center',gap:6,flexShrink:1}}>
+                <Text numberOfLines={2} style={{
+                  color: value === option.value ? theme.primaryDark : theme.ink,
+                  fontWeight: value === option.value ? '800' : '500',
+                  flexShrink:1,fontSize:15,
+                }}>
+                  {option.label}
+                  {option.count !== undefined ? ' (' + option.count + ')' : ''}
+                </Text>
+                {option.icon ? <Text accessibilityElementsHidden
+                  style={{fontSize:18}}>{option.icon}</Text> : null}
+              </View>
               {value === option.value ?
-                <Text style={{ color: theme.primary, fontWeight: '900' }}>✓</Text> : null}
+                <Text style={{ color: theme.primary, fontWeight: '900',
+                  marginLeft:'auto' }}>✓</Text> : null}
             </Pressable>)}
             {visible.length === 0 ? <Text style={styles.subtitle}>No matching options.</Text> : null}
-          </ScrollView>
+          </ScrollView> : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>

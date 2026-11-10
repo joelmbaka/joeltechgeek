@@ -23,22 +23,33 @@
     "test:vehicle-tracking-demo": "node --test tests/vehicle-tracking-demo.test.cjs",
     "test:crm-contact-attribution": "node --experimental-strip-types --test tests/agent-crm-contact-attribution.test.cjs",
     "test:crm-lead-identity": "node --experimental-strip-types --test tests/agent-crm-lead-identity.test.cjs",
-    "test:crm-phase4": "node --experimental-strip-types --test tests/agent-crm-phase4-activity.test.cjs"
+    "test:crm-phase4": "node --experimental-strip-types --test tests/agent-crm-phase4-activity.test.cjs",
+    "test:crm-phase5": "node --test tests/agent-crm-phase5-user-identity.test.cjs",
+    "test:crm-reminder-defaults": "node --experimental-strip-types --test tests/agent-crm-reminder-defaults.test.cjs",
+    "test:crm-reminder-content": "node --experimental-strip-types --test tests/agent-crm-reminder-content.test.cjs",
+    "test:crm-inbox": "node --experimental-strip-types --test tests/agent-crm-notification-inbox.test.cjs",
+    "test:legal-terms": "node --test tests/legal-terms.test.cjs",
+    "test:crm-workflow": "node --experimental-strip-types --test tests/agent-crm-workflow-redesign.test.cjs",
+    "test:crm-unified": "node --test tests/agent-crm-unified-updates.test.cjs",
+    "test:crm-queue": "node --experimental-strip-types --test tests/mobile-lead-queue.test.cjs",
+    "test:security-service-demo": "node --experimental-strip-types --test tests/security-service-demo.test.cjs",
+    "test:garage-demo": "node --test tests/garage-demo.test.cjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "framer-motion": "^12.0.5",
+    "jose": "^6.2.4",
     "lucide-react": "^0.474.0",
     "next": "^15.5.7",
+    "next-auth": "5.0.0-beta.32",
     "next-themes": "^0.4.6",
     "pg": "^8.21.0",
     "react": "^19.0.0",
     "react-calendly": "^4.4.0",
     "react-dom": "^19.0.0",
     "resend": "^6.0.1",
-    "next-auth": "5.0.0-beta.32",
-    "jose": "^6.2.4"
+    "vercel": "^65.11.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

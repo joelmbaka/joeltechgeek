@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic';
 const APP_CALLBACK = 'joeltechgeek:///auth-callback';
 const DEV_APP_CALLBACK = 'joeltechgeek-dev:///auth-callback';
 const PREVIEW_APP_CALLBACK = 'joeltechgeek-preview:///auth-callback';
-const GOOGLE_CALLBACK = 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
+const GOOGLE_CALLBACK = process.env.CRM_MOBILE_GOOGLE_CALLBACK_URL?.trim()
+  || 'https://joeltechgeek.com/api/agent-crm/mobile/oauth/callback';
 
 function errorPage(message: string, status: number) {
   return new Response(message, {

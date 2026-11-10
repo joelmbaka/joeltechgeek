@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, MonitorPlay, Truck, PackageCheck } from 'lucide-
 
 export const metadata: Metadata = {
   title: 'Cargo Dispatch Interactive Demo | Joeltech Geek Systems',
-  description: 'Explore a mobile-style cargo dispatch system for posting loads, accepting driver bookings, monitoring trip status, documenting delivery, and tracking simulated truck location and mileage.',
+  description: 'Explore a mobile-style cargo dispatch system for posting and assigning loads, monitoring trip progress, documenting delivery, and viewing fictional truck telemetry.',
   alternates: { canonical: '/demos/logistics' },
   openGraph: {
     type: 'website',
@@ -17,11 +17,11 @@ export const metadata: Metadata = {
 const steps = [
   {
     "role": "Dispatcher",
-    "description": "Post, edit and delete open loads, set driver pay, approve bookings and view truck mileage and sample locations."
+    "description": "Post, edit, assign and delete open loads, set driver pay and inspect sample truck telemetry."
   },
   {
     "role": "Driver",
-    "description": "See available loads, book a load with a capacity-checked truck and manage one active booking at a time."
+    "description": "See only assigned loads, update trip milestones and review completed trips."
   },
   {
     "role": "Delivery",
@@ -56,7 +56,7 @@ export default function DemoOverviewPage() {
         <aside className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-7 dark:border-emerald-900/50 dark:bg-emerald-950/20 sm:p-8">
           <Truck className="h-9 w-9 text-palm-green" aria-hidden />
           <h2 className="mt-5 text-2xl font-bold text-gray-900 dark:text-white">See the operational handoffs</h2>
-          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace manages a fleet-wide board of loads, approvals, driver rates and payments. Kevin books one load at a time and manages trip updates and delivery evidence placeholders.</p>
+          <p className="mt-3 text-sm leading-7 text-gray-700 dark:text-gray-300">Grace manages loads, driver assignments and payments. Kevin sees only his assigned loads, trip updates and completion history.</p>
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Industry workflow demo</span>
             <span className="rounded-full bg-white px-3 py-2 dark:bg-gray-900/70">Simulated team roles</span>
@@ -80,7 +80,7 @@ export default function DemoOverviewPage() {
       <section className="mt-12 rounded-3xl border border-gray-200 p-7 dark:border-gray-800">
         <PackageCheck className="h-7 w-7 text-palm-green" aria-hidden />
         <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-white">What this demo does and doesn&apos;t do</h2>
-        <p className="mt-3 max-w-4xl text-sm leading-7 text-gray-600 dark:text-gray-300">This mobile-style demo shows fictional load dispatch, driver pay, sample mileage, and delivery document placeholders. No live location tracking or real files are used.</p>
+        <p className="mt-3 max-w-4xl text-sm leading-7 text-gray-600 dark:text-gray-300">This mobile-style demo shows fictional load dispatch, driver pay, sample 2D tracking, speed, fuel-level snapshots, and delivery document placeholders. No live GPS or real files are used.</p>
         <p className="mt-3 max-w-4xl text-sm leading-7 text-gray-600 dark:text-gray-300">
           The interactive workspace is deliberately minimal. It does not connect to production services, access customer data, send messages or process payments.
         </p>

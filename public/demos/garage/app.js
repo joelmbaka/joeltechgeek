@@ -1,0 +1,224 @@
+/* Garage Management System — single-operator browser demo */
+(function(c,makeViews){
+"use strict";
+const KEY="jtech-garage-demo-v1",root=document.getElementById("app");
+if(!root)return;
+let d;
+try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch(_){}
+if(!c.valid(d))d=c.seed();
+const ui={page:"dashboard",ticketId:null,returnPage:"tickets",tab:"overview",search:"",filter:"all",modal:null,
+ document:null,mobileMenu:false,toast:""};
+let lastViewKey=null;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(d));}catch(_){ui.toast="Browser storage is unavailable. Changes may not persist.";}}
+const setToast=message=>{ui.toast=message;render();};
+function change(fn,message,after){
+ try{
+  const copy=JSON.parse(JSON.stringify(d));
+  const result=fn(copy);
+  d=copy;save();ui.modal=null;ui.toast=message||"Demo record saved.";
+  if(after)after(result);
+  render();
+  return result;
+ }catch(error){
+  ui.toast=error?.message||"The action could not be completed.";render();return null;
+ }
+}
+function navigate(page){
+ if(!makeViews(d,ui,c).NAV.some(x=>x[0]===page))return;
+ ui.page=page;ui.ticketId=null;ui.returnPage="tickets";ui.tab="overview";ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";
+ render();
+}
+function openTicket(ticketId){
+ if(!d.tickets.some(t=>t.id===ticketId))return;
+ ui.returnPage=ui.ticketId?(ui.returnPage||"tickets"):(ui.page||"tickets");
+ ui.page="tickets";ui.ticketId=ticketId;ui.tab="overview";
+ ui.modal=null;ui.document=null;ui.mobileMenu=false;ui.toast="";render();
+}
+function openModal(kind,attrs={}){
+ const valid=["customer","vehicle","ticket","appointment","diagnosis","service","requirement","cart","outside-part","reject",
+ "return","item","stock-in","payment"];
+ if(!valid.includes(kind))return;
+ if(["diagnosis","service","requirement","cart","outside-part","reject","return","payment"].includes(kind)&&!ui.ticketId)return;
+ ui.document=null;ui.modal={kind,itemId:attrs.itemId||null,requirementId:attrs.requirementId||null,
+ issueId:attrs.issueId||null,vehicleId:attrs.vehicleId||null,quantity:attrs.quantity||null};ui.toast="";render();
+}
+function openDocument(kind){
+ if(!ui.ticketId||!["diagnosis","invoice","payment"].includes(kind))return;
+ if(kind==="diagnosis"&&!d.tickets.find(t=>t.id===ui.ticketId)?.diagnosis)return;
+ if(kind==="invoice"&&!d.tickets.find(t=>t.id===ui.ticketId)?.invoice)return;
+ ui.modal=null;ui.document={ticketId:ui.ticketId,kind};ui.toast="";render();
+}
+function diagnosisReportText(t){
+ const v=c.vehicleFor(d,t),p=c.customerFor(d,t);
+ const dx=t.diagnosis;
+ if(!dx)return "";
+ const services=t.services.map((s,i)=>(i+1)+". "+s.description+" · "+s.quantity+" × KES "+(s.unitPrice-s.discount).toLocaleString("en-KE")).join("\n");
+ const parts=t.requirements.map((r,i)=>{
+  const item=r.itemId?d.inventory.find(x=>x.id===r.itemId):null;
+  const offer=item?" · Optional offer KES "+(item.sellPrice-r.discount).toLocaleString("en-KE"):" · Customer to source";
+  return (i+1)+". "+r.description+" · "+r.quantity+" suggested"+offer;
+ }).join("\n");
+ return "SUMMIT AUTO SERVICE (DEMO)\nDiagnosis Report\nTicket: "+t.id+
+  "\nVehicle: "+v.plate+" — "+v.name+"\nCustomer: "+p.name+
+  "\n\nDIAGNOSIS\n"+dx.findings+"\nRepair feasible: "+(dx.feasible?"Yes":"No")+
+  "\n\nSERVICES & FEES\n"+(services||"None proposed")+
+  "\n\nSUGGESTED PARTS\n"+(parts||"None suggested")+
+  "\n\nRecommendations are informational. This is not an invoice.";
+}
+function render(){
+ const key=[ui.page,ui.ticketId,ui.tab].join(":"),
+  scroll=document.scrollingElement?.scrollTop||0,preserve=lastViewKey===key;
+ const v=makeViews(d,ui,c);
+ const links=v.NAV.map(([id,label,icon])=>'<button class="side-link '+(ui.page===id&&!ui.ticketId?"active":"")+
+  '" data-nav="'+id+'"><span aria-hidden="true">'+icon+'</span>'+v.e(label)+'</button>').join("");
+ const shade=ui.mobileMenu?'<button class="menu-shade" data-action="close-menu" aria-label="Close navigation"></button>':"";
+ root.innerHTML='<div class="garage-shell">'+shade+
+ '<aside class="sidebar '+(ui.mobileMenu?"expanded":"")+'">'+
+ '<div class="logo"><span class="logo-mark">SA</span><span><strong>Garage Management</strong>'+
+ '<small>JoelTechGeek · Web demo</small></span></div>'+
+ '<div class="side-group"><span>WORKSPACE</span><nav aria-label="Garage modules">'+links+'</nav></div>'+
+ '<div class="sidebar-footer"><strong>Summit Auto Service</strong><small>Fictional garage · Nairobi</small>'+
+ '<a href="/demos/garage">← About this demo</a></div></aside>'+
+ '<div class="workspace"><header class="topbar"><button class="menu-trigger" data-action="toggle-menu" aria-label="Open navigation">☰</button>'+
+ '<div class="topbar-title"><b>Summit Auto Service</b><small>Front desk workspace · Sample records</small></div>'+
+ '<div class="topbar-actions"><span class="web-badge">Web demo</span>'+
+ v.btn("↻ Reset","reset","","reset-button")+'</div></header>'+
+ '<main class="content" id="main-content">'+v.main()+
+ '<p class="demo-footnote">Fictional workshop, vehicles, prices and transactions · No real inventory, messages or payments</p>'+
+ '</main></div></div>'+v.dialog()+v.documentView()+
+ (ui.toast?'<div class="toast" role="status"><span>'+v.e(ui.toast)+'</span>'+
+ v.btn("×","dismiss","","toast-dismiss")+'</div>':"");
+ if(preserve&&document.scrollingElement)document.scrollingElement.scrollTop=scroll;
+ lastViewKey=key;
+}
+document.addEventListener("click",event=>{
+ const el=event.target.closest("[data-nav],[data-tab],[data-action]");
+ if(!el||!root.contains(el))return;
+ const {nav,tab,action,id,itemId,requirementId,issueId,quantity}=el.dataset;
+ if(nav){navigate(nav);return;}
+ if(tab){if(["overview","diagnosis","cart","billing","history"].includes(tab)&&ui.ticketId){
+  ui.tab=tab;ui.toast="";render();
+ }return;}
+ if(action==="toggle-menu"){ui.mobileMenu=!ui.mobileMenu;render();return;}
+ if(action==="close-menu"){ui.mobileMenu=false;render();return;}
+ if(action==="dismiss"){ui.toast="";render();return;}
+ if(action==="back"){navigate(ui.returnPage||"tickets");return;}
+ if(action==="open-ticket"){openTicket(id);return;}
+ if(action==="modal"){openModal(id,{itemId,requirementId,issueId,quantity});return;}
+ if(action==="close-modal"){ui.modal=null;ui.toast="";render();return;}
+ if(action==="show-document"){openDocument(id);return;}
+ if(action==="close-document"){ui.document=null;render();return;}
+ if(action==="print"){window.print?.();return;}
+ if(action==="share-diagnosis"){
+  const current=d.tickets.find(t=>t.id===id);
+  if(!current?.diagnosis)return;
+  window.open?.("https://wa.me/?text="+encodeURIComponent(diagnosisReportText(current)),"_blank","noopener,noreferrer");
+  setToast("Diagnosis report message prepared. Choose a recipient and send it yourself.");return;
+ }
+ if(action==="reset"){
+  if(!window.confirm?.("Restore all fictional garage records?"))return;
+  d=c.seed();save();ui.page="dashboard";ui.ticketId=null;ui.returnPage="tickets";ui.tab="overview";
+  ui.modal=null;ui.document=null;ui.search="";ui.filter="all";ui.mobileMenu=false;
+  setToast("Demo records restored.");return;
+ }
+ if(action==="convert-appointment"){
+  change(w=>{
+   const a=w.appointments.find(x=>x.id===id);if(!a)throw Error("Appointment unavailable.");
+   return c.createTicket(w,{vehicleId:a.vehicleId,complaint:a.concern,appointmentId:a.id});
+  },"Ticket created from appointment.",res=>openState(res.id));return;
+ }
+ if(action==="approve"){
+  if(!window.confirm?.("Confirm that the customer approved the proposed services and parts estimate?"))return;
+  return void change(w=>c.approve(w,id),"Customer approval recorded.");
+ }
+ if(action==="reject"){
+  if(!window.confirm?.("Confirm that the customer rejected the proposed repairs? Only agreed diagnosis fees may still apply."))return;
+  return void change(w=>c.reject(w,id),"Customer rejection recorded.");
+ }
+ if(action==="finish-repair")return void change(w=>c.finishRepair(w,id),"Repair completed.");
+ if(action==="invoice")return void change(w=>c.invoiceTicket(w,id),"Ticket invoice posted.");
+ if(action==="release")return void change(w=>c.release(w,id),"Vehicle released.");
+ if(action==="issue-cart")return void change(w=>c.issueCart(w,id),"Inventory issue confirmed. Stock quantities updated.");
+ if(action==="complete-service")return void change(w=>c.completeService(w,ui.ticketId,id),"Service marked complete.");
+ if(action==="remove-cart")return void change(w=>c.removeCart(w,ui.ticketId,id),"Cart item removed.");
+});
+function openState(id){ui.returnPage=ui.page||"tickets";ui.ticketId=id;ui.page="tickets";ui.tab="overview";}
+function syncRequirementForm(form){
+ const part=form.elements.namedItem("partChoice"),source=form.elements.namedItem("source");
+ if(!part||!source)return;
+ const custom=part.value==="custom",field=form.querySelector("#custom-part-field");
+ const input=form.elements.namedItem("description"),discount=form.querySelector("#requirement-discount");
+ if(custom)source.value="manual";
+ source.disabled=custom;
+ if(field)field.hidden=!custom;
+ if(input){input.disabled=!custom;input.required=custom;if(!custom)input.value="";}
+ if(discount)discount.hidden=custom||source.value!=="inventory";
+}
+document.addEventListener("change",event=>{
+ if(event.target.name==="ticket-filter"&&!ui.ticketId){ui.filter=event.target.value;render();return;}
+ if(["partChoice","source"].includes(event.target.name)){
+  const form=event.target.closest("#garage-form");
+  if(form?.dataset.kind==="requirement")syncRequirementForm(form);
+ }
+});
+document.addEventListener("input",event=>{
+ if(event.target.id!=="ticket-search"||ui.ticketId)return;
+ const value=event.target.value,pos=event.target.selectionStart;
+ ui.search=value;render();
+ const replacement=document.getElementById("ticket-search");
+ if(replacement){replacement.focus();try{replacement.setSelectionRange(pos,pos);}catch(_){}}
+});
+document.addEventListener("submit",event=>{
+ const form=event.target;if(!root.contains(form))return;
+ if(form.id!=="garage-form"&&form.id!=="requirements-cart")return;
+ event.preventDefault();
+ const fd=new FormData(form),p=Object.fromEntries(fd.entries());
+ if(form.id==="requirements-cart"){
+  if(!ui.ticketId)return;
+  const selected=fd.getAll("selected");
+  if(!selected.length){setToast("Select at least one available requirement.");return;}
+  change(w=>{
+   for(const rid of selected){
+    const t=c.ticket(w,ui.ticketId),r=t.requirements.find(x=>x.id===rid);
+    if(!r?.itemId)throw Error("Only available inventory items can be added.");
+    c.addToCart(w,t.id,r.itemId,fd.get("qty-"+rid),r.discount);
+   }
+  },"Selected requirements added to the ticket cart.");return;
+ }
+ if(!ui.modal||ui.modal.kind!==form.dataset.kind)return;
+ const kind=ui.modal.kind;
+ if(kind==="customer")return void change(w=>c.createCustomer(w,p),"Customer saved.");
+ if(kind==="vehicle")return void change(w=>c.createVehicle(w,p),"Vehicle registered.");
+ if(kind==="ticket"){
+  change(w=>c.createTicket(w,p),"Repair ticket created.",newTicket=>openState(newTicket.id));return;
+ }
+ if(kind==="appointment")return void change(w=>c.createAppointment(w,p),"Appointment saved.");
+ if(kind==="diagnosis")return void change(w=>c.diagnose(w,ui.ticketId,p),"Diagnosis recorded.",()=>{ui.tab="diagnosis";});
+ if(kind==="service")return void change(w=>c.addService(w,ui.ticketId,p),"Service fee added to ticket.");
+ if(kind==="requirement"){
+  const custom=p.partChoice==="custom",manual=custom||p.source==="manual";
+  if(manual){
+   const chosen=custom?null:d.inventory.find(i=>i.id===p.partChoice);
+   if(!custom&&!chosen){setToast("Choose a valid catalogue part.");return;}
+   return void change(w=>c.addRequirement(w,ui.ticketId,{description:custom?p.description:chosen.name,
+    quantity:p.quantity,itemId:null,discount:0}),"Customer-sourced requirement added.");
+  }
+  return void change(w=>c.requireInventory(w,ui.ticketId,p.partChoice,p.quantity,p.discount),"Inventory-linked requirement added.");
+ }
+ if(kind==="cart")return void change(w=>c.addToCart(w,ui.ticketId,p.itemId,p.quantity,p.discount),"Inventory item added to ticket cart.");
+ if(kind==="outside-part")return void change(w=>c.recordOutsidePart(w,ui.ticketId,p),"Outside part recorded.");
+
+ if(kind==="reject")return void change(w=>c.reject(w,ui.ticketId,p.notes),"Customer rejection recorded.");
+ if(kind==="return")return void change(w=>c.returnIssue(w,ui.ticketId,form.dataset.issueId,p.quantity),"Unused part returned. Quantity and charges reversed.");
+ if(kind==="item")return void change(w=>c.addInventory(w,p),"Inventory item registered.");
+ if(kind==="stock-in")return void change(w=>c.stockIn(w,p.itemId,p.quantity,p.buyPrice,p.sellPrice),"Stock intake recorded.");
+ if(kind==="payment")return void change(w=>c.payment(w,ui.ticketId,p),"Sample payment recorded.");
+});
+document.addEventListener("keydown",event=>{
+ if(event.key!=="Escape")return;
+ if(ui.document){ui.document=null;render();}
+ else if(ui.modal){ui.modal=null;render();}
+ else if(ui.mobileMenu){ui.mobileMenu=false;render();}
+});
+render();
+})(garageCore,garageViews);

@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { LeadContactActions } from './LeadContactActions';
 import { useAppDialog } from '@/components/AppDialog';
 import { Button, Field, useUIStyles } from '@/components/ui';
 import { useTheme } from '@/lib/config';
@@ -12,18 +14,6 @@ const toForm = (c: LeadContact): Form => ({
   name: c.name || '', role: c.role || '', phone: c.phone || '', email: c.email || '',
 });
 
-function whatsappNumber(phone: string, country: string) {
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return null;
-  if (phone.startsWith('+')) return digits;
-  if (country.toLowerCase() === 'kenya') {
-    if (digits.length === 10 && digits.startsWith('0')) return '254' + digits.slice(1);
-    if (digits.length === 12 && digits.startsWith('254')) return digits;
-    if (digits.length === 9 && /^[17]/.test(digits)) return '254' + digits;
-  }
-  return null;
-}
-
 export function LeadContacts({ lead, contacts, onRefresh }: {
   lead: Lead; contacts: LeadContact[]; onRefresh: () => void;
 }) {
@@ -34,7 +24,7 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
   const [form, setForm] = useState<Form>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const locked = lead.do_not_contact || lead.stage === 'competitor';
+  const locked = lead.do_not_contact || ['competitor','do_not_contact','won','lost'].includes(lead.stage);
   const base = '/api/agent-crm/leads/' + encodeURIComponent(lead.id) + '/contacts';
 
   const begin = (id: string, contact?: LeadContact) => {
@@ -82,20 +72,6 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         .finally(() => setBusy(false));
     },
   });
-  const callContact = (phone: string) => {
-    const number = phone.replace(/[^\d+]/g, '');
-    if (number) void Linking.openURL('tel:' + number);
-  };
-  const messageContact = (phone: string) => {
-    const number = whatsappNumber(phone, lead.country);
-    if (!number) {
-      dialog({ title: 'Number needs country code', message: 'Add an international country code to use WhatsApp.' });
-      return;
-    }
-    void Linking.openURL('https://wa.me/' + number).catch(() => {
-      dialog({ title: 'WhatsApp unavailable', message: 'Could not open WhatsApp.' });
-    });
-  };
 
   return <View style={[styles.card, { gap: 12 }]}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -105,51 +81,80 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>+ Add contact</Text>
       </Pressable> : null}
     </View>
-    {lead.website ? <Text selectable style={styles.subtitle}>Website: {lead.website}</Text> : null}
     {contacts.length === 0 ? <Text style={styles.subtitle}>No contacts yet. Add your first contact.</Text> : null}
     {contacts.map((c) => <View key={c.id} style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text style={[styles.value, { flex: 1, fontSize: 16 }]}>{c.name || c.phone || c.email || 'Unnamed contact'}</Text>
-        {c.is_primary ? <Text style={{ color: theme.primaryDark, fontSize: 12, fontWeight: '800' }}>Primary</Text> : null}
+      <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
+        <Text numberOfLines={1} style={[styles.value,{flex:1,fontSize:16}]}>
+          {c.name || c.phone || c.email || 'Unnamed contact'}
+        </Text>
+        {c.is_primary ? <View style={{borderWidth:1,borderColor:theme.primary,
+          backgroundColor:theme.surfaceMuted,borderRadius:16,paddingHorizontal:9,paddingVertical:5}}>
+          <Text style={{color:theme.primaryDark,fontSize:11,fontWeight:'800'}}>Primary</Text>
+        </View> : !locked && editing===null ? <Pressable
+          accessibilityRole="button" accessibilityLabel={'Make '+(c.name||'contact')+' primary'}
+          onPress={()=>void makePrimary(c)} disabled={busy}
+          style={{borderWidth:1,borderColor:theme.border,borderRadius:13,
+            paddingHorizontal:8,paddingVertical:5}}>
+          <Text style={{color:theme.primaryDark,fontSize:11,fontWeight:'700'}}>Set primary</Text>
+        </Pressable> : null}
+        {!locked && editing===null ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Edit '+(c.name||'contact')}
+            disabled={busy} onPress={()=>begin(c.id,c)}
+            style={{width:36,height:36,borderRadius:10,borderWidth:1,borderColor:theme.border,
+              alignItems:'center',justifyContent:'center'}}>
+            <SymbolView name={{ios:'pencil',android:'edit',web:'edit'}}
+              tintColor={theme.primaryDark} size={17}
+              fallback={<Text style={{color:theme.primaryDark,fontSize:18}}>✎</Text>}/>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={'Remove '+(c.name||'contact')}
+            disabled={busy} onPress={()=>remove(c)}
+            style={{width:36,height:36,borderRadius:10,borderWidth:1,borderColor:theme.border,
+              alignItems:'center',justifyContent:'center'}}>
+            <SymbolView name={{ios:'trash',android:'delete',web:'delete'}}
+              tintColor={theme.warning} size={17}
+              fallback={<Text style={{color:theme.warning,fontSize:18}}>×</Text>}/>
+          </Pressable>
+        </> : null}
       </View>
       {c.role ? <Text style={styles.subtitle}>{c.role}</Text> : null}
       {c.phone ? <Text selectable style={styles.subtitle}>{c.phone}</Text> : null}
       {c.email ? <Text selectable style={styles.subtitle}>{c.email}</Text> : null}
-      {!locked && (c.phone || c.email) ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {c.phone ? <Button secondary disabled={busy} onPress={() => callContact(c.phone!)}>Call</Button> : null}
-        {c.phone ? <Button secondary disabled={busy} onPress={() => messageContact(c.phone!)}>WhatsApp</Button> : null}
-        {c.email ? <Button secondary disabled={busy} onPress={() => void Linking.openURL('mailto:' + c.email)}>Email</Button> : null}
-      </View> : null}
-      {!locked && editing === null ? <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', paddingTop: 4 }}>
-        <Pressable accessibilityRole="button" onPress={() => begin(c.id, c)} disabled={busy}>
-          <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>Edit</Text>
-        </Pressable>
-        {!c.is_primary ? <Pressable accessibilityRole="button" onPress={() => void makePrimary(c)} disabled={busy}>
-          <Text style={{ color: theme.primaryDark, fontWeight: '700' }}>Make primary</Text>
-        </Pressable> : null}
-        <Pressable accessibilityRole="button" onPress={() => remove(c)} disabled={busy}>
-          <Text style={{ color: theme.warning, fontWeight: '700' }}>Remove</Text>
-        </Pressable>
-      </View> : null}
+      <LeadContactActions phone={c.phone} email={c.email} country={lead.country}
+        disabled={locked || busy}/>
+
       {editing === c.id ? <View style={{ gap: 9, paddingTop: 8 }}>
-        <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}/>
+        <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} autoFocus/>
         <Field label="Role" value={form.role} onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}/>
         <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
         <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
-        <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+        <View style={{flexDirection:'row',gap:10}}>
+          <View style={{flex:1}}>
+            <Button disabled={busy || !Object.values(form).some((value) => value.trim())}
+              onPress={() => void save()}>{busy ? 'Saving…' : 'Save contact'}</Button>
+          </View>
+          <View style={{flex:1}}>
+            <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+          </View>
+        </View>
       </View> : null}
     </View>)}
     {editing === 'new' ? <View style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 9 }}>
       <Text style={[styles.value, { fontSize: 16 }]}>New contact</Text>
-      <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}/>
+      <Field label="Name" value={form.name} onChangeText={(v) => setForm((p) => ({ ...p, name: v }))} autoFocus/>
       <Field label="Role" value={form.role} onChangeText={(v) => setForm((p) => ({ ...p, role: v }))}/>
       <Field label="Phone" value={form.phone} onChangeText={(v) => setForm((p) => ({ ...p, phone: v }))} keyboardType="phone-pad"/>
       <Field label="Email" value={form.email} onChangeText={(v) => setForm((p) => ({ ...p, email: v }))} keyboardType="email-address"/>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button disabled={busy || !Object.values(form).some((value) => value.trim())} onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
-      <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+      <View style={{flexDirection:'row',gap:10}}>
+        <View style={{flex:1}}>
+          <Button disabled={busy || !Object.values(form).some((value) => value.trim())}
+            onPress={() => void save()}>{busy ? 'Saving…' : 'Add contact'}</Button>
+        </View>
+        <View style={{flex:1}}>
+          <Button secondary disabled={busy} onPress={() => setEditing(null)}>Cancel</Button>
+        </View>
+      </View>
     </View> : null}
     {error && editing === null ? <Text style={styles.error}>{error}</Text> : null}
   </View>;

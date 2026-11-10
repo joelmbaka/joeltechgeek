@@ -5,18 +5,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/AuthProvider';
 import { useTheme } from '@/lib/config';
-import { AgentAvatar } from './AgentAvatar';
+import { UserAvatar } from './UserAvatar';
 
 export function HeaderProfileMenu() {
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const dark = useColorScheme() === 'dark';
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
-  if (!agent) return null;
+  if (!user) return null;
 
-  const displayName = (agent.name || agent.email || 'Agent').trim();
+  const displayName = (user.name || user.email || 'CrmUser').trim();
   // Keep the popover below the native header, including the status bar.
   // Android modal coordinate origins vary by OS; use a conservative offset.
   // iOS uses the safe-area inset plus the navigation header height.
@@ -33,7 +33,7 @@ export function HeaderProfileMenu() {
         backgroundColor: theme.white,
         alignItems: 'center', justifyContent: 'center',
       }}>
-      <AgentAvatar name={displayName} pictureUrl={agent.picture_url} size={34} />
+      <UserAvatar name={displayName} pictureUrl={user.picture_url} size={34} />
     </Pressable>
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent={false}
       onRequestClose={() => setVisible(false)}>

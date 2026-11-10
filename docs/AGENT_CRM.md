@@ -1,4 +1,4 @@
-# JoelTechGeek sales-agent CRM
+# CallsBound sales CRM
 
 ## Scope
 - Private URL: https://joeltechgeek.com/crm (not linked from public site, noindex).

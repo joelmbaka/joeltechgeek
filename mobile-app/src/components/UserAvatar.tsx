@@ -9,7 +9,7 @@ type Props = {
 };
 
 /** Display the signed-in Google profile photo without uploading it anywhere. */
-export function AgentAvatar({ name, pictureUrl, size = 32 }: Props) {
+export function UserAvatar({ name, pictureUrl, size = 32 }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const dark = useColorScheme() === 'dark';
   const theme = useTheme();

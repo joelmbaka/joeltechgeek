@@ -1,0 +1,485 @@
+/* Garage Management System · JoelTechGeek desktop-first views */
+const garageViews=(function(){
+"use strict";
+const e=v=>String(v??"").replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]));
+const kes=v=>"KES "+Number(v||0).toLocaleString("en-KE",{maximumFractionDigits:2});
+const NAV=[["dashboard","Dashboard","◫"],["appointments","Appointments","◷"],["tickets","Tickets","▤"],["vehicles","Customers & Vehicles","▰"],["inventory","Inventory","▣"],["reports","Reports","◩"]];
+const btn=(label,action,id="",style="",extra="")=>'<button type="button" class="btn '+style+'" data-action="'+e(action)+'" '+(id?'data-id="'+e(id)+'"':"")+' '+extra+'>'+label+'</button>';
+const tag=v=>'<span class="tag '+String(v).toLowerCase().replace(/[^a-z0-9]+/g,"-")+'">'+e(v)+'</span>';
+const panel=(heading,body)=>'<section class="panel"><header class="panel-head"><h2>'+e(heading)+'</h2></header>'+body+'</section>';
+const heading=(h,desc,action="")=>'<div class="page-head"><div><h1>'+e(h)+'</h1><p>'+e(desc)+'</p></div>'+action+'</div>';
+const metric=(label,value,info)=>'<div class="metric"><small>'+e(label)+'</small><strong>'+e(value)+'</strong><span>'+e(info)+'</span></div>';
+const empty=(label,info)=>'<div class="empty"><b>'+e(label)+'</b><p>'+e(info)+'</p></div>';
+const pair=(k,v)=>'<div class="pair"><span>'+e(k)+'</span><strong>'+e(v??"—")+'</strong></div>';
+const tablerow=cells=>'<tr>'+cells.map(x=>'<td>'+x+'</td>').join("")+'</tr>';
+const table=(head,body)=>'<div class="table-wrap"><table><thead><tr>'+head.map(h=>'<th>'+e(h)+'</th>').join("")+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+const field=(label,name,value="",props="")=>'<label class="field"><span>'+e(label)+'</span><input name="'+name+'" value="'+e(value)+'" '+props+' required></label>';
+const area=(label,name,value="")=>'<label class="field"><span>'+e(label)+'</span><textarea name="'+name+'" rows="4" maxlength="550" required>'+e(value)+'</textarea></label>';
+const select=(label,name,options,chosen)=>'<label class="field"><span>'+e(label)+'</span><select name="'+name+'">'+options.map(o=>{
+ const [value,txt]=Array.isArray(o)?o:[o,o];return '<option value="'+e(value)+'" '+(value===chosen?"selected":"")+'>'+e(txt)+'</option>';
+}).join("")+'</select></label>';
+const numberField=(label,name,value=1,props='type="number" min="1" step="1"')=>field(label,name,value,props);
+const priceField=(label,name,value=0)=>numberField(label,name,value,'type="number" min="0" step="0.01"');
+return function(d,ui,c){
+ const t=ui.ticketId?d.tickets.find(x=>x.id===ui.ticketId):null;
+ const inv=id=>d.inventory.find(i=>i.id===id),veh=id=>d.vehicles.find(v=>v.id===id);
+ const vehicleName=v=>v.plate+" · "+v.name;
+ function ticketRow(t){const v=c.vehicleFor(d,t),o=c.customerFor(d,t);return tablerow([
+  '<b>'+e(t.id)+'</b><small>'+e(t.openedAt)+'</small>',
+  '<b>'+e(v.plate)+'</b><small>'+e(v.name+" · "+o.name)+'</small>',
+  tag(c.status(t)),btn("Open ›","open-ticket",t.id,"outline compact")]);}
+ const ticketTable=list=>list.length?table(["Ticket","Vehicle / customer","Status",""],list.map(ticketRow).join("")):
+  empty("No matching tickets","Search another registration or open a new ticket.");
+ function history(ticketId=null){const rows=d.events.filter(x=>!ticketId||x.ticketId===ticketId).slice(0,15);
+  return rows.length?rows.map(x=>'<div class="event"><span class="event-dot"></span><div><b>'+e(x.message)+'</b>'+
+   '<small>'+e(x.at)+" · "+e(x.ticketId)+'</small></div></div>').join(""):empty("No activity","Recorded actions appear here.");
+ }
+ function dashboard(){const m=c.metrics(d),active=d.tickets.filter(t=>t.status!=="released");
+  return heading("Garage overview","Vehicles and repairs · fictional workshop records.",btn("＋ Create ticket","modal","ticket","primary"))+
+   '<div class="metrics">'+metric("Vehicles in workshop",m.active,"Open tickets")+metric("Awaiting approval",m.awaitingApproval,"Customer decision pending")+
+    metric("Pending stock issues",m.pendingIssues,"Cart items not yet issued")+metric("Repairs in progress",m.inRepair,"Authorized work")+'</div>'+
+   panel("Workshop tickets",ticketTable(active.slice(0,6)));
+ }
+ function tickets(){let rows=d.tickets;
+  if(ui.filter&&ui.filter!=="all")rows=rows.filter(x=>x.status===ui.filter);
+  if(ui.search){const q=ui.search.toLowerCase();rows=rows.filter(x=>
+   [x.id,x.complaint,c.vehicleFor(d,x).plate,c.vehicleFor(d,x).name,c.customerFor(d,x).name].some(v=>String(v).toLowerCase().includes(q)));}
+  return heading("Repair tickets","Manage each vehicle from reception through release.",btn("＋ Create ticket","modal","ticket","primary"))+
+   '<div class="toolbar"><label class="field search"><span>Search</span><input id="ticket-search" placeholder="Ticket, registration or customer" value="'+e(ui.search||"")+'"/></label>'+
+    select("Status","ticket-filter",[["all","All statuses"],...Object.entries(c.STATES).map(([k,v])=>[k,v])],ui.filter||"all")+'</div>'+
+   panel(rows.length+" tickets",ticketTable(rows));
+ }
+ function appointments(){const ap=d.appointments.filter(a=>c.activeAppointment(a)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  return heading("Appointments","Upcoming bookings awaiting arrival and ticket creation.",btn("＋ New appointment","modal","appointment","primary"))+
+   panel("Active appointments",ap.length?table(["Date · Time","Vehicle","Reported service need","Status",""],ap.map(a=>{
+    const v=veh(a.vehicleId);
+    return tablerow(['<b>'+e(a.date+" · "+a.time)+'</b>','<b>'+e(v.plate)+'</b><small>'+e(v.name)+'</small>',
+      e(a.concern),tag(a.status),btn("Create ticket","convert-appointment",a.id,"primary compact")]);
+   }).join("")):empty("No active appointments","New bookings appear here until a ticket is created."))+
+   '<p class="footnote">Creating a ticket removes the appointment from this active list; the booking remains linked to the ticket for history.</p>';
+ }
+ function vehicles(){return heading("Customers & vehicles","Register customers first, then assign vehicles to an existing customer.")+
+  '<div class="section-heading"><h2>Customers <span class="section-count">'+d.customers.length+'</span></h2>'+btn("＋ Add customer","modal","customer","primary")+'</div>'+
+  panel("Customer directory",d.customers.length?table(["Customer","Phone","Vehicles owned"],d.customers.map(o=>{
+   const owned=d.vehicles.filter(v=>v.customerId===o.id);
+   return tablerow(['<b>'+e(o.name)+'</b>',e(o.phone),e(owned.length)+
+    (owned.length?'<small>'+owned.map(v=>e(v.plate)).join(", ")+'</small>':"")]);
+  }).join("")):empty("No customers yet","Add a customer before registering a vehicle."))+
+  '<div class="section-heading"><h2>Vehicles <span class="section-count">'+d.vehicles.length+'</span></h2>'+
+   btn("＋ Add vehicle","modal","vehicle","primary",d.customers.length?"":'disabled title="Add a customer first"')+'</div>'+
+  panel("Registered vehicles",d.vehicles.length?table(["Registration","Owner","Contact","Previous tickets"],d.vehicles.map(v=>{
+   const o=d.customers.find(x=>x.id===v.customerId),ts=d.tickets.filter(x=>x.vehicleId===v.id);
+   return tablerow(['<b>'+e(v.plate)+'</b><small>'+e(v.name+" · "+v.year+" · "+v.mileage.toLocaleString()+" km")+'</small>',
+    e(o?.name||"Unknown owner"),e(o?.phone||"—"),ts.length?ts.map(x=>btn(x.id,"open-ticket",x.id,"outline compact")).join(" "):"—"]);
+  }).join("")):empty("No vehicles yet","Add a vehicle and choose its owner from registered customers."));}
+ function inventory(){const m=c.metrics(d);return heading("Inventory","Minimal inventory: stock intake, issue to ticket, and returns.",
+  '<div class="head-actions">'+btn("＋ New item","modal","item","outline")+btn("＋ Stock in","modal","stock-in","primary")+'</div>')+
+  '<div class="metrics three">'+metric("Parts registered",d.inventory.length,"Inventory items")+
+   metric("Low / out of stock",m.lowStock,"Two units or less")+metric("Stock movements",d.movements.length,"Intake, issues and returns")+'</div>'+
+  panel("Stock on hand",table(["Part","Available","Buying price","Selling price",""],d.inventory.map(i=>tablerow([
+   '<b>'+e(i.name)+'</b><small>'+e(i.id)+'</small>',tag(i.quantity===0?"Out of stock":i.quantity<=2?"Low stock":i.quantity+" units"),
+   kes(i.buyPrice),kes(i.sellPrice),btn("Stock in","modal","stock-in","outline compact",'data-item-id="'+e(i.id)+'"')
+  ])).join("")))+
+  panel("Recent movements",table(["Date","Part","Type","Quantity","Ticket"],d.movements.slice(0,20).map(x=>tablerow([
+   e(x.at),e(inv(x.itemId)?.name||"Unknown"),tag(x.kind),e(x.quantity>0?"+"+x.quantity:x.quantity),
+   x.ticketId?btn(x.ticketId,"open-ticket",x.ticketId,"text compact"):"—"
+  ])).join("")));}
+ function reports(){const m=c.metrics(d),billed=d.tickets.filter(x=>x.invoice);
+  return heading("Reports","Revenue and parts costs are based on posted invoices and confirmed inventory issues.")+
+   '<div class="metrics">'+metric("Invoiced revenue",kes(m.revenue),"Parts + completed services")+
+    metric("Collected",kes(m.collected),"Recorded sample payments")+
+    metric("Outstanding",kes(m.outstanding),"Invoice balances")+
+    metric("Gross contribution",kes(m.contribution),"Before operating expenses")+'</div>'+
+   panel("Invoiced tickets",table(["Ticket","Vehicle","Service charges","Parts charges","Parts cost","Contribution"],billed.map(x=>{
+    const a=c.charges(x);return tablerow([btn(x.id,"open-ticket",x.id,"text"),e(c.vehicleFor(d,x).plate),
+     kes(a.services),kes(a.parts),kes(a.cost),'<b>'+kes(a.contribution)+'</b>']);
+   }).join("")))+
+   panel("Operational overview",pair("Active tickets",m.active)+pair("Released vehicles",m.released)+
+    pair("Pending approvals",m.awaitingApproval)+pair("Pending customer parts",m.awaitingParts))+
+   '<p class="footnote">Gross contribution excludes staff wages, taxes, rent, utilities and other overhead. It is not net profit.</p>';
+ }
+ const TABS=[["overview","Overview"],["diagnosis","Diagnosis & Estimate"],["cart","Parts cart"],["billing","Billing"],["history","History"]];
+ function stageLock(tab){
+  if(tab==="cart"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released"].includes(t.status)){
+   return {title:"Customer approval required",reason:"Finish the diagnosis, prepare the service and parts estimate, and record the customer's approval before handling inventory.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
+  }
+  if(tab==="billing"&&!["awaiting-parts","in-repair","ready-for-billing","invoiced","released","rejected","cannot-repair"].includes(t.status))
+   return {title:"Customer decision required",reason:"Record customer approval or rejection on Diagnosis & Estimate before accessing billing.",cta:"Go to Diagnosis & Estimate",target:"diagnosis"};
+  return null;
+ }
+ function lockedStage(lock){
+  return '<section class="stage-lock" role="status" aria-label="'+e(lock.title)+'"><div class="stage-lock-icon" aria-hidden="true">'+
+   '<svg viewBox="0 0 64 64" width="76" height="76" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">'+
+   '<rect x="13" y="27" width="38" height="31" rx="7"/><path d="M21 27v-9a11 11 0 0 1 22 0v9"/><circle cx="32" cy="41" r="2.5"/><path d="M32 44v5"/></svg></div>'+
+   '<span class="stage-lock-eyebrow">NEXT STEP REQUIRED</span><h2>'+e(lock.title)+'</h2><p>'+e(lock.reason)+'</p>'+
+   '<button type="button" class="btn primary" data-tab="'+e(lock.target)+'">'+e(lock.cta)+'</button></section>';
+ }
+  function actions(t){
+  // Action controls belong to the relevant ticket section, not the shared header.
+  return "";
+ }
+ function overview(){const v=c.vehicleFor(d,t),o=c.customerFor(d,t),a=c.charges(t);
+  return '<div class="columns two">'+panel("Vehicle & customer",pair("Registration",v.plate)+pair("Model",v.name)+
+   pair("Year",v.year)+pair("Mileage",v.mileage.toLocaleString()+" km")+pair("Customer",o.name)+pair("Phone",o.phone))+
+   panel("Ticket financials",pair("Completed services",kes(a.services))+pair("Confirmed parts",kes(a.parts))+
+    pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
+    pair("Collected",kes(a.collected))+pair("Balance",t.invoice?kes(a.outstanding):"Not invoiced"))+'</div>'+
+   panel("Reported issue",'<p class="paragraph">'+e(t.complaint)+'</p>');
+ }
+ function diagnosis(){
+  const x=t.diagnosis;
+  const first=panel("1 · Inspection findings",x?pair("Repair possible",x.feasible?"Yes":"No")+
+   '<div class="note"><b>Findings</b><p>'+e(x.findings)+'</p></div>'+pair("Recorded",x.at):
+   '<p class="hint">Inspection findings have not been recorded yet. Use the Record diagnosis button above.</p>');
+  const estimate=services()+requirements()+
+   (x&&!x.feasible?'<p class="hint">Repair unavailable: only an agreed diagnosis fee can be billed. Parts requirements are read-only.</p>':"");
+  const decision=t.approval?.decision==="Approved"?'Customer approved the estimate. Authorized repair work can proceed.':
+   t.approval?.decision==="Rejected"?'Customer rejected the proposed repair. Only agreed diagnosis fees may be billed.':
+   t.status==="awaiting-approval"?'Record the customer decision below. Inventory can only be issued after approval.':
+   t.status==="estimating"?'Record the customer decision below once the estimate is prepared.':
+   t.status==="open"?'Record inspection findings to enable service and parts estimates.':
+   ["cannot-repair"].includes(t.status)?'Repair unavailable; record the agreed diagnosis fee, if any, and proceed to billing or release.':
+   'Approval and repair history remain attached to this ticket.';
+  const canDecide=["estimating","awaiting-approval"].includes(t.status)&&
+   t.diagnosis?.feasible&&t.services.some(s=>s.kind==="repair");
+  const controls=canDecide?btn("Customer approved","approve",t.id,"primary")+
+   btn("Customer rejected","reject",t.id,"outline"):
+   ["open","estimating","awaiting-approval"].includes(t.status)?
+   '<button type="button" class="btn primary" disabled title="Record a feasible diagnosis and a repair service">Customer approved</button>'+
+   '<button type="button" class="btn outline" disabled title="Record a feasible diagnosis and a repair service">Customer rejected</button>':"";
+  return '<div class="workflow-heading"><h2>Diagnosis & Estimate</h2><p>Inspection, service fees, parts requirements and customer decision in one place.</p></div>'+
+   first+estimate+(x?'<div class="report-actions">'+btn("View diagnosis report","show-document","diagnosis","outline")+
+    btn("Share diagnosis report","share-diagnosis",t.id,"primary")+'</div>':"")+
+   panel("4 · Customer approval",'<p class="hint">'+e(decision)+'</p><div class="head-actions">'+controls+'</div>');
+ }
+ function requirements(){
+  const editable=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing"].includes(t.status)&&!t.invoice;
+  const rows=t.requirements.map(r=>{
+   const i=r.itemId?inv(r.itemId):null;
+   return tablerow(['<b>'+e(r.description)+'</b><small>'+e(r.id)+'</small>',e(r.quantity),
+    tag(i?(i.quantity>0?i.quantity+" in stock":"Out of stock"):"Not in catalogue"),
+    i?kes(i.sellPrice-r.discount):"—"]);
+  }).join("");
+  return '<div class="sub-head"><div><h2>3 · Parts Requirements & Price List</h2><p>Informational recommendations and optional price offers. This list does not control the cart or billing.</p></div>'+
+   '<div class="head-actions">'+(editable?btn("＋ Add part","modal","requirement","outline"):t.status==="open"?'<button type="button" class="btn outline" disabled title="Record inspection findings first">＋ Add part</button>':"")+
+   '</div></div>'+
+   panel("Suggested parts · "+t.requirements.length,t.requirements.length?
+    table(["Part","Suggested qty","Catalogue availability","Optional unit offer"],rows):
+    empty("No suggestions","You can suggest parts here, including items not in the catalogue."))+
+   '<p class="footnote">Only confirmed cart issues affect workshop stock and charges. Parts bought outside are recorded separately in Parts Cart.</p>';
+ }
+ function cart(){
+  const allowed=["awaiting-parts","in-repair"].includes(t.status),returnAllowed=allowed||t.status==="ready-for-billing";
+  const pending=t.cart.map(row=>{
+   const i=inv(row.itemId);
+   return tablerow([e(i.name),e(row.quantity),kes(row.unitPrice),kes(row.discount),
+    kes((row.unitPrice-row.discount)*row.quantity),allowed?btn("Remove","remove-cart",row.id,"danger-text compact"):"—"]);
+  }).join("");
+  const issued=t.issues.map(row=>{
+   const returned=t.returns.filter(x=>x.issueId===row.id).reduce((sum,x)=>sum+x.quantity,0);
+   return tablerow([e(row.name),e(row.quantity-returned)+" / "+e(row.quantity),kes(row.unitPrice-row.discount),
+    kes((row.quantity-returned)*(row.unitPrice-row.discount)),returnAllowed?
+    btn("Return unused","modal","return","outline compact",'data-issue-id="'+e(row.id)+'"'):"—"]);
+  }).join("");
+  const external=(t.externalParts||[]).map(x=>tablerow([e(x.name),e(x.quantity),e(x.source),e(x.at)])).join("");
+  return '<div class="sub-head"><div><h2>Ticket parts cart</h2><p>Actual stock issues and externally obtained parts. Independent of suggested parts requirements.</p></div>'+
+   (allowed?btn("＋ Add from inventory","modal","cart","primary"):"")+'</div>'+
+   panel("Pending inventory cart",pending?table(["Part","Qty","Unit price","Discount per unit","Total",""],pending)+
+    '<div class="form-footer"><b>'+kes(t.cart.reduce((s,x)=>s+(x.unitPrice-x.discount)*x.quantity,0))+'</b>'+
+     (allowed?btn("Confirm issue & deduct inventory","issue-cart",t.id,"primary"):"")+'</div>':
+    empty("No parts pending issue","Add any stocked item, whether or not it appears in the estimate."))+
+   panel("Confirmed inventory issues",issued?table(["Part","Net / issued quantity","Net unit price","Net total",""],issued):
+    empty("No inventory issued","Only confirmed issues deduct stock and contribute parts charges."))+
+   panel("Parts obtained outside the garage",external?
+    table(["Part","Qty","Source","Recorded"],external):
+    empty("No outside parts recorded","Record parts already obtained outside the garage, without affecting workshop inventory or billing."))+
+   '<p class="footnote">Pending cart items are not issued yet. Outside parts are informational actual receipts, not garage stock or charges.</p>';
+ }
+ function services(){
+  const canAdd=["estimating","awaiting-approval","awaiting-parts","in-repair","ready-for-billing","cannot-repair"].includes(t.status)&&!t.invoice;
+  const rows=t.services.map(l=>tablerow([
+   '<b>'+e(l.description)+'</b><small>'+e(l.kind==="diagnosis"?"Diagnosis fee":"Repair service")+'</small>',
+   e(l.quantity),kes(l.unitPrice),kes(l.discount),kes((l.unitPrice-l.discount)*l.quantity),
+   l.done?tag("Completed"):tag("Estimated")
+  ])).join("");
+  return '<div class="sub-head"><div><h2>2 · Services & labour estimate</h2><p>Add proposed repair and inspection fees. Complete all authorized work together in Billing.</p></div>'+
+   (canAdd?btn("＋ Add service fee","modal","service","primary"):t.status==="open"?'<button type="button" class="btn primary" disabled title="Record inspection findings first">＋ Add service fee</button>':"")+'</div>'+
+   panel("Service lines · "+t.services.length,t.services.length?table(["Service","Qty","Fee / unit","Discount","Amount","State"],rows):
+    empty("No service fees yet","Add the proposed repair services or a diagnostic fee."))+
+   '<p class="footnote">Changing the approved scope requires renewed customer authorization.</p>';
+ }
+ function billing(){
+  const a=c.charges(t),parts=t.issues.map(i=>{
+   const returned=t.returns.filter(r=>r.issueId===i.id).reduce((sum,r)=>sum+r.quantity,0);
+   return {...i,netQty:i.quantity-returned};
+  }).filter(i=>i.netQty>0);
+  const isRepair=!!t.diagnosis?.feasible&&t.approval?.decision==="Approved";
+  const complete=!!t.repairCompleted||t.status==="ready-for-billing"||t.status==="released";
+
+  const canComplete=["awaiting-parts","in-repair","invoiced"].includes(t.status)&&isRepair&&!complete;
+  const canInvoice=!t.invoice&&(["ready-for-billing","rejected","cannot-repair"].includes(t.status)||
+   (["awaiting-parts","in-repair"].includes(t.status)&&isRepair&&!t.cart.length));
+  const canRelease=(t.status==="invoiced"&&a.outstanding<=0&&(!isRepair||complete))||
+   (["rejected","cannot-repair"].includes(t.status)&&a.total===0);
+  const canCompleteNow=canComplete&&!t.cart.length;
+  const work=isRepair?panel("Repair completion",'<p class="hint">'+(complete?"Repair completed. All authorized services are marked complete.":
+   t.cart.length?"Confirm or remove pending cart items before completing the repair.":
+   "When the physical work is finished, complete the repair here. All authorized services will be marked complete together, whether invoiced or not.")+'</p>'+
+   (complete?tag("Completed"):canComplete?btn("Complete repair","finish-repair",t.id,"primary",""+(canCompleteNow?"":'disabled title="Confirm or remove pending cart items"')):"")):"";
+  return work+'<div class="columns two">'+panel("Ticket financials",
+    pair("Completed services",kes(a.services))+pair("Confirmed parts sales",kes(a.parts))+
+    pair("Inventory cost",kes(a.cost))+pair("Gross contribution",kes(a.contribution))+
+    pair("Invoice",t.invoice?t.invoice.id:"Not posted")+
+    pair("Invoice total",t.invoice?kes(t.invoice.total):"—")+
+    pair("Collected",kes(a.collected))+pair("Outstanding",t.invoice?kes(a.outstanding):"—"))+
+   panel("Payment & invoice",
+    t.invoice?'<div class="success-line">Invoice '+e(t.invoice.id)+" · "+e(t.invoice.at)+'</div>'+
+      (a.outstanding<=0?'<div class="payment-status">'+tag("Fully paid")+'</div>':"")+
+      '<div class="report-actions">'+(a.outstanding>0?btn("Record payment","modal","payment","primary"):"")+
+       btn("View invoice","show-document","invoice","outline")+'</div>'+
+      (t.payments.length?'<div class="payment-secondary">'+btn("Payment receipt","show-document","payment","outline")+'</div>':""):
+     '<p class="hint">'+(canInvoice?"Invoice may be posted now. Parts must already be issued; approved service fees will be included even if the work is not yet marked complete.":
+      "Record a customer decision and confirm or remove pending cart items before invoicing.")+'</p>'+
+      (canInvoice?btn("Create invoice","invoice",t.id,"primary"):"")
+    )+'</div>'+
+   panel("Parts receipt · confirmed issues only",parts.length?
+    table(["Item","Net issued quantity","Unit price","Discount / unit","Line total"],parts.map(i=>tablerow([
+     e(i.name),e(i.netQty),kes(i.unitPrice),kes(i.discount),kes(i.netQty*(i.unitPrice-i.discount))
+    ])).join(""))+'<div class="form-footer"><b>'+kes(a.parts)+'</b>'+
+    '<span class="hint">Included in the combined invoice after posting.</span></div>':
+    empty("No parts issued","The receipt contains only stock actually issued against this ticket."))+
+   panel("Payment records",t.payments.length?table(["Recorded","Method","Amount"],t.payments.map(x=>tablerow([
+    e(x.at),e(x.method),kes(x.amount)])).join("")):empty("No payment records","Record payments after invoicing."))+
+   (t.status==="released"?'<div class="release-banner">✓ Vehicle released · '+e(t.release?.reason)+'</div>':
+   '<div class="release-bar">'+(canRelease?btn("Release vehicle","release",t.id,"primary"):
+    '<button type="button" class="btn primary" disabled title="Complete repair and settle the balance before release">Release vehicle</button>')+
+   '<span>Release requires completed repair (if applicable) and full payment.</span></div>');
+ }
+ function ticketView(){if(!t)return empty("Ticket unavailable","Select a ticket.");
+  const v=c.vehicleFor(d,t),o=c.customerFor(d,t),lock=stageLock(ui.tab);
+  const origin=ui.returnPage==="reports"?"Reports":ui.returnPage==="dashboard"?"Dashboard":
+   ui.returnPage==="appointments"?"Appointments":"Tickets";
+  return '<div class="breadcrumb">'+btn("← "+origin,"back","","text")+e(t.id)+'</div>'+
+   '<div class="ticket-hero"><div><span class="eyebrow">REPAIR TICKET · '+e(t.id)+'</span><h1>'+e(v.name)+'</h1>'+
+    '<p>'+e(v.plate+" · "+o.name+" · "+o.phone)+'</p></div>'+tag(c.status(t))+'</div>'+
+   (t.status==="open"?'<div class="ticket-actions">'+btn("Record diagnosis","modal","diagnosis","primary")+'</div>':"")+
+   '<nav class="ticket-tabs" aria-label="Ticket sections">'+TABS.map(([id,label])=>
+    '<button class="'+(ui.tab===id?"active":"")+(stageLock(id)?" locked-tab":"")+
+    '" data-tab="'+id+'" aria-current="'+(ui.tab===id?"page":"false")+
+    '" title="'+e(stageLock(id)?.title||"Available")+'">'+(stageLock(id)?'<span aria-hidden="true">🔒 </span>':"")+e(label)+'</button>').join("")+'</nav>'+
+   '<div class="ticket-content">'+(lock?lockedStage(lock):({
+    overview,diagnosis,cart,billing,history:()=>panel("Ticket timeline",history(t.id))
+   }[ui.tab]||overview)())+'</div>';
+ }
+ function main(){if(t)return ticketView();
+  return ({dashboard,tickets,appointments,vehicles,inventory,reports}[ui.page]||dashboard)();}
+ 
+ function dialog(){
+  if(!ui.modal)return"";
+  const m=ui.modal,kind=m.kind;let title="",body="",submit="Save";
+  if(kind==="customer"){
+   title="Add customer";submit="Save customer";
+   body=field("Customer name","name")+
+    field("Phone","phone","","placeholder=\"07XX XXX XXX\"");
+  }else if(kind==="vehicle"){
+   title="Add vehicle";submit="Save vehicle";
+   body=select("Owner","customerId",d.customers.map(o=>[o.id,o.name+" · "+o.phone]),m.customerId||d.customers[0]?.id)+
+    '<div class="form-grid">'+field("Registration","plate","","placeholder=\"KDW 700J\"")+
+    field("Make and model","model","","placeholder=\"Toyota Fielder\"")+
+    numberField("Year","year",2016,'type="number" min="1970" max="2030" step="1"')+
+    numberField("Mileage (km)","mileage",80000,'type="number" min="0" step="1"')+'</div>';
+  }else if(kind==="ticket"){
+   title="Create repair ticket";submit="Create ticket";
+   const options=d.vehicles.filter(v=>!d.tickets.some(t=>t.vehicleId===v.id&&t.status!=="released")&&
+    !d.appointments.some(a=>a.vehicleId===v.id&&c.activeAppointment(a))).map(v=>[v.id,vehicleName(v)]);
+   body=options.length?select("Vehicle","vehicleId",options,m.vehicleId||options[0]?.[0])+
+    area("Customer complaint","complaint"):
+    '<p class="hint">No vehicles are available for a new ticket. Vehicles with active appointments must be handled from Appointments; vehicles with active tickets cannot be added again.</p>';
+  }else if(kind==="appointment"){
+   title="New appointment";submit="Save appointment";
+   body=select("Vehicle","vehicleId",d.vehicles.map(v=>[v.id,vehicleName(v)]),d.vehicles[0]?.id)+
+    '<div class="form-grid">'+field("Date","date","2026-11-07",'type="date"')+
+    field("Time","time","10:00",'type="time"')+'</div>'+
+    area("Reported service need","concern");
+  }else if(kind==="diagnosis"){
+   title="Record diagnosis";submit="Save diagnosis";
+   body=area("Inspection findings","findings")+
+    select("Can this workshop perform the repair?","feasible",[["yes","Yes — prepare an estimate"],["no","No — release or charge diagnosis"]],"yes");
+  }else if(kind==="service"){
+   title="Add a service fee";submit="Add service";
+   body=field("Service description","description","","placeholder=\"e.g. Brake system repair\"")+
+    '<div class="form-grid">'+numberField("Quantity","quantity",1)+
+    priceField("Unit fee (KES)","unitPrice",1500)+priceField("Discount / unit (KES)","discount",0)+
+    select("Fee type","kind",[["repair","Repair / labour"],["diagnosis","Diagnosis / inspection"]],"repair")+'</div>'+
+    '<p class="hint">Adding a service after approval requires renewed customer approval.</p>';
+  }else if(kind==="requirement"){
+   title="Add parts requirement";submit="Add required part";
+   body=select("Part name","partChoice",d.inventory.map(i=>[i.id,i.name]).concat([["custom","Not in catalogue — enter part name"]]),d.inventory[0]?.id||"custom")+
+    '<div id="custom-part-field" hidden>'+field("New part name","description","","placeholder='e.g. Rear bumper' maxlength='140' disabled")+'</div>'+
+    select("Source","source",[["inventory","From garage inventory"],["manual","Customer to source / provide"]],"inventory")+
+    '<div class="form-grid">'+numberField("Quantity required","quantity",1)+
+    '<div id="requirement-discount">'+priceField("Discount per unit (KES)","discount",0)+'</div></div>'+
+    '<p id="requirement-source-note" class="hint">Catalogue items can be offered from inventory or sourced by the customer. Items not in the catalogue remain informational and do not create inventory stock.</p>'+
+    '<p class="hint">This list only informs the customer. Nothing is reserved or deducted.</p>';
+  }else if(kind==="outside-part"){
+   title="Record outside part";submit="Record part received";
+   body=field("Part name","name","","placeholder='e.g. Rear bumper' maxlength='140'")+
+    '<div class="form-grid">'+numberField("Quantity received","quantity",1)+
+    select("Source","source",[["customer","Customer supplied"],["external","Purchased outside"]],"customer")+'</div>'+
+    '<p class="hint">Records an actual outside part. No stock, garage parts charge or matching suggestion is required.</p>';
+  }else if(kind==="cart"){
+   title="Add part to ticket cart";submit="Add to cart";
+   const itemId=m.itemId||d.inventory.find(i=>i.quantity>0)?.id;
+   body=select("Inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available · "+kes(i.sellPrice)]),itemId)+
+    '<div class="form-grid">'+numberField("Quantity","quantity",m.quantity||1)+
+    priceField("Discount / unit (KES)","discount",m.discount||0)+'</div>'+
+    '<p class="hint">The inventory quantity changes only after confirming the issue.</p>';
+  }else if(kind==="reject"){
+   title="Record estimate rejection";submit="Confirm rejection";
+   body=area("Reason","notes","Customer declined proposed repairs.");
+  }else if(kind==="return"){
+   const issue=t?.issues.find(x=>x.id===m.issueId);if(!issue)return"";
+   title="Return unused part";submit="Return to inventory";
+   body='<p class="form-caption">'+e(issue.name)+" · "+e(issue.quantity)+" issued</p>"+
+    numberField("Quantity returned","quantity",1);
+  }else if(kind==="item"){
+   title="Register inventory item";submit="Add inventory item";
+   body=field("Part name","name","","placeholder=\"e.g. Battery\"")+
+   '<div class="form-grid">'+priceField("Buying price (KES)","buyPrice",500)+
+   priceField("Selling price (KES)","sellPrice",850)+'</div>'+
+   '<p class="hint">New items start with zero quantity. Use Stock in for intake.</p>';
+  }else if(kind==="stock-in"){
+   title="Stock in";submit="Record inventory intake";
+   const i=inv(m.itemId)||d.inventory[0];
+   body=select("Inventory item","itemId",d.inventory.map(i=>[i.id,i.name+" · "+i.quantity+" available"]),i.id)+
+    '<div class="form-grid">'+numberField("Quantity received","quantity",1)+
+    priceField("Buying price / unit (KES)","buyPrice",i.buyPrice)+
+    priceField("Selling price / unit (KES)","sellPrice",i.sellPrice)+'</div>';
+  }else if(kind==="payment"){
+   title="Record sample payment";submit="Record payment";
+   const outstanding=c.charges(t).outstanding;
+   body='<p class="form-caption">Current outstanding balance: '+kes(outstanding)+'</p>'+
+    priceField("Payment amount (KES)","amount",outstanding)+
+    select("Method","method",["Cash","M-Pesa (sample)","Bank (sample)"],"Cash");
+  }else return"";
+  return '<div class="modal-shell"><button type="button" data-action="close-modal" class="shade" aria-label="Close dialog"></button>'+
+   '<section role="dialog" aria-modal="true" aria-label="'+e(title)+'" class="dialog">'+
+   '<header><h2>'+e(title)+'</h2>'+btn("×","close-modal","","close-icon")+'</header>'+
+   '<div class="dialog-body"><form id="garage-form" data-kind="'+e(kind)+'" data-requirement-id="'+e(m.requirementId||"")+
+    '" data-issue-id="'+e(m.issueId||"")+'">'+body+
+    '<button type="submit" class="btn primary full">'+e(submit)+'</button></form></div></section></div>';
+ }
+
+ 
+ function documentView(){
+  if(!ui.document)return"";
+  const x=d.tickets.find(t=>t.id===ui.document.ticketId);
+  if(!x)return"";
+  const v=c.vehicleFor(d,x),owner=c.customerFor(d,x),kind=ui.document.kind,bill=c.charges(x);
+  let name="",description="",head=[],rows=[],total=null;
+  if(kind==="diagnosis"){
+   if(!x.diagnosis)return "";
+   const services=x.services||[],parts=x.requirements||[];
+   const serviceTotal=services.reduce((n,i)=>n+(i.unitPrice-i.discount)*i.quantity,0);
+   const serviceRows=services.map(i=>tablerow([e(i.description),e(i.quantity),kes(i.unitPrice),kes(i.discount),kes((i.unitPrice-i.discount)*i.quantity)])).join("");
+   const partRows=parts.map(i=>{
+    const stocked=i.itemId?d.inventory.find(z=>z.id===i.itemId):null;
+    return tablerow([e(i.description),e(i.quantity),e(stocked?(stocked.quantity>0?stocked.quantity+" available":"Out of stock"):"Customer to source"),
+     stocked?kes(stocked.sellPrice-i.discount):"—"]);
+   }).join("");
+   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close report"></button>'+
+    '<section class="print-sheet" aria-label="Diagnosis Report for '+e(x.id)+'">'+
+    '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+    btn("Share to WhatsApp","share-diagnosis",x.id,"outline")+btn("Print / Save as PDF","print","","primary")+'</div>'+
+    '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+    '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+    '<div class="doc-heading"><span>REPORT FOR TICKET '+e(x.id)+'</span><h1>Diagnosis Report</h1>'+
+    '<p>Inspection findings, proposed services and suggested parts. Not an invoice.</p></div>'+
+    '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+    '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+    '<div><b>Recorded</b><span>'+e(x.diagnosis.at)+'</span></div></div>'+
+    '<div class="invoice-section"><h2>1 · Diagnosis</h2>'+
+    '<p class="paragraph"><b>Repair feasible:</b> '+e(x.diagnosis.feasible?"Yes":"No")+'</p>'+
+    '<p class="diagnosis-findings">'+e(x.diagnosis.findings)+'</p></div>'+
+    '<div class="invoice-section"><h2>2 · Services & labour estimate</h2>'+
+    (services.length?table(["Service","Qty","Unit fee","Discount / unit","Amount"],serviceRows):'<p class="hint">No services proposed.</p>')+
+    '<div class="invoice-subtotal"><span>Proposed service fees</span><strong>'+kes(serviceTotal)+'</strong></div></div>'+
+    '<div class="invoice-section"><h2>3 · Suggested parts & price list</h2>'+
+    (parts.length?table(["Part","Qty","Availability","Optional unit offer"],partRows):'<p class="hint">No suggested parts.</p>')+'</div>'+
+    '<p class="doc-notice">Suggested parts are informational, do not reserve stock, and do not affect the invoice or inventory cart.</p>'+
+    '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
+  }else if(kind==="payment"){
+   name="Payment Receipt";description="Recorded fictional customer payments; not a real transaction confirmation.";
+   head=["Recorded","Method","Amount"];
+   rows=x.payments.map(p=>[e(p.at),e(p.method),kes(p.amount)]);
+   total=bill.collected;
+  }
+  if(kind==="invoice"){
+   if(!x.invoice)return "";
+   const inv=x.invoice;
+   const services=inv.services||[],parts=(inv.parts||[]).map(i=>{
+    const returned=x.returns.filter(r=>r.issueId===i.id).reduce((sum,r)=>sum+r.quantity,0);
+    return {...i,netQty:i.quantity-returned};
+   }).filter(i=>i.netQty>0);
+   const serviceTotal=services.reduce((sum,i)=>sum+(i.unitPrice-i.discount)*i.quantity,0);
+   const partsTotal=parts.reduce((sum,i)=>sum+(i.unitPrice-i.discount)*i.netQty,0);
+   const balance=Math.max(0,inv.total-bill.collected);
+   const paymentStatus=balance===0?"Paid in full":bill.collected>0?"Partially paid":"Unpaid";
+   const serviceRows=services.map(i=>tablerow([e(i.description),e(i.quantity),kes(i.unitPrice),
+    kes(i.discount),kes((i.unitPrice-i.discount)*i.quantity)])).join("");
+   const partRows=parts.map(i=>tablerow([e(i.name),e(i.netQty),kes(i.unitPrice),
+    kes(i.discount),kes((i.unitPrice-i.discount)*i.netQty)])).join("");
+   const paidRows=x.payments.map(p=>tablerow([e(p.at),e(p.method),kes(p.amount)])).join("");
+   return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close invoice"></button>'+
+    '<section class="print-sheet" aria-label="Invoice '+e(inv.id)+'">'+
+    '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+    btn("Print / Save as PDF","print","","primary")+'</div>'+
+    '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+    '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+    '<div class="doc-heading"><span>INVOICE '+e(inv.id)+'</span><h1>Repair & Service Invoice</h1>'+
+    '<p>One invoice with separate service and inventory parts sections. Issued '+e(inv.at)+'.</p></div>'+
+    '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+    '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+    '<div><b>Ticket</b><span>'+e(x.id)+'</span><b>Payment status</b><span>'+e(paymentStatus)+'</span></div></div>'+
+    '<div class="invoice-section"><h2>1 · Services & labour</h2>'+
+    (services.length?table(["Service","Qty","Unit fee","Discount / unit","Amount"],serviceRows):
+     '<p class="hint">No service fees billed.</p>')+
+    '<div class="invoice-subtotal"><span>Services subtotal</span><strong>'+kes(serviceTotal)+'</strong></div></div>'+
+    '<div class="invoice-section"><h2>2 · Parts issued from inventory</h2>'+
+    (parts.length?table(["Part","Net issued qty","Unit price","Discount / unit","Amount"],partRows):
+     '<p class="hint">No inventory parts billed.</p>')+
+    '<div class="invoice-subtotal"><span>Parts subtotal</span><strong>'+kes(partsTotal)+'</strong></div></div>'+
+    '<div class="invoice-summary"><div><span>Invoice total</span><strong>'+kes(inv.total)+'</strong></div>'+
+    '<div><span>Amount paid</span><strong>'+kes(bill.collected)+'</strong></div>'+
+    '<div class="invoice-balance"><span>Balance due</span><strong>'+kes(balance)+'</strong></div>'+
+    '<p>'+e(paymentStatus)+'</p></div>'+
+    (x.payments.length?'<div class="invoice-section"><h2>Payments received</h2>'+
+     table(["Recorded","Method","Amount"],paidRows)+'</div>':"")+
+    (x.diagnosis?'<div class="invoice-section invoice-diagnosis"><h2>Diagnosis</h2>'+
+     '<p class="paragraph"><b>Repair feasible:</b> '+e(x.diagnosis.feasible?"Yes":"No")+'</p>'+
+     '<p class="diagnosis-findings">'+e(x.diagnosis.findings)+'</p></div>':"")+
+    '<p class="doc-notice">This is the complete invoice for the ticket. Outside-sourced parts are not charged by the garage. Payments are simulated.</p>'+
+    '<p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p></section></div>';
+  }
+  if(kind!=="payment")return "";
+  const notice="Payment records are simulated. This document has no real-world financial validity.";
+  return '<div class="doc-overlay"><button class="doc-shade" data-action="close-document" aria-label="Close document"></button>'+
+   '<section class="print-sheet">'+
+   '<div class="doc-tools">'+btn("← Back to ticket","close-document","","outline")+
+
+   btn("Print / Save as PDF","print","","primary")+'</div>'+
+   '<div class="doc-brand"><span class="doc-logo">SA</span><div><strong>Summit Auto Service</strong>'+
+   '<small>Fictional Nairobi workshop · JoelTechGeek concept</small></div></div>'+
+   '<div class="doc-heading"><span>DOCUMENT FOR TICKET '+e(x.id)+'</span><h1>'+e(name)+'</h1><p>'+e(description)+'</p></div>'+
+   '<div class="doc-meta"><div><b>Customer</b><span>'+e(owner.name)+'</span><span>'+e(owner.phone)+'</span></div>'+
+   '<div><b>Vehicle</b><span>'+e(v.plate)+'</span><span>'+e(v.name)+'</span></div>'+
+   '<div><b>Reference</b><span>'+e(x.id)+'</span><span>'+e(d.date)+'</span></div></div>'+
+   (rows.length?table(head,rows.map(tablerow).join("")):empty("No line items","Nothing has been added to this document yet."))+
+   (total!==null?'<div class="doc-total"><b>Document total</b><strong>'+kes(total)+'</strong></div>':"")+
+   '<p class="doc-notice">'+e(notice)+'</p><p class="doc-demo">SAMPLE ONLY · NO REAL GARAGE TRANSACTIONS</p>'+
+   '</section></div>';
+ }
+
+ return {NAV,main,dialog,documentView,btn,e,kes};
+};
+})();

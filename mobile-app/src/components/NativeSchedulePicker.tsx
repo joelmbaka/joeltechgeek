@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
@@ -21,19 +22,26 @@ function initialDate(mode: Mode, value: string) {
   }
   return current;
 }
+/** Display local clock time with explicit AM/PM; API storage stays HH:mm. */
+function timeLabel(value: string): string {
+  if (!/^\d{2}:\d{2}$/.test(value)) return value;
+  const [hour, minute] = value.split(':').map(Number);
+  return String(hour % 12 || 12) + ':' + two(minute) + (hour < 12 ? ' AM' : ' PM');
+}
 const format = (mode: Mode, value: Date) =>
   mode === 'date'
     ? [value.getFullYear(), two(value.getMonth() + 1), two(value.getDate())].join('-')
     : two(value.getHours()) + ':' + two(value.getMinutes());
 
 export function NativeSchedulePicker({
-  label, mode, value, onChange, disabled = false,
+  label, mode, value, onChange, disabled = false, decorated = false,
 }: {
   label: string;
   mode: Mode;
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
+  decorated?: boolean;
 }) {
   const styles = useUIStyles();
   const theme = useTheme();
@@ -53,14 +61,21 @@ export function NativeSchedulePicker({
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={label + (value ? ': ' + value : ', not set')}
+        accessibilityLabel={label + (value ? ': ' + (mode === 'time' ? timeLabel(value) : value) : ', not set')}
         onPress={open} disabled={disabled}
         style={[styles.input, {
-          flex: 1, justifyContent: 'center', minHeight: 46,
+          flex: 1, justifyContent: decorated ? 'center' : 'center',
+          minHeight: decorated ? 56 : 46,
           opacity: disabled ? .5 : 1,
+          ...(decorated ? {backgroundColor:theme.white,borderColor:theme.border,
+            flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:9} : {}),
         }]}>
-        <Text style={{ color: value ? theme.ink : theme.muted, fontWeight: '600' }}>
-          {value || (mode === 'date' ? 'Choose date' : 'Choose time')}
+        {decorated ? <SymbolView size={17} tintColor={theme.primaryDark}
+          name={mode==='date' ? {ios:'calendar',android:'event',web:'event'} :
+            {ios:'clock',android:'schedule',web:'schedule'}}/> : null}
+        <Text numberOfLines={1} style={{ color: value ? theme.ink : theme.muted,
+          fontWeight:'700',fontSize:decorated?13:15,flexShrink:1 }}>
+          {value ? (mode === 'time' ? timeLabel(value) : value) : (mode === 'date' ? 'Choose date' : 'Choose time')}
         </Text>
       </Pressable>
       {value ? <Pressable
@@ -71,7 +86,7 @@ export function NativeSchedulePicker({
     </View>
     {visible && Platform.OS === 'android' ?
       <DateTimePicker
-        mode={mode} presentation="dialog" value={draft} is24Hour
+        mode={mode} presentation="dialog" value={draft} is24Hour={false}
         onValueChange={(_, next) => choose(next)}
         onDismiss={() => setVisible(false)}
       /> : null}
@@ -85,7 +100,7 @@ export function NativeSchedulePicker({
           paddingBottom: Math.max(insets.bottom, 16),
           backgroundColor: theme.white, borderTopLeftRadius: 22, borderTopRightRadius: 22 }}>
           <Text style={[styles.title, { fontSize: 18, marginBottom: 12 }]}>{label}</Text>
-          <DateTimePicker mode={mode} value={draft}
+          <DateTimePicker mode={mode} value={draft} is24Hour={false}
             onValueChange={(_, next) => setDraft(next)} />
           <Pressable onPress={() => { onChange(format(mode, draft)); setVisible(false); }}
             style={[styles.button, { marginTop: 12 }]}>

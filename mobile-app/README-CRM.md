@@ -1,4 +1,28 @@
-# JoelTechGeek Agent CRM · Android MVP
+# CallsBound · Android MVP
+
+## Reminder default (November 5, 2026)
+The API now resolves omitted times into an actual date, time, timezone and UTC
+reminder instant. Current Android and web clients send their device IANA timezone;
+if unavailable, the backend explicitly defaults to Etc/UTC rather than assuming
+all users live in Nairobi. A one-time data-only backfill migration fills existing
+active, upcoming date-only reminders, without rewriting historical activity.
+
+## Phase 5: individual user accounts (canonical)
+Phase 5 introduces **one identity table**, public Google sign-up, and consistent
+`user_id` owner columns. No agent registrations, organizations, workspaces or teams.
+The existing nine user UUIDs and every lead/contact/activity are preserved.
+
+**Important release ordering:** The production database still has `agent_id`.
+The Phase 5 migration renames it, so **do not deploy these API changes against
+the old database** or apply the migration while the old production API is still
+serving traffic. Use a short, coordinated migration + backend deployment,
+following `docs/phase5-personal-crm-cutover.md`. The migration was verified
+on an isolated Neon child branch; production remains untouched until cutover.
+
+Both Android and web now create private accounts on first verified Google sign-in.
+Android refresh tokens and the legacy `agent` response alias are retained for
+published clients. Web JWT sessions from before the cutover must sign in again.
+
 
 Scope: Android first, using the existing Next.js /api/agent-crm routes and the
 Portfolio Neon database. No FastAPI, local CRM DB, AsyncStorage, TanStack Query,
@@ -40,8 +64,10 @@ Leads are never saved to device storage. Opening a list, individual lead, or
 foregrounding the app fetches fresh data. Search is debounced 300ms, performed
 in PostgreSQL and paginated 25 at a time. Navigation requests use AbortController.
 
-Notifications: timed follow-ups only; date-only follow-ups remain in the Due
-queue. If permission is granted, Android schedules the next 50 future alarms.
+Notifications: date-only follow-ups default to 9:00 AM in the user's IANA timezone.
+For a same-day follow-up added after 9:00 AM, the backend schedules the next
+full minute at least 10 minutes ahead. Explicit times always take precedence.
+If permission is granted, Android schedules the next 50 future alarms.
 The app reconciles them with the server on visits and after mobile mutations.
 Android may deliver late due to battery restrictions, and an offline device
 cannot learn about a follow-up cancelled on the web until it reconnects.
@@ -57,7 +83,7 @@ cannot learn about a follow-up cancelled on the web until it reconnects.
 - Call outcome/history, action completion, contact change and follow-up edits work.
 - Android notification appears when mobile data/Wi-Fi are off; on tapping it,
   a live server request is made before presenting lead data.
-- Time-only without date is rejected; date-only generates no alarm.
+- Time-only without date is rejected; a date without time generates a local-time 9:00 AM alarm (or a near-term alarm if 9:00 AM today has passed).
 - Server failure displays Retry without deleting the refresh token.
 - npm lockfile is committed and matched to the mobile package manifest.
 
@@ -106,3 +132,25 @@ populated. Check `sales_agent_applications.google_picture_url` in production
 Neon, then verify the header and Profile photo. An OAuth sign-in succeeded does
 not prove Google returned a profile picture. The initials fallback remains
 available for users without a Google profile photo.
+
+## Informative follow-up notifications
+
+The authenticated reminder feed includes only the lead/company name, the explicitly
+selected follow-up contact's name (if any), the next action, due timestamp and IANA
+time zone. The Android notification previews **company · selected contact** as
+the title and **only the next action** as the body. It does not display the
+time or time zone; those appear in Lead Details as **Reminder due**, separately
+from the **Recorded** timestamp in activity history. No phone numbers, full
+notes or history appear in the notification.
+A company-level follow-up never claims to be addressed to its primary contact.
+
+On login, foreground, or saving a follow-up, Android reconciles pending alarms.
+A changed action/contact updates the notification even if the due time is unchanged;
+old generic previews and duplicates are replaced. Tapping still opens Lead Details.
+Existing delivered notifications cannot be edited retroactively, and changes made
+on the web while the phone remains backgrounded require the next app reconciliation
+because these are local notifications rather than server-pushed messages.
+
+Test on the isolated Play Review account by scheduling an upcoming follow-up,
+then changing its action/contact without changing the date and inspecting the next
+scheduled Android notification.

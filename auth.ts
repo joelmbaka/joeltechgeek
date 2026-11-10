@@ -1,42 +1,49 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { getCrmPool } from '@/lib/agent-crm/db';
+import { findOrCreateCrmUser, verifiedGooglePicture } from '@/lib/agent-crm/users';
 
-// Self-hosted authentication: Google verifies the identity; our application
-// owns its encrypted session cookies and agent registration authorization.
-// No Auth.js adapter or separate auth database is required.
+// Google authentication is also registration. There are no invitations,
+// sales-agent applications, roles, or workspaces in this individual CRM.
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
-  session: {
-    strategy: 'jwt',
-    maxAge: 60 * 60 * 24 * 30, // Persist across browser restarts for up to 30 days.
-  },
-  pages: {
-    signIn: '/crm',
-    error: '/crm',
-  },
+  session: { strategy: 'jwt', maxAge: 60 * 60 * 24 * 30 },
+  pages: { signIn: '/crm', error: '/crm' },
   callbacks: {
     async signIn({ account, profile }) {
-      if (account?.provider !== 'google') return false;
-      // Reject unverified or malformed Google identities before minting a session.
-      if (profile?.email_verified !== true || typeof profile.email !== 'string') return false;
-      const email = profile.email.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
-
+      if (account?.provider !== 'google' ||
+          profile?.email_verified !== true ||
+          typeof profile.email !== 'string' ||
+          typeof profile.sub !== 'string' ||
+          profile.sub !== account.providerAccountId) return false;
       try {
-        const result = await getCrmPool().query(
-          `SELECT 1 FROM public.sales_agent_applications
-           WHERE lower(email) = $1
-             AND crm_access_enabled IS TRUE
-             AND status <> 'declined'
-           LIMIT 1`,
-          [email],
-        );
-        return (result.rowCount ?? 0) > 0;
+        await findOrCreateCrmUser({
+          googleSub: profile.sub,
+          email: profile.email,
+          name: typeof profile.name === 'string' ? profile.name : null,
+          pictureUrl: verifiedGooglePicture(profile.picture),
+        });
+        return true;
       } catch (error) {
-        console.error('[CRM_GOOGLE_SIGN_IN]', error);
-        return false; // Fail closed when registration verification is unavailable.
+        console.error('[CRM_GOOGLE_REGISTRATION]', error);
+        return false; // No cookie minted on DB outage or identity conflict.
       }
+    },
+    async jwt({ token, account, profile }) {
+      if (account?.provider === 'google' && typeof profile?.sub === 'string') {
+        const match = await getCrmPool().query<{ id: string }>(
+          'SELECT id::text FROM public.crm_users WHERE google_sub=$1 AND is_active=true',
+          [profile.sub]);
+        if (!match.rows[0]) throw new Error('CRM identity is unavailable.');
+        token.crmUserId = match.rows[0].id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && typeof token.crmUserId === 'string') {
+        (session.user as typeof session.user & { crm_user_id?: string }).crm_user_id = token.crmUserId;
+      }
+      return session;
     },
   },
 });

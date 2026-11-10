@@ -1,34 +1,36 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BriefcaseBusiness, CalendarDays, Check, ChevronRight,
   ExternalLink, LogOut, Phone, Plus, RefreshCw, Search, X,
 } from 'lucide-react';
 import { signIn as authSignIn, signOut as authSignOut } from 'next-auth/react';
 import { CHANNEL_OUTCOMES, CALL_OUTCOME_LABELS, callOutcomeLabel, stageForOutcome } from '@/lib/agent-crm/types';
-import type { Agent, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
-import { BrandLogo, BrandSymbol } from '@/components/BrandLogo';
-import { CRM_INDUSTRIES } from '@/lib/agent-crm/industries';
+import type { CrmUser, ActivityChannel, ActivityOutcome, Lead, LeadContact, LeadStage, LeadStats, LeadUpdate } from '@/lib/agent-crm/types';
+import { BrandSymbol } from '@/components/BrandLogo';
 import { automotivePartsEmailTemplate } from '@/lib/agent-crm/outreach-templates';
 import { AddLeadModal } from './AddLeadModal';
 import { LeadContactsPanel } from './LeadContactsPanel';
 
 type View = 'loading' | 'signed-out' | 'ready' | 'denied' | 'error';
-type Queue = 'all' | 'to_call' | 'due' | 'interested';
-type LeadSort = 'recommended' | 'follow_up' | 'priority' | 'company' | 'industry' | 'recent';
+type WorkView = 'for_you' | 'to_call' | 'followups' | 'done_today' | 'priority' | 'all' | 'all_az';
 type Response = {
   ok: boolean;
-  agent: Agent;
+  user: CrmUser;
   leads: Lead[];
   stats: LeadStats;
   has_more: boolean;
+  filtered_total: number;
+  industries: string[];
+  industry_counts: Record<string, number>;
 };
 type FormValues = {
   channel: ActivityChannel;
   outcome: string;
   notes: string;
   next_action: string;
+  next_action_type: string;
   next_action_at: string;
   next_action_time: string;
   stage: string;
@@ -42,7 +44,38 @@ const stages: LeadStage[] = [
 const emptyStats: LeadStats = {
   total: 0, to_call: 0, followups_due: 0, interested: 0, meetings: 0, won: 0,
 };
-const priorityRank: Record<Lead['priority'], number> = { high: 0, normal: 1, low: 2 };
+const PAGE_SIZE = 50;
+const CATEGORY_FACT_EXAMPLES: Record<string, [string, string]> = {
+  'Transport & Logistics': ['Fleet size', '100+ trucks — company-reported'],
+  'Vehicle Tracking & Telematics': ['Tracking platform', 'Wialon — company-reported, vendor unverified'],
+  'Courier & Distribution': ['Delivery fleet', '40 vehicles — company-reported'],
+  'Passenger Transport': ['Active buses', '25 — company-reported'],
+  'Car Rental & Leasing': ['Rental fleet', '20 vehicles — company-reported'],
+  'Auto Dealerships & Importers': ['Vehicles in stock', '60 — company-reported'],
+  'Garages & Automotive Repair': ['Service bays', '8 — company-reported'],
+  'Automotive Parts & Supplies': ['Branches', '4 — company-reported'],
+  'Fleet Owners & Operators': ['Owned vehicles', '35 — company-reported'],
+  'Roadside & Recovery': ['Recovery trucks', '12 — company-reported'],
+  'Vehicle Finance & Insurance': ['Branch offices', '6 — company-reported'],
+  'Fuel & Electric Mobility': ['Active stations', '18 — company-reported'],
+  'Vehicle Services & Compliance': ['Inspection sites', '3 — company-reported'],
+  'Vehicle Manufacturing': ['Annual output', '120 units — company-reported'],
+};
+function factExamplesFor(category: string): [string,string] {
+  return CATEGORY_FACT_EXAMPLES[category] || ['Employees','150 — company-reported'];
+}
+
+function leadPageUrl(filters: { workView: WorkView; industry: string; query: string; alphabetical: boolean }, offset = 0) {
+  const params = new URLSearchParams({
+    limit: String(PAGE_SIZE),
+    offset: String(offset),
+    view: filters.workView === 'all' && filters.alphabetical ? 'all_az' : filters.workView,
+    tz: browserTimezone(),
+    industry: filters.industry,
+    q: filters.query,
+  });
+  return '/api/agent-crm/leads?' + params.toString();
+}
 const label = (str: string) => str.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 function todayInZone(timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -51,31 +84,26 @@ function todayInZone(timeZone: string) {
   const part = (kind: string) => parts.find((value) => value.type === kind)?.value || '';
   return part('year') + '-' + part('month') + '-' + part('day');
 }
-function today() { return todayInZone('Africa/Nairobi'); }
+function today() { return todayInZone(browserTimezone()); }
 function dateLabel(str: string | null | undefined) {
   if (!str) return '';
-  const date = new Date(str.slice(0, 10) + 'T12:00:00+03:00');
+  const date = new Date(str.slice(0, 10) + 'T12:00:00Z');
   return Number.isNaN(date.valueOf()) ? str : date.toLocaleDateString('en-KE', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric',
   });
 }
 function timeLabel(str: string) {
   const date = new Date(str);
   return Number.isNaN(date.valueOf()) ? str : date.toLocaleString('en-KE', {
-    timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short',
+    timeZone: browserTimezone(), day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   });
-}
-function isToCall(lead: Lead) {
-  return !lead.do_not_contact && !['won', 'lost', 'competitor'].includes(lead.stage) &&
-    (!lead.last_contacted_at ||
-      (!lead.next_action_at && ['number_unavailable','no_answer','busy','switched_off','wrong_number'].includes(lead.last_outcome || '')));
 }
 function isDue(lead: Lead) {
   if (lead.do_not_contact || ['won', 'lost', 'competitor'].includes(lead.stage) || !lead.next_action_at)
     return false;
   if (lead.next_action_due_at) return Date.parse(lead.next_action_due_at) <= Date.now();
-  const zone = lead.next_action_timezone || 'Africa/Nairobi';
+  const zone = lead.next_action_timezone || 'Etc/UTC';
   try {
     return lead.next_action_at <= todayInZone(zone);
   } catch { return lead.next_action_at <= today(); }
@@ -90,7 +118,7 @@ function followupLabel(date: string | null | undefined, time?: string | null, zo
   return dateLabel(date) + ' at ' + clock + (zone ? ' (' + zone + ')' : '');
 }
 function browserTimezone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Nairobi';
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 }
 function isInterested(lead: Lead) {
   return ['interested','meeting','proposal','negotiation'].includes(lead.stage);
@@ -140,6 +168,14 @@ function StageBadge({ lead }: { lead: Lead }) {
 }
 function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }) {
   const site = webUrl(lead.website);
+  const dialNumber = lead.work_state === 'fix_contact' ? null
+    : lead.callable_phone !== undefined ? lead.callable_phone : lead.phone;
+  const stateLabels: Record<string,string> = {
+    due:'Due now',scheduled:'Scheduled',done_today:'Done today',
+    cooldown:'Retry cooldown',fix_contact:'Correct contact details',
+    review:'Review call attempts',needs_next_step:'Needs next step',
+    closed:'Closed',
+  };
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md dark:border-white/10 dark:bg-[#0E1D2A] dark:hover:border-emerald-700 sm:p-5">
       <div className="flex items-start justify-between gap-2">
@@ -160,14 +196,20 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
           {lead.contact_role ? (lead.company_name ? ' · ' : '') + lead.contact_role : ''}
         </p>
       )}
-      {lead.problem_summary && (
-        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{lead.problem_summary}</p>
+      {(lead.lead_brief || lead.problem_summary) && (
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {lead.lead_brief || lead.problem_summary}
+        </p>
       )}
-      {lead.last_notes && <p className="mt-2 line-clamp-2 text-xs text-slate-500">Latest note: {lead.last_notes}</p>}
       {lead.last_outcome && (
         <p className="mt-3 text-xs text-slate-500">Last {lead.last_activity_channel || (lead.last_outcome === 'email_sent' ? 'email' : 'call')} outcome: <strong className="text-slate-700 dark:text-slate-200">{callOutcomeLabel(lead.last_outcome)}</strong></p>
       )}
       {lead.next_action && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">Next: {lead.next_action}</p>}
+      {lead.work_state && stateLabels[lead.work_state] && (
+        <p className="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+          {stateLabels[lead.work_state]}
+        </p>
+      )}
       {lead.next_action_at && (
         <p className={'mt-2 flex items-center gap-1 text-xs font-medium ' +
           (isDue(lead) ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500')}>
@@ -177,8 +219,8 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
       )}
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          {lead.phone && !lead.do_not_contact && lead.stage !== 'competitor' && (
-            <a href={'tel:' + lead.phone.replace(/[^+\d]/g, '')}
+          {dialNumber && !lead.do_not_contact && lead.stage !== 'competitor' && (
+            <a href={'tel:' + dialNumber.replace(/[^+\d]/g, '')}
               className="inline-flex h-10 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
               <Phone className="h-4 w-4" /> Call
             </a>
@@ -196,18 +238,30 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
     </article>
   );
 }
-function LeadDialog({ lead, onClose, onSaved }: {
-  lead: Lead; onClose: () => void; onSaved: () => Promise<void>;
+function LeadDialog({ lead, onClose, onSaved, onNext, industry }: {
+  lead: Lead; onClose: () => void; onSaved: () => void | Promise<void>;
+  onNext: (lead: Lead | null) => void; industry: string;
 }) {
   const [form, setForm] = useState<FormValues>({
     channel: 'call', outcome: '', notes: '', next_action: lead.next_action || '',
+    next_action_type: lead.next_action_type || 'call',
     next_action_at: lead.next_action_at || '',
     next_action_time: lead.next_action_time?.slice(0, 5) || '',
     stage: '', do_not_contact: false,
   });
+  const advanceAfterSave = useRef(false);
   const [history, setHistory] = useState<LeadUpdate[]>([]);
   const [contacts, setContacts] = useState<LeadContact[] | null>(null);
   const [companyName, setCompanyName] = useState(lead.company_name);
+  const [contextBrief, setContextBrief] = useState(lead.lead_brief || '');
+  const [contextDetails, setContextDetails] = useState(lead.important_details || '');
+  const [researchGuideOpen, setResearchGuideOpen] = useState(false);
+  const [contextFacts, setContextFacts] = useState(lead.lead_facts || []);
+  const [newFactLabel, setNewFactLabel] = useState('');
+  const [newFactValue, setNewFactValue] = useState('');
+  const [editingContext, setEditingContext] = useState(false);
+  const [savingContext, setSavingContext] = useState(false);
+  const [contextError, setContextError] = useState('');
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [savingIdentity, setSavingIdentity] = useState(false);
   const [identityError, setIdentityError] = useState('');
@@ -225,6 +279,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
 
   const [editingFollowup, setEditingFollowup] = useState(false);
   const [followupAction, setFollowupAction] = useState(lead.next_action || '');
+  const [followupType, setFollowupType] = useState<NonNullable<Lead['next_action_type']>>(lead.next_action_type || 'call');
   const [followupDate, setFollowupDate] = useState(lead.next_action_at || '');
   const [followupTime, setFollowupTime] = useState(lead.next_action_time?.slice(0, 5) || '');
   const [savingFollowup, setSavingFollowup] = useState(false);
@@ -233,6 +288,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
   const [showComplete, setShowComplete] = useState(false);
   const [completedNotes, setCompletedNotes] = useState('');
   const [completedNextAction, setCompletedNextAction] = useState('');
+  const [completedNextType, setCompletedNextType] = useState('call');
   const [completedNextDate, setCompletedNextDate] = useState('');
   const [completedNextTime, setCompletedNextTime] = useState('');
   const [completing, setCompleting] = useState(false);
@@ -314,6 +370,21 @@ function LeadDialog({ lead, onClose, onSaved }: {
     } finally { setSavingIdentity(false); }
   }
 
+  async function saveContext(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if(savingContext||contextBrief.length>220||contextDetails.length>5000)return;
+    setSavingContext(true);setContextError('');
+    try {
+      await api('/api/agent-crm/leads/'+lead.id+'/brief','PATCH',{
+        lead_brief:contextBrief.trim(),important_details:contextDetails.trim(),
+        lead_facts:contextFacts,
+      });
+      setEditingContext(false);
+      await onSaved();
+    }catch(err){setContextError(errText(err));}
+    finally{setSavingContext(false);}
+  }
+
   async function submitCall(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.outcome || saving) return;
@@ -338,6 +409,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
         // Otherwise preserve the existing follow-up contact on the server.
         ...(planFromCall ? { next_action_contact_id: form.do_not_contact ? null : callContactId || null } : {}),
         next_action: form.do_not_contact ? '' : planFromCall ? form.next_action : lead.next_action || '',
+        next_action_type: form.do_not_contact ? null : planFromCall ? form.next_action_type : lead.next_action_type,
         next_action_at: form.do_not_contact ? null
           : planFromCall ? form.next_action_at || null : lead.next_action_at || null,
         next_action_time: form.do_not_contact ? null
@@ -347,11 +419,23 @@ function LeadDialog({ lead, onClose, onSaved }: {
             : lead.next_action_at ? lead.next_action_timezone || browserTimezone() : null,
         ...(form.stage ? { stage: form.stage } : {}),
         do_not_contact: form.do_not_contact,
+        complete_due_call: form.channel === 'call' && !planFromCall,
       });
       await onSaved();
-      onClose();
+      if (advanceAfterSave.current) {
+        try {
+          const next = await api<Response>(leadPageUrl({
+            workView:'to_call',industry,query:'',alphabetical:false,
+          }));
+          onNext(next.leads.find((candidate)=>candidate.id!==lead.id) || null);
+        } catch {
+          // The interaction was already saved; a failed queue refresh
+          // must not display a misleading "save failed" message.
+          onClose();
+        }
+      } else onClose();
     } catch (err) { setError(errText(err)); }
-    finally { setSaving(false); }
+    finally { setSaving(false); advanceAfterSave.current=false; }
   }
 
   async function saveFollowup(event: React.FormEvent<HTMLFormElement>) {
@@ -367,6 +451,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
     try {
       await api('/api/agent-crm/leads/' + lead.id + '/followup', 'PATCH', {
         next_action: followupAction,
+        next_action_type: followupType,
         next_action_at: followupDate || null,
         next_action_time: followupTime || null,
         next_action_timezone: followupDate ? browserTimezone() : null,
@@ -392,6 +477,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
       await api('/api/agent-crm/leads/' + lead.id + '/actions', 'POST', {
         notes: completedNotes,
         next_action: completedNextAction,
+        next_action_type: completedNextType,
         next_action_at: completedNextDate || null,
         next_action_time: completedNextTime || null,
         next_action_timezone: completedNextDate ? browserTimezone() : null,
@@ -473,6 +559,86 @@ function LeadDialog({ lead, onClose, onSaved }: {
             </form>
           )}
         </div>
+        <section className="mt-4 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lead brief</p>
+          <p className="mt-1 text-sm text-slate-800 dark:text-slate-200">
+            {contextBrief || lead.problem_summary || 'No lead brief yet'}
+          </p>
+          {contextFacts.length > 0 ? <ul className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+            {contextFacts.map((fact,index)=><li key={index}>
+              <strong>{fact.label}:</strong> {fact.value}
+            </li>)}
+          </ul> : null}
+          {contextDetails ? <p className="mt-2 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
+            <strong>Important details:</strong> {contextDetails}
+          </p> : null}
+          <button type="button" onClick={() => setEditingContext((v)=>!v)}
+            className="mt-2 text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+            {editingContext ? 'Cancel editing context' : 'Edit lead context'}
+          </button>
+          {editingContext && <form onSubmit={(e)=>void saveContext(e)}
+            className="mt-3 space-y-3">
+            <div className="rounded-lg border border-slate-200 p-3 text-xs dark:border-slate-700">
+              <button type="button" aria-expanded={researchGuideOpen}
+                onClick={()=>setResearchGuideOpen(open=>!open)}
+                className="font-semibold text-emerald-700 dark:text-emerald-300">
+                {researchGuideOpen ? 'Hide research examples' : 'Research guide & examples'}
+              </button>
+              {researchGuideOpen && <div className="mt-2 space-y-2 text-slate-600 dark:text-slate-300">
+                <p><strong>Brief:</strong> One sentence describing the business and its operating area.</p>
+                <p><strong>Important details:</strong> Short operational context, technology claims, uncertainties and what to establish on the call.</p>
+                <p><strong>Facts:</strong> One label/value per attribute. For this category, e.g. {factExamplesFor(lead.industry)[0]}: {factExamplesFor(lead.industry)[1]}. Other useful facts: founding year, staffing, operational metrics, existing software and app status.</p>
+                <p><strong>Evidence:</strong> Distinguish independently verified, company-reported, third-party-reported, unverified and unknown. A responsive site is not evidence of a native app; partner fleets are not owned fleets.</p>
+              </div>}
+            </div>
+            <label className="block text-xs font-semibold">Lead brief (220 characters)
+              <textarea className={input} rows={2} maxLength={220} value={contextBrief}
+                placeholder="e.g. Regional business operating multiple locations or service areas."
+                onChange={(e)=>setContextBrief(e.target.value)} />
+            </label>
+            <label className="block text-xs font-semibold">Important details
+              <textarea className={input} rows={4} maxLength={5000} value={contextDetails}
+                placeholder="e.g. Company reports management software; vendor and actual mobile app unverified. Confirm daily workflow."
+                onChange={(e)=>setContextDetails(e.target.value)} />
+            </label>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold">Key facts</p>
+              {contextFacts.map((fact,index)=><div key={index}
+                className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700">
+                <span className="min-w-0"><strong>{fact.label}:</strong> {fact.value}</span>
+                <button type="button" onClick={()=>setContextFacts((current)=>
+                  current.filter((_,i)=>i!==index))}
+                  className="shrink-0 font-semibold text-rose-700">Remove</button>
+              </div>)}
+              <label className="block text-xs font-semibold">Fact label
+                <input className={input} maxLength={80} value={newFactLabel}
+                  placeholder={factExamplesFor(lead.industry)[0]}
+                  onChange={(e)=>setNewFactLabel(e.target.value)}/>
+              </label>
+              <label className="block text-xs font-semibold">Fact value
+                <input className={input} maxLength={300} value={newFactValue}
+                  placeholder={factExamplesFor(lead.industry)[1]}
+                  onChange={(e)=>setNewFactValue(e.target.value)}/>
+              </label>
+              <button type="button" disabled={contextFacts.length>=12 || !newFactLabel.trim() ||
+                !newFactValue.trim() ||
+                contextFacts.some((f)=>f.label.toLowerCase()===newFactLabel.trim().toLowerCase())}
+                onClick={()=>{
+                  setContextFacts((current)=>[...current,{
+                    label:newFactLabel.trim(),value:newFactValue.trim(),
+                  }]);setNewFactLabel('');setNewFactValue('');
+                }}
+                className="rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">
+                Add important fact
+              </button>
+            </div>
+            {contextError && <p role="alert" className="text-xs text-rose-700">{contextError}</p>}
+            <button type="submit" disabled={savingContext}
+              className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">
+              {savingContext ? 'Saving…' : 'Save context'}
+            </button>
+          </form>}
+        </section>
         {contacts !== null && <LeadContactsPanel leadId={lead.id} contacts={contacts}
           locked={lead.do_not_contact || lead.stage === 'competitor'} onUpdated={refreshContacts}/>}
         {lead.problem_summary && (
@@ -566,7 +732,7 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   )}
                   <p className="mt-2 flex items-center gap-1.5 text-sm text-sky-900 dark:text-sky-200">
                     <CalendarDays className="h-4 w-4 shrink-0" />
-                    {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
+                    Reminder due: {followupLabel(lead.next_action_at, lead.next_action_time, lead.next_action_timezone)}
                   </p>
                 </div>
                 <button type="button" onClick={() => {
@@ -585,6 +751,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   </p>
                   {contactPicker(followupContactId, setFollowupContactChoice, 'Contact (optional)')}
                   <label className="block text-sm font-semibold">
+                    Action type
+                    <select className={input} value={followupType}
+                      onChange={(e)=>setFollowupType(e.target.value as NonNullable<Lead['next_action_type']>)}>
+                      {['call','email','whatsapp','meeting','other'].map((type)=>
+                        <option key={type} value={type}>{label(type)}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold">
                     Next action
                     <input required={Boolean(followupDate)} className={input} maxLength={300}
                       value={followupAction} onChange={(e) => setFollowupAction(e.target.value)}
@@ -602,7 +776,6 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         value={followupTime} onChange={(e) => setFollowupTime(e.target.value)} />
                     </label>
                   </div>
-                  {followupTime && <p className="text-xs text-sky-800 dark:text-sky-300">Timezone: {browserTimezone()}</p>}
                   {followupError && <p role="alert" className="text-sm text-rose-700">{followupError}</p>}
                   <button type="submit" disabled={savingFollowup || Boolean(followupDate && !followupAction.trim())}
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-800 px-4 font-semibold text-white hover:bg-sky-900 disabled:opacity-50">
@@ -627,6 +800,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                         <textarea rows={2} maxLength={2500} className={input}
                           placeholder="What did you finish?"
                           value={completedNotes} onChange={(e) => setCompletedNotes(e.target.value)} />
+                      </label>
+                      <label className="block text-sm font-semibold">
+                        Next action type
+                        <select className={input} value={completedNextType}
+                          onChange={(e)=>setCompletedNextType(e.target.value)}>
+                          {['call','email','whatsapp','meeting','other'].map((type)=>
+                            <option key={type} value={type}>{label(type)}</option>)}
+                        </select>
                       </label>
                       <label className="block text-sm font-semibold">
                         Next action (optional)
@@ -716,6 +897,14 @@ function LeadDialog({ lead, onClose, onSaved }: {
                 {planFromCall && (
                   <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
                     <label className="block text-sm font-semibold">
+                      Action type
+                      <select className={input} value={form.next_action_type}
+                        onChange={(e)=>setForm((x)=>({...x,next_action_type:e.target.value}))}>
+                        {['call','email','whatsapp','meeting','other'].map((type)=>
+                          <option key={type} value={type}>{label(type)}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-sm font-semibold">
                       Next action
                       <input className={input} maxLength={300} disabled={form.do_not_contact}
                         value={form.next_action}
@@ -771,10 +960,18 @@ function LeadDialog({ lead, onClose, onSaved }: {
                   </span>
                 </label>
                 {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-                <button type="submit" disabled={!form.outcome || saving}
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
-                  <Check className="h-4 w-4" /> {saving ? 'Saving...' : 'Save activity'}
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="submit" disabled={!form.outcome || saving}
+                    onClick={()=>{advanceAfterSave.current=false;}}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300">
+                    {saving ? 'Saving…' : 'Save & Stay'}
+                  </button>
+                  <button type="submit" disabled={!form.outcome || saving}
+                    onClick={()=>{advanceAfterSave.current=true;}}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">
+                    <Check className="h-4 w-4" /> {saving ? 'Saving…' : 'Save & Next'}
+                  </button>
+                </div>
               </form>
             </section>
           </>
@@ -798,14 +995,19 @@ function LeadDialog({ lead, onClose, onSaved }: {
                           ? 'Follow-up changed'
                           : h.outcome ? (h.channel ? label(h.channel) + ' · ' : '') + callOutcomeLabel(h.outcome) : 'Outreach'}
                     </strong>
-                    <span className="text-slate-500">{timeLabel(h.created_at)}</span>
+                    <span className="text-slate-500">Recorded: {timeLabel(h.created_at)}</span>
                   </div>
                   {h.contact_name_snapshot && <p className="mt-1 text-xs text-slate-500">Contact: {h.contact_name_snapshot}</p>}
                   {h.notes && <p className="mt-2 whitespace-pre-wrap text-slate-700 dark:text-slate-300">{h.notes}</p>}
                   {h.next_action && (
                     <p className="mt-2 text-slate-600 dark:text-slate-300">
-                      Next: {h.next_action}
-                      {h.next_action_at ? ' · ' + followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone) : ''}
+                      Next action: {h.next_action}
+                    </p>
+                  )}
+                  {h.next_action_type && <p className="mt-1 text-xs text-slate-500">Action type: {label(h.next_action_type)}</p>}
+                  {h.next_action_at && (
+                    <p className="mt-1 text-sky-800 dark:text-sky-300">
+                      Reminder due: {followupLabel(h.next_action_at, h.next_action_time, h.next_action_timezone)}
                     </p>
                   )}
                 </div>
@@ -825,36 +1027,75 @@ export function CrmClient() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [selected, setSelected] = useState<Lead | null>(null);
   const [adding, setAdding] = useState(false);
-  const [queue, setQueue] = useState<Queue>('all');
+  const [workView, setWorkView] = useState<WorkView>('for_you');
+  const [alphabetical, setAlphabetical] = useState(false);
   const [industry, setIndustry] = useState('all');
-  const [sortBy, setSortBy] = useState<LeadSort>('recommended');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const requestSeq = useRef(0);
 
-  const refresh = useCallback(async (quiet = false) => {
-    if (quiet) setRefreshing(true); else setView('loading');
-    try {
-      const response = await api<Response>('/api/agent-crm/leads');
-      setData(response); setView('ready'); setError('');
-    } catch (err) {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
+  const refresh = useCallback((quiet = false) => {
+    if (quiet) setRefreshing(true);
+    else setView('loading');
+    setReloadKey((value) => value + 1);
+  }, []);
+
+  // All filtering and sorting happens in PostgreSQL, not just within the first page.
+  useEffect(() => {
+    const requestId = ++requestSeq.current;
+    setRefreshing(true);
+    setLoadingMore(false);
+    const url = leadPageUrl({ workView, alphabetical, industry, query: debouncedQuery });
+    void api<Response>(url).then((response) => {
+      if (requestId !== requestSeq.current) return;
+      setData(response);
+      setView('ready');
+      setError('');
+    }).catch((err) => {
+      if (requestId !== requestSeq.current) return;
       const status = (err as Error & {status?: number}).status;
       setData(null);
       if (status === 403) setView('denied');
       else if (status === 401) {
         const accessDenied = new URLSearchParams(window.location.search).get('error') === 'AccessDenied';
         setView(accessDenied ? 'denied' : 'signed-out');
-        if (accessDenied) setError('Only registered sales agents can access this CRM.');
-        else setError('');
+        setError(accessDenied ? 'Unable to access your personal CRM. Please sign in again.' : '');
       } else {
         setError(errText(err));
         setView('error');
       }
-    } finally { setRefreshing(false); }
-  }, []);
+    }).finally(() => {
+      if (requestId === requestSeq.current) setRefreshing(false);
+    });
+    return () => {
+      if (requestId === requestSeq.current) requestSeq.current++;
+    };
+  }, [workView, alphabetical, industry, debouncedQuery, reloadKey]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  async function loadMore() {
+    if (!data?.has_more || refreshing || loadingMore || query.trim() !== debouncedQuery) return;
+    const requestId = requestSeq.current;
+    const url = leadPageUrl({ workView, alphabetical, industry, query: debouncedQuery }, data.leads.length);
+    setLoadingMore(true);
+    try {
+      const next = await api<Response>(url);
+      if (requestId !== requestSeq.current) return;
+      setData((current) => current ? { ...next, leads: [...current.leads, ...next.leads] } : next);
+      setError('');
+    } catch (err) {
+      if (requestId === requestSeq.current) setError(errText(err));
+    } finally {
+      if (requestId === requestSeq.current) setLoadingMore(false);
+    }
+  }
 
   async function signIn() {
     setGoogleLoading(true); setError('');
@@ -866,6 +1107,7 @@ export function CrmClient() {
   }
 
   async function signOut() {
+    requestSeq.current++;
     setSelected(null); setData(null);
     try {
       await authSignOut({ redirectTo: '/crm' });
@@ -876,77 +1118,45 @@ export function CrmClient() {
   }
   const leads = data?.leads || [];
   const stats = data?.stats || emptyStats;
-  // Show built-in categories and those present in existing leads.
+  // Category names and counts include all assigned leads, not just the current page.
   const industries = useMemo(
-    () => Array.from(new Set([...CRM_INDUSTRIES, ...leads.map((lead) => lead.industry)])).filter(Boolean)
+    () => (data?.industries || []).filter(Boolean)
       .sort((a, b) => a.localeCompare(b)),
-    [leads],
+    [data?.industries],
   );
-  const industryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const lead of leads) counts.set(lead.industry, (counts.get(lead.industry) ?? 0) + 1);
-    return counts;
-  }, [leads]);
-  const filtered = useMemo(() => {
-    const matches = leads.filter((lead) => {
-      if (industry === '__uncategorized__' ? Boolean(lead.industry) : industry !== 'all' && lead.industry !== industry) return false;
-      if (queue === 'to_call' && !isToCall(lead)) return false;
-      if (queue === 'due' && !isDue(lead)) return false;
-      if (queue === 'interested' && !isInterested(lead)) return false;
-      const term = query.trim().toLowerCase();
-      return !term || [lead.company_name, lead.contact_name, lead.city,
-        lead.phone, lead.industry, lead.contacts_search, lead.problem_summary].some((s) => (s || '').toLowerCase().includes(term));
-    });
-    if (sortBy === 'recommended') return matches; // Existing server ordering.
-    const byCompany = (a: Lead, b: Lead) =>
-      (a.company_name ? 0 : 1) - (b.company_name ? 0 : 1) ||
-      a.company_name.localeCompare(b.company_name) ||
-      (a.contact_name || '').localeCompare(b.contact_name || '');
-    const byFollowup = (a: Lead, b: Lead) => {
-      const byDate = (a.next_action_at ?? '9999-12-31')
-        .localeCompare(b.next_action_at ?? '9999-12-31');
-      return byDate ||
-        (a.next_action_time ?? '99:99').localeCompare(b.next_action_time ?? '99:99');
-    };
-    matches.sort((a, b) => {
-      switch (sortBy) {
-        case 'follow_up': return byFollowup(a, b) || byCompany(a, b);
-        case 'priority':
-          return priorityRank[a.priority] - priorityRank[b.priority] ||
-            byFollowup(a, b) || byCompany(a, b);
-        case 'company': return byCompany(a, b);
-        case 'industry': return a.industry.localeCompare(b.industry) || byCompany(a, b);
-        case 'recent': return b.updated_at.localeCompare(a.updated_at) || byCompany(a, b);
-        default: return 0;
-      }
-    });
-    return matches;
-  }, [leads, industry, queue, query, sortBy]);
-  const counters: Array<{key:Queue; title:string; value:number}> = [
+  const industryCounts = useMemo(
+    () => new Map<string, number>(Object.entries(data?.industry_counts || {})),
+    [data?.industry_counts],
+  );
+  const filtered = leads;
+  const counters: Array<{key:WorkView; title:string; value:number}> = [
     {key:'all',title:'Total leads',value:stats.total},
     {key:'to_call',title:'To call',value:stats.to_call},
-    {key:'due',title:'Follow-ups due',value:stats.followups_due},
-    {key:'interested',title:'Interested',value:stats.interested},
+    {key:'followups',title:'Follow-ups due',value:stats.followups_due},
   ];
   return (
     <main className="min-h-screen bg-[#F6F8FA] text-[#0A2836] dark:bg-[#07111D] dark:text-slate-50">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-[#0A1724]/95">
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
-            <div className="min-w-0 shrink-0"><BrandLogo /></div>
+            <div className="flex min-w-0 items-center gap-2.5" aria-label="CallsBound">
+              <span className="shrink-0 dark:hidden"><BrandSymbol size={37} /></span>
+              <span className="hidden shrink-0 dark:block"><BrandSymbol size={37} onDark /></span>
+              <span className="truncate text-base font-extrabold tracking-tight text-[#0A2836] dark:text-white sm:text-lg">CallsBound</span>
+            </div>
             <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] font-bold tracking-wide text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-900/25 dark:text-emerald-300 sm:hidden">CRM</span>
             <div className="hidden border-l border-slate-200 pl-4 dark:border-white/15 sm:block">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#059669] dark:text-[#34D399]">Sales CRM</p>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Agent workspace</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Personal CRM</p>
             </div>
           </div>
           {view === 'ready' && (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
               <div className="hidden items-center gap-2.5 sm:flex">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-700/50">
-                  {(data?.agent.name || 'A').trim().slice(0, 1).toUpperCase()}
+                  {(data?.user.name || 'A').trim().slice(0, 1).toUpperCase()}
                 </span>
-                <span className="max-w-32 truncate text-xs font-semibold text-[#0A2836] dark:text-slate-200">{data?.agent.name}</span>
+                <span className="max-w-32 truncate text-xs font-semibold text-[#0A2836] dark:text-slate-200">{data?.user.name}</span>
               </div>
               <button type="button" onClick={() => void refresh(true)} disabled={refreshing} title="Refresh leads"
                 aria-label="Refresh leads" className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50 dark:border-white/15 dark:bg-white/5 dark:text-slate-200">
@@ -978,15 +1188,15 @@ export function CrmClient() {
                 <span className="dark:hidden"><BrandSymbol size={47} /></span>
                 <span className="hidden dark:block"><BrandSymbol size={47} onDark /></span>
               </div>
-              <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.19em] text-[#059669] dark:text-[#34D399]">JoelTechGeek · Sales CRM</p>
+              <p className="mt-7 text-[11px] font-bold uppercase tracking-[0.19em] text-[#059669] dark:text-[#34D399]">CallsBound · Sales CRM</p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#0A2836] dark:text-white sm:text-[28px]">
                 {view === 'denied' ? 'Account not authorized' : view === 'error' ? 'Connection problem' : 'Welcome to your workspace'}
               </h2>
               <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {view === 'denied'
-                  ? 'Use the Google account you entered on your JoelTechGeek sales-agent application.'
+                  ? 'Sign in with Google to access your personal CRM.'
                   : view === 'error' ? 'We could not load your leads. Check the connection and try again.'
-                    : 'Sign in with your registered Google account to manage leads and follow-ups.'}
+                    : 'Continue with Google to create an account or open your CRM.'}
               </p>
               {error && <p className="mt-5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200" role="alert">{error}</p>}
               <button type="button" onClick={() => void signIn()} disabled={googleLoading}
@@ -1002,7 +1212,7 @@ export function CrmClient() {
               {view === 'error' && <button type="button" onClick={() => void refresh()}
                 className="mt-4 text-sm font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Retry connection</button>}
               <p className="mt-7 border-t border-slate-100 pt-5 text-xs leading-5 text-slate-500 dark:border-white/10 dark:text-slate-400">
-                Access is limited to registered JoelTechGeek sales agents.
+                New to CallsBound? Your account will be created automatically.
               </p>
             </div>
           </section>
@@ -1017,7 +1227,7 @@ export function CrmClient() {
             </div>
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                {data?.agent.name || 'Agent'}&apos;s workspace
+                {data?.user.name || 'My'}&apos;s CRM
               </span>
               <button type="button" onClick={() => setAdding(true)}
                 className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#059669] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#047857] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
@@ -1025,27 +1235,26 @@ export function CrmClient() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {counters.map((item) => (
-              <button type="button" key={item.key} onClick={() => setQueue(item.key)} aria-pressed={queue === item.key}
+              <button type="button" key={item.key} onClick={() => setWorkView(item.key)} aria-pressed={workView === item.key}
                 className={'group relative min-w-0 overflow-hidden rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#059669] sm:p-5 ' +
-                  (queue === item.key
+                  (workView === item.key
                     ? 'border-[#059669] bg-emerald-50/70 ring-1 ring-[#059669]/50 dark:border-emerald-500 dark:bg-emerald-950/35'
                     : 'border-slate-200 bg-white hover:border-emerald-300 dark:border-white/10 dark:bg-[#0E1D2A] dark:hover:border-emerald-700')}>
-                {queue === item.key && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[#059669]" />}
+                {workView === item.key && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[#059669]" />}
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{item.title}</span>
                   <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ' +
-                    (queue === item.key ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300')}>
+                    (workView === item.key ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300')}>
                     {item.key === 'all' && <BriefcaseBusiness className="h-[18px] w-[18px]" />}
                     {item.key === 'to_call' && <Phone className="h-[18px] w-[18px]" />}
-                    {item.key === 'due' && <CalendarDays className="h-[18px] w-[18px]" />}
-                    {item.key === 'interested' && <Check className="h-[18px] w-[18px]" />}
+                    {item.key === 'followups' && <CalendarDays className="h-[18px] w-[18px]" />}
                   </span>
                 </div>
                 <strong className="mt-3 block text-3xl font-bold leading-none tabular-nums tracking-tight text-[#0A2836] dark:text-white sm:text-[34px]">{item.value}</strong>
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                  {item.key === 'all' ? 'Assigned prospects' : item.key === 'to_call' ? 'Ready for outreach' : item.key === 'due' ? 'Need your attention' : 'Positive conversations'}
+                  {item.key === 'all' ? 'Assigned prospects' : item.key === 'to_call' ? 'Ready for outreach' : item.key === 'followups' ? 'Need your attention' : 'Positive conversations'}
                 </p>
               </button>
             ))}
@@ -1053,7 +1262,7 @@ export function CrmClient() {
           <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0E1D2A] sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-3 px-1">
               <h3 className="text-sm font-bold text-[#0A2836] dark:text-white">Lead directory</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{leads.length} assigned</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">{stats.total} assigned</span>
             </div>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <label className="relative min-w-0 flex-1">
@@ -1071,33 +1280,36 @@ export function CrmClient() {
                   <option key={name} value={name}>{name} ({industryCounts.get(name) ?? 0})</option>
                 ))}
               </select>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as LeadSort)} aria-label="Sort leads"
+              <select value={workView} onChange={(e) => setWorkView(e.target.value as WorkView)} aria-label="View leads"
                 className="h-11 w-full rounded-xl border border-slate-200 bg-[#F8FAFB] px-3 text-sm font-medium text-[#0A2836] outline-none focus:border-[#059669] focus:ring-2 focus:ring-emerald-100 dark:border-white/10 dark:bg-[#0A1724] dark:text-slate-100 dark:focus:ring-emerald-900/40 lg:w-52">
-                <option value="recommended">Sort: Recommended</option>
-                <option value="follow_up">Follow-up: Earliest first</option>
-                <option value="priority">Priority: Highest first</option>
-                <option value="recent">Recently updated</option>
-                <option value="industry">Category: A–Z</option>
-                <option value="company">Company: A–Z</option>
+                <option value="for_you">For You</option>
+                <option value="to_call">To Call</option>
+                <option value="followups">Follow-ups</option>
+                <option value="done_today">Done Today</option>
+                <option value="priority">High Priority</option>
+                <option value="all">All Leads</option>
+
               </select>
+              {workView === 'all' && <button type="button"
+                onClick={() => setAlphabetical((current) => !current)}
+                className="h-11 shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-emerald-800 dark:border-slate-700 dark:text-emerald-300"
+                aria-label={alphabetical ? 'Sort All Leads by recent' : 'Sort All Leads alphabetically'}>
+                {alphabetical ? 'Recent' : 'A–Z'}
+              </button>}
             </div>
           </div>
-          {data?.has_more && (
-            <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              Showing the first 1,000 leads. Pagination will be needed before this agent exceeds 1,000.
-            </p>
-          )}
           <div className="flex items-center justify-between gap-3 px-1 text-xs text-slate-500 dark:text-slate-400">
-            <span>{filtered.length} lead{filtered.length === 1 ? '' : 's'} shown{queue !== 'all' ? ' · Filtered queue' : ''}</span>
-            {(queue !== 'all' || industry !== 'all' || query || sortBy !== 'recommended') && (
-              <button type="button" onClick={() => { setQueue('all'); setIndustry('all'); setQuery(''); setSortBy('recommended'); }}
+            <span>{filtered.length} of {data?.filtered_total ?? 0} lead{data?.filtered_total === 1 ? '' : 's'} shown{refreshing || query.trim() !== debouncedQuery ? ' · Updating…' : ''}</span>
+            {(workView !== 'for_you' || industry !== 'all' || query || alphabetical) && (
+              <button type="button" onClick={() => { setWorkView('for_you'); setIndustry('all'); setQuery(''); setAlphabetical(false); }}
                 className="font-semibold text-[#059669] hover:underline dark:text-[#34D399]">Clear filters</button>
             )}
           </div>
+          {error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/30 dark:text-rose-200" role="alert">{error}</p>}
           {filtered.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm dark:border-white/15 dark:bg-[#0E1D2A] sm:py-14">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-100 bg-emerald-50/60 dark:border-emerald-800/30 dark:bg-emerald-900/20">
-                {leads.length === 0 ? (
+                {stats.total === 0 ? (
                   <>
                     <span className="dark:hidden"><BrandSymbol size={40} /></span>
                     <span className="hidden dark:block"><BrandSymbol size={40} onDark /></span>
@@ -1105,17 +1317,17 @@ export function CrmClient() {
                 ) : <Search className="h-7 w-7 text-[#059669] dark:text-emerald-300" />}
               </div>
               <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-[#059669] dark:text-[#34D399]">
-                {leads.length === 0 ? 'Ready for your first leads' : 'No matching results'}
+                {stats.total === 0 ? 'Ready for your first leads' : 'No matching results'}
               </p>
               <h3 className="mt-2 text-lg font-bold tracking-tight text-[#0A2836] dark:text-white">
-                {leads.length === 0 ? 'No leads assigned yet' : 'No leads match these filters'}
+                {stats.total === 0 ? 'No leads assigned yet' : 'No leads match these filters'}
               </h3>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">
-                {leads.length === 0
+                {stats.total === 0
                   ? 'Once prospects are assigned to your account, they will appear here with their contact details and next actions.'
-                  : 'Try another category, search term or queue to find the prospect you need.'}
+                  : 'Try another category, search term or view to find the prospect you need.'}
               </p>
-              {leads.length === 0 && (
+              {stats.total === 0 && (
                 <button type="button" onClick={() => void refresh(true)} disabled={refreshing}
                   className="mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-semibold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-60 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200">
                   <RefreshCw className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')} /> Refresh leads
@@ -1127,19 +1339,30 @@ export function CrmClient() {
               {filtered.map((lead) => <LeadCard key={lead.id} lead={lead} onOpen={setSelected} />)}
             </div>
           )}
+          {data?.has_more && (
+            <div className="flex justify-center">
+              <button type="button" onClick={() => void loadMore()}
+                disabled={loadingMore || refreshing || query.trim() !== debouncedQuery}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-white px-5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-60 dark:border-emerald-800 dark:bg-[#0E1D2A] dark:text-emerald-300">
+                {loadingMore && <RefreshCw className="h-4 w-4 animate-spin" />}
+                {loadingMore ? 'Loading more…' : 'Load more (' + Math.max(0, data.filtered_total - leads.length) + ' remaining)'}
+              </button>
+            </div>
+          )}
           <p className="pb-5 text-center text-xs text-slate-500 dark:text-slate-400">
             Your workspace is private. Only leads assigned to your account appear here.
           </p>
         </div>
       )}
       {selected && <LeadDialog key={selected.id} lead={selected}
-        onClose={() => setSelected(null)} onSaved={() => refresh(true)} />}
+        industry={industry} onNext={setSelected}
+        onClose={() => setSelected(null)} onSaved={async () => { refresh(true); }} />}
       {adding && (
         <AddLeadModal
           onClose={() => setAdding(false)}
           onCreated={() => {
             setAdding(false);
-            setQueue('all');
+            setWorkView('all');
             setIndustry('all');
             setQuery('');
             void refresh(true);

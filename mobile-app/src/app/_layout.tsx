@@ -4,11 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/lib/AuthProvider';
 import { HeaderProfileMenu } from '@/components/HeaderProfileMenu';
+import { NotificationBell } from '@/components/NotificationBell';
 import { AppDialogProvider } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 
 function Navigation() {
-  const { agent } = useAuth();
+  const { user } = useAuth();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const theme = useTheme();
@@ -23,28 +24,33 @@ function Navigation() {
     }}>
       <Stack.Screen name="index" options={{
         title: '',
-        headerShown: !!agent,
+        headerShown: !!user,
         headerTitleAlign: 'left',
         headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
           <Image
-            alt="JoelTechGeek"
+            alt="CallsBound"
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             source={dark ? require('../../assets/images/header-logo-dark.png') : require('../../assets/images/header-logo.png')}
             style={{ width: 30, height: 30 }}
             resizeMode="contain"
-            accessibilityLabel="JoelTechGeek" />
+            accessibilityLabel="CallsBound" />
           <Text numberOfLines={1} style={{ color: theme.ink, fontWeight: '800', fontSize: 16 }}>
-            JoelTechGeek CRM
+            CallsBound
           </Text>
         </View>,
         headerBackVisible: false,
         headerLeft: () => null,
-        headerRight: () => <HeaderProfileMenu />,
+        headerRight: () => <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <NotificationBell />
+          <HeaderProfileMenu />
+        </View>,
       }}/>
+      <Stack.Screen name="notifications" options={{ title: 'Notifications' }}/>
       <Stack.Screen name="profile" options={{ title: 'Profile' }}/>
       <Stack.Screen name="signing-out" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}/>
       <Stack.Screen name="auth-callback" options={{ title: 'Google sign-in' }}/>
       <Stack.Screen name="leads/new" options={{ title: 'Add lead' }}/>
+      <Stack.Screen name="leads/edit/[id]" options={{ title: 'Edit lead' }}/>
       <Stack.Screen name="leads/[id]" options={{ title: 'Lead details' }}/>
     </Stack>
   </>;

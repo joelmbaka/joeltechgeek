@@ -1,4 +1,4 @@
-# JoelTechGeek CRM · EAS Update
+# CallsBound · EAS Update
 
 EAS Update is configured for the existing Expo project
 `5f11b316-8b98-4729-821f-794f56456c27`, with two isolated release
@@ -84,9 +84,9 @@ directory is tracked.
 
 | Build | Launcher | Android package | URL scheme | EAS channel |
 | --- | --- | --- | --- | --- |
-| Development | JTG CRM Dev | `com.joeltechgeek.app.dev` | `joeltechgeek-dev` | `development` |
-| Preview | JTG Preview | `com.joeltechgeek.app.preview` | `joeltechgeek-preview` | `preview` |
-| Production | JTG CRM | `com.joeltechgeek.app` | `joeltechgeek` | `production` |
+| Development | CallsBound Dev | `com.joeltechgeek.app.dev` | `joeltechgeek-dev` | `development` |
+| Preview | CallsBound Preview | `com.joeltechgeek.app.preview` | `joeltechgeek-preview` | `preview` |
+| Production | CallsBound | `com.joeltechgeek.app` | `joeltechgeek` | `production` |
 
 All three packages can coexist on Android with separate local app data and
 SecureStore sessions. Preview and production still talk to the same production

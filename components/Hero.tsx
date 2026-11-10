@@ -72,19 +72,19 @@ export default function Hero() {
           </div>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link href="#work" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-sunset-yellow px-6 py-3 font-semibold text-black transition hover:bg-sunset-yellow-dark">
-              Explore our portfolio <ArrowDown className="h-4 w-4" aria-hidden />
-            </Link>
-            <button type="button" onClick={() => setContactOpen(true)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-300 px-6 py-3 font-semibold text-gray-900 transition hover:border-palm-green hover:text-palm-green dark:border-gray-700 dark:text-white">
+            <button type="button" onClick={() => setContactOpen(true)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-sunset-yellow px-6 py-3 font-semibold text-black transition hover:bg-sunset-yellow-dark">
               <Mail className="h-4 w-4" aria-hidden /> Discuss your project
             </button>
+            <Link href="#work" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-gray-300 px-6 py-3 font-semibold text-gray-900 transition hover:border-palm-green hover:text-palm-green dark:border-gray-700 dark:text-white">
+              Explore our portfolio <ArrowDown className="h-4 w-4" aria-hidden />
+            </Link>
             <Link href="/services" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-5 py-3 font-medium text-palm-green hover:underline">
               What we do <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </div>
 
           <div className="mt-9 border-l-2 border-palm-green pl-4">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">Founder-led engineering, not an anonymous agency.</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Founder-led engineering with direct accountability.</p>
             <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
               Founded by Joel Mbaka — senior full-stack software engineer, technical lead and developer mentor. See the founder profile and delivered work.
             </p>

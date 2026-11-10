@@ -1,10 +1,15 @@
-export type Agent = { id: string; name: string; email: string; phone?: string | null; picture_url?: string | null };
+export type CrmUser = { id: string; name: string; email: string; phone?: string | null; picture_url?: string | null };
 export type Lead = {
   id: string; company_name: string; industry: string; country: string;
   city: string | null; website: string | null; contact_name: string | null;
   contact_role: string | null; phone: string | null; email: string | null;
   existing_system: string | null; problem_summary: string | null;
   qualification_reason: string | null; source_url: string | null;
+  lead_brief: string | null; important_details: string | null;
+  lead_facts: Array<{label:string;value:string}>;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
+  work_state?: string; last_call_at?: string | null;
+  failed_call_streak?: number; retry_eligible_at?: string | null; last_worked_at?: string | null;
   priority: 'high' | 'normal' | 'low'; stage: string;
   last_outcome: string | null; last_activity_channel: ActivityChannel | null; last_notes: string | null;
   next_action: string | null; next_action_at: string | null;
@@ -19,11 +24,12 @@ export type LeadContact = {
   is_primary: boolean; created_at: string; updated_at: string;
 };
 export type LeadEvent = {
-  id: string; event_type: 'outreach' | 'action_completed' | 'followup_updated';
+  id: string; event_type: 'outreach' | 'action_completed' | 'followup_updated' | 'note_added' | 'classification_changed';
   outcome: string | null; channel: ActivityChannel | null;
   action: string | null; notes: string | null;
   next_action: string | null; next_action_at: string | null;
   next_action_time: string | null; next_action_timezone: string | null;
+  next_action_type: 'call' | 'email' | 'whatsapp' | 'meeting' | 'other' | null;
   contact_id: string | null; contact_name_snapshot: string | null;
   created_at: string;
 };

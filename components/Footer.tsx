@@ -12,7 +12,7 @@ export function Footer() {
               <BrandLogo />
             </Link>
             <p className="mt-1 text-sm">Software for the US, Kenya & beyond.</p>
-            <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-gray-400">Founder-led engineering for mobile, web, SaaS and business operations. We welcome projects across markets and deliver through remote collaboration.</p>
+            <p className="mt-3 text-xs leading-5 text-gray-500 dark:text-gray-400">Founder-led custom software development for mobile apps, web platforms, business systems and integrations. We welcome projects across industries and deliver through remote collaboration.</p>
             <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Founded by Joel Mbaka · Business registration BN-P7SEWW57</p>
           </div>
 
@@ -40,9 +40,14 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t border-gray-200 pt-5 text-xs dark:border-gray-800">
-          <Link href="/privacy" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
-            Privacy Policy
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="inline-flex min-h-11 items-center font-semibold hover:text-palm-green">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

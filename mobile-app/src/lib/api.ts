@@ -27,6 +27,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       throw new ApiError('Connection unavailable. Check internet and retry.', 0);
     }
   }
+  if (__DEV__ && path.startsWith('/api/agent-crm/')) {
+    console.info('[CRM_API]', { path, method: init.method || 'GET', status: response.status });
+  }
   const data = await response.json().catch(() => ({})) as T & { error?: string };
   if (!response.ok) throw new ApiError(data.error || 'Request failed (' + response.status + ')', response.status);
   return data;

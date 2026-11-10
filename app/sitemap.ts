@@ -29,9 +29,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/demos/healthcare`, lastModified: new Date('2026-11-01'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/security`, lastModified: new Date('2026-11-02'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/restaurant`, lastModified: new Date('2026-11-03'), changeFrequency: 'monthly', priority: 0.78 },
+    { url: `${base}/demos/auto-parts`, lastModified: new Date('2026-11-07'), changeFrequency: 'monthly', priority: 0.78 },
+    { url: `${base}/demos/car-rental`, lastModified: new Date('2026-11-07'), changeFrequency: 'monthly', priority: 0.78 },
+    { url: `${base}/demos/garage`, lastModified: new Date('2026-11-06'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/demos/vehicle-tracking`, lastModified: new Date('2026-11-03'), changeFrequency: 'monthly', priority: 0.78 },
     { url: `${base}/contact`, lastModified: CAREERS_UPDATED_AT, changeFrequency: 'monthly', priority: 0.88 },
     { url: `${base}/privacy`, lastModified: new Date('2026-11-03'), changeFrequency: 'yearly', priority: 0.4 },
+    { url: `${base}/terms`, lastModified: new Date('2026-11-06'), changeFrequency: 'yearly', priority: 0.4 },
   ];
 
   const serviceRoutes: MetadataRoute.Sitemap = services.map((service) => ({

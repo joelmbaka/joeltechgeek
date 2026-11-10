@@ -3,11 +3,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { Page, Button, useUIStyles } from '@/components/ui';
 import { LoadingState } from '@/components/LoadingState';
-import { exchangeGoogleCode, getAgent } from '@/lib/session';
+import { exchangeGoogleCode, getUser } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
   access_denied: 'Google sign-in was cancelled.',
-  account_not_invited: 'This Google account is not registered for CRM access. Choose another account.',
+  account_not_invited: 'This sign-in request is no longer supported. Please retry with Google.',
   google_email_unverified: 'This Google email address is not verified.',
   configuration_error: 'Google sign-in is not configured on the server.',
   provider_error: 'Google sign-in could not be completed.',
@@ -21,7 +21,7 @@ export default function AuthCallback() {
   const started = useRef('');
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (getAgent()) { router.replace('/'); return; }
+    if (getUser()) { router.replace('/'); return; }
     if (typeof authError === 'string' && authError) {
       setError(ERRORS[authError] || 'Google sign-in failed. Try another account.');
       return;
