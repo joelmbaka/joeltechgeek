@@ -98,7 +98,7 @@ export default function EditLead() {
   };
   return <Page keyboardAware keyboardVerticalOffset={headerHeight}>
     <Stack.Screen options={{title:'Edit lead'}}/>
-    {!loaded ? <EditLeadSkeleton/> : null}
+    {!loaded && !original ? <EditLeadSkeleton/> : null}
     {loaded&&!original ? <Text style={styles.error}>{error||'Lead not found.'}</Text> : null}
     {original ? <>
       <Field label="Company name" value={company} onChangeText={setCompany} inline/>
