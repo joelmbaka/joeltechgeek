@@ -34,26 +34,34 @@ export default function EditLead() {
   const [details,setDetails] = useState('');
   const [busy,setBusy] = useState(false);
   const [loaded,setLoaded] = useState(false);
+  const [categoriesLoading,setCategoriesLoading] = useState(true);
+  const [categoriesError,setCategoriesError] = useState<string|null>(null);
   const [error,setError] = useState('');
 
   const load = useCallback((signal:AbortSignal) => {
     if (!user || !id) return;
     setLoaded(false);setError('');
-    void Promise.all([
-      apiFetch<LeadDetails>('/api/agent-crm/leads/'+encodeURIComponent(id),{signal}),
-      apiFetch<{ok:true;categories:string[]}>('/api/agent-crm/categories',{signal}),
-    ]).then(([details,categories])=>{
-      if(signal.aborted)return;
-      const lead=details.lead;
-      setOriginal(lead);setCompany(lead.company_name||'');setIndustry(lead.industry||'');
-      setCountry(lead.country||'');setCity(lead.city||'');setWebsite(lead.website||'');
-      setPriority(lead.priority||'normal');setBrief(lead.lead_brief||'');
-      setDetails(lead.important_details||'');
-      setIndustries(categories.categories);setLoaded(true);
-    }).catch((reason:unknown)=>{
-      if(!signal.aborted){setError(reason instanceof Error?reason.message:'Unable to load lead.');setLoaded(true);}
-    });
+    setCategoriesLoading(true);setCategoriesError(null);
+    // The edit form should not wait for the separate category request.
+    void apiFetch<LeadDetails>('/api/agent-crm/leads/'+encodeURIComponent(id),{signal})
+      .then(details=>{
+        if(signal.aborted)return;
+        const lead=details.lead;
+        setOriginal(lead);setCompany(lead.company_name||'');setIndustry(lead.industry||'');
+        setCountry(lead.country||'');setCity(lead.city||'');setWebsite(lead.website||'');
+        setPriority(lead.priority||'normal');setBrief(lead.lead_brief||'');
+        setDetails(lead.important_details||'');setLoaded(true);
+      }).catch((reason:unknown)=>{
+        if(!signal.aborted){setError(reason instanceof Error?reason.message:'Unable to load lead.');setLoaded(true);}
+      });
+    void apiFetch<{ok:true;categories:string[]}>('/api/agent-crm/categories',{signal})
+      .then(categories=>{
+        if(!signal.aborted)setIndustries(categories.categories);
+      }).catch((reason:unknown)=>{
+        if(!signal.aborted)setCategoriesError(reason instanceof Error?reason.message:'Unable to load categories.');
+      }).finally(()=>{if(!signal.aborted)setCategoriesLoading(false);});
   },[id,user?.id]);
+
   useFreshOnFocus(load,[load]);
   const createCategory = async(name:string):Promise<string>=>{
     const result=await apiFetch<{ok:true;category:string}>('/api/agent-crm/categories',{
@@ -99,9 +107,10 @@ export default function EditLead() {
         <View style={{flex:1,minWidth:0}}>
           <SelectSheet title="Business category" value={industry} hideTriggerLabel
             placeholder="Other"
-            options={[...industries.filter(name=>name!=='Other').map(value=>({value,label:value})),{value:'',label:'Other'}]}
+            options={[...new Set([...industries, ...(industry ? [industry] : [])])]
+              .filter(name=>name!=='Other').map(value=>({value,label:value})).concat([{value:'',label:'Other'}])}
             onChange={setIndustry} onCreateOption={createCategory} searchable dismissKeyboardOnOpen
-            loading={!loaded}/>
+            loading={categoriesLoading} loadingError={categoriesError}/>
         </View>
       </View>
       <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>
