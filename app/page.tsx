@@ -42,6 +42,7 @@ export default function Home() {
         image: `${base}/brand/bridgeframe-512.png`,
         description: 'Kenya-registered, founder-led software development business available for US, Kenyan and international projects through remote delivery.',
         founder: { '@id': `${base}/#person` },
+        sameAs: ['https://play.google.com/store/apps/developer?id=Joeltech+Geek+Systems'],
         areaServed: ['United States', 'Kenya', 'Worldwide'],
         address: { '@type': 'PostalAddress', addressCountry: 'KE' },
         knowsAbout: ['Custom software development', 'Mobile applications', 'SaaS', 'Web dashboards', 'FastAPI', 'PostgreSQL', 'Payment integrations'],

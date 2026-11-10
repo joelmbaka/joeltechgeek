@@ -86,6 +86,9 @@ export const projects: Project[] = [
         '/project-screenshots/callsbound/mobile/05-add-lead.png',
       ],
     },
+    playStore: {
+      url: 'https://play.google.com/store/apps/details?id=com.joeltechgeek.app',
+    },
   },
   {
     id: 'journpad',

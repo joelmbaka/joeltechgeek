@@ -65,6 +65,9 @@ export default function WorkPage() {
         </p>
         <nav className="mt-7 flex flex-wrap gap-3 text-sm font-semibold" aria-label="Portfolio sections">
           <a href="#portfolio-projects" className="rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">Projects</a>
+          <a href="https://play.google.com/store/apps/developer?id=Joeltech+Geek+Systems" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-palm-green hover:underline dark:border-gray-700">
+            Our apps on Google Play <ArrowRight className="h-4 w-4" aria-hidden />
+          </a>
         </nav>
       </header>
 
