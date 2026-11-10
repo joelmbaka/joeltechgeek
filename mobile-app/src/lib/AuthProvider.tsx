@@ -30,11 +30,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionStatus('checking');
     try {
       const restored = await restoreSession();
-      setSessionStatus(restored ? 'authenticated' : 'signed_out');
+      setSessionStatus(restored || getUser() ? 'authenticated' : 'signed_out');
     } catch (err) {
-      // A connectivity failure is not proof that the saved session expired.
-      setError(err instanceof Error ? err.message : 'Could not reach server.');
-      setSessionStatus('connection_error');
+      // A concurrent successful login takes precedence over a failed restore.
+      if (getUser()) {
+        setSessionStatus('authenticated');
+      } else {
+        // A connectivity failure is not proof that the saved session expired.
+        setError(err instanceof Error ? err.message : 'Could not reach server.');
+        setSessionStatus('connection_error');
+      }
     } finally {
       restoringRef.current = false;
       setReady(true);
@@ -46,6 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (next) {
         setSessionStatus('authenticated');
         setError(null);
+      } else {
+        // A 401 during normal API use can revoke an already restored session.
+        // Do not show sign-in midway through the initial restoration check.
+        setSessionStatus(current => current === 'authenticated' ? 'signed_out' : current);
       }
     });
     void restore();
