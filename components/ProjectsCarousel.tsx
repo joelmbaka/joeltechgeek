@@ -19,8 +19,8 @@ function getCardImage(project: Project): CardImage {
           : 'web app screenshot';
 
     return {
-      alt: `${project.title} ${label}`,
-      className: project.storePreview.platform === 'android' ? 'object-cover object-top' : 'object-cover object-center',
+      alt: project.id === 'callsbound' ? 'CallsBound CRM Play Store feature graphic' : `${project.title} ${label}`,
+      className: project.id === 'callsbound' ? 'object-cover object-center' : project.storePreview.platform === 'android' ? 'object-cover object-top' : 'object-cover object-center',
       src: project.storePreview.src,
     };
   }

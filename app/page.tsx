@@ -23,7 +23,7 @@ const delivery = [
 ];
 
 export default function Home() {
-  const portfolioOrder = ['macsim', 'milliol', 'rentpayor', 'schoolpey', 'clivique-hmis', 'journpad'];
+  const portfolioOrder = ['macsim', 'milliol', 'callsbound', 'rentpayor', 'schoolpey', 'clivique-hmis', 'journpad'];
   const featuredProjects = [
     ...portfolioOrder.map((id) => publicProjects.find((project) => project.id === id))
       .filter((project): project is (typeof publicProjects)[number] => Boolean(project)),
@@ -42,6 +42,7 @@ export default function Home() {
         image: `${base}/brand/bridgeframe-512.png`,
         description: 'Kenya-registered, founder-led software development business available for US, Kenyan and international projects through remote delivery.',
         founder: { '@id': `${base}/#person` },
+        sameAs: ['https://play.google.com/store/apps/developer?id=Joeltech+Geek+Systems'],
         areaServed: ['United States', 'Kenya', 'Worldwide'],
         address: { '@type': 'PostalAddress', addressCountry: 'KE' },
         knowsAbout: ['Custom software development', 'Mobile applications', 'SaaS', 'Web dashboards', 'FastAPI', 'PostgreSQL', 'Payment integrations'],
@@ -130,7 +131,7 @@ export default function Home() {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-palm-green">Our portfolio</p>
             <h2 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">We build software that runs businesses.</h2>
             <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
-              Explore mobile applications and web platforms we&apos;ve developed across logistics, construction, property management, education, healthcare, and more.
+              Explore mobile applications and web platforms we&apos;ve developed across logistics, sales operations, construction, property management, education, healthcare, and more.
             </p>
           </div>
           <ProjectsCarousel projects={featuredProjects} />

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Github, Linkedin, Mail, MessageCircle } from 'lucide-react';
+import { Github, Linkedin, Mail, MessageCircle, Smartphone } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 
 export function Footer() {
@@ -37,6 +37,7 @@ export function Footer() {
             <a href="https://wa.me/254717990442" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 hover:text-palm-green"><MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp</a>
             <a href="https://github.com/joelmbaka" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 hover:text-palm-green"><Github className="h-4 w-4" aria-hidden /> GitHub</a>
             <a href="https://linkedin.com/in/joelmbaka" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 hover:text-palm-green"><Linkedin className="h-4 w-4" aria-hidden /> LinkedIn</a>
+            <a href="https://play.google.com/store/apps/developer?id=Joeltech+Geek+Systems" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 hover:text-palm-green"><Smartphone className="h-4 w-4" aria-hidden /> Google Play apps</a>
           </div>
         </div>
         <div className="mt-8 border-t border-gray-200 pt-5 text-xs dark:border-gray-800">
