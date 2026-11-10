@@ -41,7 +41,7 @@ const CATEGORY_EXAMPLES: Record<string, ResearchExamples> = {
   },
   'Garages & Automotive Repair': {
     brief: 'Mombasa truck repair workshop serving fleet customers.',
-    details: 'Verify ticket, diagnosis, parts-issue and invoicing processes; don't assume a workshop ERP.',
+    details: "Verify ticket, diagnosis, parts-issue and invoicing processes; don't assume a workshop ERP.",
     factLabel: 'Service bays', factValue: '8 — company-reported',
   },
   'Automotive Parts & Supplies': {
