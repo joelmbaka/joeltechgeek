@@ -128,14 +128,21 @@ export function exchangeGoogleCode(code: string): Promise<CrmUser> {
   const work = (async () => {
     const verifier = await SecureStore.getItemAsync(PKCE_KEY);
     if (!verifier) throw new Error('Google sign-in expired. Please try again.');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     let response: Response;
     try {
       response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/oauth/exchange', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, verifier }),
+        signal: controller.signal,
       });
     } catch {
-      throw new Error('Unable to reach the CRM to complete sign-in.');
+      throw new Error(controller.signal.aborted
+        ? 'Google sign-in timed out. Please retry.'
+        : 'Unable to reach the CRM to complete sign-in.');
+    } finally {
+      clearTimeout(timeout);
     }
     const value = await response.json().catch(() => ({})) as Tokens & { error?: string };
     if (!response.ok) throw new Error(value.error || 'Google sign-in failed.');
