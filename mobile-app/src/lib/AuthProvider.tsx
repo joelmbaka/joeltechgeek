@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
@@ -7,8 +7,11 @@ import { cancelUserReminders, notificationLeadId, notificationRecordId, reconcil
 import { markCrmNotificationRead, notifyInboxChanged } from './notification-inbox';
 import type { CrmUser } from './types';
 
+export type SessionStatus = 'checking' | 'authenticated' | 'signed_out' | 'connection_error';
 type AuthContextValue = {
-  ready: boolean; user: CrmUser | null; login: () => Promise<void>; reviewLogin: () => Promise<void>; logout: () => Promise<void>;
+  ready: boolean; user: CrmUser | null; sessionStatus: SessionStatus;
+  retryRestore: () => Promise<void>; login: () => Promise<void>;
+  reviewLogin: () => Promise<void>; logout: () => Promise<void>;
   error: string | null;
 };
 const Context = createContext<AuthContextValue | null>(null);
@@ -16,19 +19,38 @@ const Context = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CrmUser | null>(getUser());
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('checking');
   const [error, setError] = useState<string | null>(null);
+  const restoringRef = useRef(false);
   const router = useRouter();
-  async function restore() {
+  const restore = useCallback(async () => {
+    if (restoringRef.current) return;
+    restoringRef.current = true;
     setError(null);
-    try { await restoreSession(); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Could not reach server.'); }
-    finally { setReady(true); }
-  }
+    setSessionStatus('checking');
+    try {
+      const restored = await restoreSession();
+      setSessionStatus(restored ? 'authenticated' : 'signed_out');
+    } catch (err) {
+      // A connectivity failure is not proof that the saved session expired.
+      setError(err instanceof Error ? err.message : 'Could not reach server.');
+      setSessionStatus('connection_error');
+    } finally {
+      restoringRef.current = false;
+      setReady(true);
+    }
+  }, []);
   useEffect(() => {
-    const unsub = subscribeSession(setUser);
+    const unsub = subscribeSession((next) => {
+      setUser(next);
+      if (next) {
+        setSessionStatus('authenticated');
+        setError(null);
+      }
+    });
     void restore();
     return unsub;
-  }, []);
+  }, [restore]);
   useEffect(() => {
     if (!user) return;
     void requestReminderPermissions().then((enabled) => {
@@ -71,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (user) await cancelUserReminders(user.id).catch(() => {});
     await signOutSession();
+    setSessionStatus('signed_out');
+    setError(null);
     router.replace('/');
   };
   const login = async () => { setError(null); try { await startGoogleSignIn(); }
@@ -82,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(reason instanceof Error ? reason.message : 'Review sign-in failed.');
     }
   };
-  return <Context.Provider value={{ ready, user, error, login, reviewLogin, logout }}>
+  return <Context.Provider value={{ ready, user, sessionStatus, retryRestore: restore, error, login, reviewLogin, logout }}>
     {children}
   </Context.Provider>;
 }
