@@ -22,6 +22,7 @@ type CaseStudyDetail = {
 };
 
 const seoDescriptions: Record<string, string> = {
+  'callsbound': 'CallsBound CRM is an Android and web sales prospecting application for lead management, outbound calling, WhatsApp and email activity, contact histories, and follow-up reminders.',
   'journpad': 'JournPad is a voice-first journal for iOS and Android with audio notes, transcription, AI-organized entries, reminders, goals, and private reflections.',
   'rentpayor': 'RentPayor connects rent invoicing, tenant balances, M-Pesa collections, receipts, and automatic reconciliation for landlords and property managers.',
   'schoolpey': 'SchoolPey helps Kenyan schools manage student fees, term invoices, M-Pesa payments, balances, receipts, and reconciliation, with Android access for parents.',
@@ -30,6 +31,18 @@ const seoDescriptions: Record<string, string> = {
 };
 
 const caseStudyDetails: Record<string, CaseStudyDetail> = {
+  callsbound: {
+    role: 'End-to-end product engineering across the Expo Android application, Next.js web workspace and APIs, PostgreSQL data model, authentication, activity tracking, and follow-up reminders.',
+    scope:
+      'A personal outbound-sales CRM for prospecting and follow-through: users organize leads by business category and priority, manage contacts, log calls and other outreach, preserve activity history, schedule next actions, and work through call and follow-up queues.',
+    engineeringHighlights: [
+      'Developed the React Native / Expo Android experience and a separate authenticated Next.js web workspace, with Next.js API routes and Neon PostgreSQL for shared lead data.',
+      'Implemented Google sign-in with independently managed web and mobile sessions, rotating mobile refresh tokens, and owner-scoped access to leads, contacts and activity records.',
+      'Modeled multiple contacts per lead, custom business categories, call/WhatsApp/email outcomes, pipeline classifications, immutable activity history, and follow-up scheduling without confusing outreach events with completed tasks.',
+      'Built paginated lead search, prioritized work queues and Save & Next workflows to support repeated prospecting sessions across mobile and web.',
+      'Implemented Android follow-up notifications scheduled locally from server-backed reminders, reconciled when the app is opened or data changes, with navigation to the relevant lead.',
+    ],
+  },
   journpad: {
     role: 'End-to-end product engineering across the React Native app, backend services, AI processing, account safety, analytics, and mobile-store release.',
     scope:

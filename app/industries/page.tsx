@@ -9,7 +9,7 @@ const base = SITE_URL;
 export const metadata: Metadata = {
   title: 'Custom Software Development by Industry | JoelTechGeek',
   description:
-    'Explore custom software development for logistics, automotive, construction, property management, education, healthcare and other industries.',
+    'Explore custom software development for logistics, automotive, B2B sales, construction, property management, education, healthcare and other industries.',
   alternates: { canonical: '/industries' },
   openGraph: {
     type: 'website',
@@ -38,6 +38,14 @@ const industryAreas = [
     serviceLabel: "Fictional automotive parts demo",
     extraDemoHref: "/demos/garage",
     extraDemoLabel: "Fictional garage management demo",
+  },
+  {
+    title: "B2B Sales & Professional Services",
+    body: "CallsBound CRM is a company-developed Android and web application for organizing prospects, contacts, call outcomes, outreach activity and follow-ups. It demonstrates end-to-end sales workflow engineering rather than a fictional demo.",
+    href: "/callsbound",
+    proofLabel: "Real case study: CallsBound CRM",
+    serviceHref: "/services/react-native-app-development",
+    serviceLabel: "Custom Android app development",
   },
   {
     title: "Construction & Project Operations",

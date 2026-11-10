@@ -63,6 +63,31 @@ export interface Project {
 
 export const projects: Project[] = [
   {
+    id: 'callsbound',
+    title: 'CallsBound CRM',
+    description:
+      'Outbound sales CRM for managing leads, contacts, calls, WhatsApp and email outreach, activity history, priorities and follow-up reminders. CallsBound connects an Android prospecting app with a private web workspace and PostgreSQL-backed services for individual sales users.',
+    updatedAt: '2026-11-10',
+    tech: ['React Native', 'Expo', 'TypeScript', 'Next.js', 'PostgreSQL', 'Google OAuth', 'Neon', 'Android notifications'],
+    type: 'Enterprise',
+    platforms: ['Android', 'Web workspace'],
+    engagement: 'Product',
+    icon: '/images/projects/callsbound-icon.png',
+    storePreview: {
+      platform: 'android',
+      src: '/store-previews/callsbound-google-play.png',
+    },
+    screenshots: {
+      app: [
+        '/project-screenshots/callsbound/mobile/01-dashboard.png',
+        '/project-screenshots/callsbound/mobile/02-lead-details.png',
+        '/project-screenshots/callsbound/mobile/03-record-update.png',
+        '/project-screenshots/callsbound/mobile/04-notifications.png',
+        '/project-screenshots/callsbound/mobile/05-add-lead.png',
+      ],
+    },
+  },
+  {
     id: 'journpad',
     platforms: ['iOS', 'Android'],
     engagement: 'Product',
