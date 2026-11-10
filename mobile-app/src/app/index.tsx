@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { FlatList, Image, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
-import { LoadingState } from '@/components/LoadingState';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useUIStyles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
@@ -52,7 +51,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
   const { mantra, now } = useDailyMantra();
-  const { ready, user, login, reviewLogin, error: authError } = useAuth();
+  const { user, sessionStatus, retryRestore, login, reviewLogin, error: authError } = useAuth();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
   const [search, setSearch] = useState('');
@@ -66,6 +65,11 @@ export default function HomeScreen() {
   const apiView = view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
     view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view;
   const [data, setData] = useState<LeadList | null>(null);
+  const pageCache = useRef<{ key: string; result: LeadList } | null>(null);
+  const [catalog, setCatalog] = useState<{ userId: string; result: LeadList } | null>(null);
+  // Identify pages by the exact user, filters, and offset so an old page never
+  // appears under a new search/category/queue during a request.
+  const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry]) : '';
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +100,7 @@ export default function HomeScreen() {
   // The backend controls whether to display review access. No account
   // credentials or privileged tokens are embedded in the Android app.
   useEffect(() => {
-    if (!ready || user) { setReviewAvailable(false); return; }
+    if (sessionStatus !== 'signed_out' || user) { setReviewAvailable(false); return; }
     const controller = new AbortController();
     void fetch(API_BASE_URL + '/api/agent-crm/mobile/review', {
       signal: controller.signal, cache: 'no-store',
@@ -107,14 +111,18 @@ export default function HomeScreen() {
         if (!controller.signal.aborted) setReviewAvailable(false);
       });
     return () => controller.abort();
-  }, [ready, user?.id]);
+  }, [sessionStatus, user?.id]);
 
   const fetchPage = useCallback((signal: AbortSignal) => {
-    if (!user) return;
+    if (!user || sessionStatus !== 'authenticated') return;
     const version = ++requestVersion.current;
-    setLoading(true);
+    const key = activeQueryKey;
+    const confirmed = pageCache.current?.key === key ? pageCache.current.result : null;
     setMessage(null);
-    setData(null); // Never show a previous page as current during a new request.
+    // Retain confirmed results for background/focus refreshes; only switch
+    // to skeletons when the query, category, page, or account changes.
+    setLoading(!confirmed);
+    setData(confirmed);
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
       q: debounced,
@@ -123,7 +131,10 @@ export default function HomeScreen() {
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
       .then((result) => {
-        if (!signal.aborted && version === requestVersion.current) setData(result);
+        if (signal.aborted || version !== requestVersion.current) return;
+        pageCache.current = { key, result };
+        setData(result);
+        setCatalog({ userId: user.id, result });
       })
       .catch((reason: unknown) => {
         if (!signal.aborted && version === requestVersion.current) {
@@ -136,7 +147,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, offset, debounced, apiView, industry]);
+  }, [user?.id, sessionStatus, activeQueryKey, offset, debounced, apiView, industry]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -157,21 +168,19 @@ export default function HomeScreen() {
   };
 
   const refresh = () => {
+    if (!user || sessionStatus !== 'authenticated') return;
     setRefreshing(true);
     fetchPage(new AbortController().signal);
   };
   const openLead = (id: string) => {
-    // Snapshot before clearing the list: a save may reorder or remove this lead.
-    const queueIds = (data?.leads || []).map(row => row.id);
+    // Snapshot the current page; keep it visible when Android Back returns.
+    const current = pageCache.current?.key === activeQueryKey ? data : null;
+    const queueIds = (current?.leads || []).map(row => row.id);
     const queueOffset = offset;
-    const queueMore = data?.has_more === true;
+    const queueMore = current?.has_more === true;
     const queueQuery = debounced;
     const queueView = apiView;
-    // Prepare the list's loading state BEFORE navigating. The underlying
-    // screen remains mounted in the stack; when Android Back returns, users
-    // immediately see skeleton cards, not stale results or an empty viewport.
-    setLoading(true);
-    setData(null);
+    // On return, refresh this page without blanking its confirmed content.
     setMessage(null);
     // Returning from a searched lead should show the ordinary lead list.
     setSearch('');
@@ -189,10 +198,7 @@ export default function HomeScreen() {
     try { await reviewLogin(); } finally { setReviewBusy(false); }
   };
 
-  if (!ready) return <SafeAreaView edges={['bottom']} style={styles.screen}>
-    <LoadingState label="Restoring your session…" fullScreen/>
-  </SafeAreaView>;
-  if (!user) return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
+  if (sessionStatus === 'signed_out') return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <View style={{ flex: 1, padding: 22, justifyContent: 'center', alignItems: 'center' }}>
       <View style={{
         width: '100%', maxWidth: 360, padding: 24, gap: 14,
@@ -212,37 +218,43 @@ export default function HomeScreen() {
     </View>
   </SafeAreaView>;
 
-  const stats = loading ? null : data?.stats || null;
-  // Counts are global to this user's leads (not the current filtered page).
-  const categoryCounts = data?.industry_counts;
+  const shellLoading = sessionStatus !== 'authenticated' || !user;
+  const currentPage = !shellLoading && pageCache.current?.key === activeQueryKey ? data : null;
+  const pageLoading = shellLoading || (!currentPage && !message);
+  // Metadata is global to the user's workspace. Preserve it when switching
+  // pages and during foreground refreshes, never across different accounts.
+  const cachedCatalog = !shellLoading && catalog?.userId === user.id ? catalog.result : null;
+  const currentMeta = currentPage || cachedCatalog;
+  const stats = currentMeta?.stats || null;
+  const categoryCounts = currentMeta?.industry_counts;
   const categorizedCount = Object.values(categoryCounts || {})
     .reduce((total, count) => total + count, 0);
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All categories', count: data?.industries?.length },
-    ...[...(data?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry]))]
+    { value: 'all', label: 'All categories', count: currentMeta?.industries?.length },
+    ...[...(currentMeta?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry]))]
       .sort((a, b) => (categoryCounts?.[b] ?? 0) - (categoryCounts?.[a] ?? 0) || a.localeCompare(b))
       .map((name) => ({
         value: name, label: name, count: categoryCounts?.[name] ?? 0,
       })),
     { value: '__uncategorized__', label: 'Other',
-      count: data?.stats?.total === undefined ? undefined :
-        Math.max(0, data.stats.total - categorizedCount) },
+      count: stats?.total === undefined ? undefined :
+        Math.max(0, stats.total - categorizedCount) },
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerHeight}>
     <FlatList
       ref={listRef}
-      data={loading ? [] : (data?.leads || [])}
+      data={pageLoading ? [] : (currentPage?.leads || [])}
       onContentSizeChange={() => {
         // The new page's rows must be laid out before the final scroll correction.
-        if (pendingPageScroll.current && !loading && data?.offset === offset) {
+        if (pendingPageScroll.current && currentPage?.offset === offset) {
           pendingPageScroll.current = false;
           scrollToFirstLead();
         }
       }}
       keyExtractor={(item) => item.id}
       keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary}/>}
+      refreshControl={shellLoading ? undefined : <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary}/>}
       contentContainerStyle={{ padding: 14, paddingBottom: 30, gap: 9 }}
       ListHeaderComponent={<View style={{ gap: 10 }}
         onLayout={(event) => { listHeaderHeight.current = event.nativeEvent.layout.height; }}>
@@ -258,6 +270,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add lead"
+            disabled={shellLoading}
             hitSlop={4}
             onPress={() => router.push('/leads/new')}
             style={{
@@ -275,6 +288,7 @@ export default function HomeScreen() {
             { label: 'Follow-ups due', value: stats?.followups_due, queue: 'followups' },
           ] as const).map((metric) => (
             <Pressable key={metric.queue}
+              disabled={shellLoading}
               accessibilityRole="button"
               accessibilityLabel={metric.label + ', ' + (metric.value ?? 'loading') + ' leads'}
               onPress={() => setView(metric.queue)}
@@ -286,7 +300,7 @@ export default function HomeScreen() {
               <Text numberOfLines={1} style={[styles.label, { fontSize: 12 }]}>
                 {metric.label}
               </Text>
-              {loading ? <View style={{
+              {!stats ? <View style={{
                 height: 23, width: 36, borderRadius: 6, backgroundColor: theme.surfaceMuted,
               }}/> : <Text style={{
                 color: theme.ink, fontSize: 24, lineHeight: 27,
@@ -298,16 +312,17 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', gap: 9 }}>
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="View" value={view} options={WORK_VIEWS}
-              onChange={setView}/>
+              disabled={shellLoading} onChange={setView}/>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="Business category" value={industry}
               options={industryOptions} onChange={setIndustry} searchable
-              loading={loading} loadingError={message}/>
+              disabled={shellLoading}
+              loading={!currentMeta} loadingError={message}/>
           </View>
         </View>
         {view === 'closed' ? <SelectSheet title="Closed status" value={closedStatus}
-          onChange={setClosedStatus} options={[
+          disabled={shellLoading} onChange={setClosedStatus} options={[
             {value:'all',label:'All closed & excluded'},
             {value:'competitor',label:'Competitors'},
             {value:'dnc',label:'Do Not Contact'},
@@ -327,7 +342,7 @@ export default function HomeScreen() {
             {mantra}
           </Text>
           {view === 'all' ? <Pressable accessibilityRole="button"
-            onPress={() => setAlphabetical((v) => !v)}
+            disabled={shellLoading} onPress={() => setAlphabetical((v) => !v)}
             style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10,
               borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceMuted }}>
             <Text style={{ color: theme.ink, fontSize: 12, fontWeight: '700' }}>
@@ -338,6 +353,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}
           onLayout={(event) => { searchRowY.current = event.nativeEvent.layout.y; }}>
           <TextInput
+            editable={!shellLoading}
             style={[styles.input, { flex: 1 }]}
             value={search}
             onChangeText={setSearch}
@@ -356,33 +372,37 @@ export default function HomeScreen() {
             <Text style={{ color: theme.muted, fontSize: 22 }}>×</Text>
           </Pressable> : null}
         </View>
-        {message ? <View style={styles.card}>
+        {sessionStatus === 'connection_error' ? <View style={[styles.card, { gap: 10 }]}>
+          <Text style={styles.error}>{authError || 'Unable to verify your session.'}</Text>
+          <Button secondary onPress={() => void retryRestore()}>Retry connection</Button>
+        </View> : null}
+        {message && !shellLoading ? <View style={styles.card}>
           <Text style={styles.error}>{message}</Text>
           <Button secondary onPress={refresh}>Retry loading leads</Button>
         </View> : null}
-        {!loading && data?.leads.length === 0 && !message ?
+        {!pageLoading && currentPage?.leads.length === 0 && !message ?
           <Text style={styles.subtitle}>No leads match your search or filters.</Text> : null}
       </View>}
       renderItem={({ item }) => <LeadRow lead={item} onPress={() => openLead(item.id)}/>}
-      ListEmptyComponent={loading ? <LeadCardSkeleton count={PER_PAGE}/> : undefined}
-      ListFooterComponent={!loading && data && ((data?.leads.length ?? 0) > 0 || (data?.filtered_total ?? 0) > 0) ?
+      ListEmptyComponent={pageLoading ? <LeadCardSkeleton count={5}/> : undefined}
+      ListFooterComponent={!pageLoading && currentPage && ((currentPage?.leads.length ?? 0) > 0 || (currentPage?.filtered_total ?? 0) > 0) ?
         <View style={[styles.card, { gap: 11, marginTop: 6, padding: 15 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
             <View style={{ gap: 4, flexShrink: 1 }}>
               <Text style={[styles.value, { fontSize: 13, fontVariant: ['tabular-nums'] }]}>
-                Showing {offset + 1}–{offset + (data?.leads.length ?? 0)}
-                {Number.isFinite(data?.filtered_total) ? ' of ' + data?.filtered_total : ''}
+                Showing {offset + 1}–{offset + (currentPage?.leads.length ?? 0)}
+                {Number.isFinite(currentPage?.filtered_total) ? ' of ' + currentPage?.filtered_total : ''}
               </Text>
               <Text style={styles.subtitle}>
-                {Number.isFinite(data?.filtered_total)
-                  ? Math.max(0, (data?.filtered_total ?? 0) - offset - (data?.leads.length ?? 0)) + ' remaining'
-                  : data?.has_more ? 'More leads available' : 'End of list'}
+                {Number.isFinite(currentPage?.filtered_total)
+                  ? Math.max(0, (currentPage?.filtered_total ?? 0) - offset - (currentPage?.leads.length ?? 0)) + ' remaining'
+                  : currentPage?.has_more ? 'More leads available' : 'End of list'}
               </Text>
             </View>
             <View style={{ backgroundColor: theme.surfaceMuted, borderRadius: 30, paddingHorizontal: 12, paddingVertical: 7 }}>
               <Text style={[styles.label, { color: theme.ink }]}>
                 Page {Math.floor(offset / PER_PAGE) + 1}
-                {Number.isFinite(data?.filtered_total) ? ' / ' + Math.ceil((data?.filtered_total ?? 0) / PER_PAGE) : ''}
+                {Number.isFinite(currentPage?.filtered_total) ? ' / ' + Math.ceil((currentPage?.filtered_total ?? 0) / PER_PAGE) : ''}
               </Text>
             </View>
           </View>
@@ -392,7 +412,7 @@ export default function HomeScreen() {
                 onPress={() => changePage(Math.max(0, offset - PER_PAGE))}>‹ Previous</Button>
             </View>
             <View style={{ flex: 1 }}>
-              <Button secondary disabled={!data?.has_more}
+              <Button secondary disabled={!currentPage?.has_more}
                 onPress={() => changePage(offset + PER_PAGE)}>Next ›</Button>
             </View>
           </View>
