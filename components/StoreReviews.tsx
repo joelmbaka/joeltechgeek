@@ -76,6 +76,9 @@ export default function StoreReviews({ project }: { project: Project }) {
           <h2 className="mb-3 text-center text-xl font-semibold">Live product & release links</h2>
           <p className="mx-auto mb-5 max-w-xl text-center text-sm leading-6 text-gray-600 dark:text-gray-400">
             Public product and store links are shown as release evidence. Ratings and review counts are intentionally not displayed unless they are verified from the stores.
+            {project.id === 'callsbound' && (
+              <span className="mt-2 block">The live web CRM requires Google sign-in. User accounts and lead data are private.</span>
+            )}
           </p>
           <div
             className={`mx-auto grid w-full max-w-3xl grid-cols-1 gap-3 ${

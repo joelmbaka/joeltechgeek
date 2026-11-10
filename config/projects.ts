@@ -72,6 +72,8 @@ export const projects: Project[] = [
     type: 'Enterprise',
     platforms: ['Android', 'Web workspace'],
     engagement: 'Product',
+    url: 'https://joeltechgeek.com/crm',
+    externalLinkLabel: 'Open CallsBound web CRM (Google sign-in)',
     icon: '/images/projects/callsbound-icon.png',
     storePreview: {
       platform: 'android',
