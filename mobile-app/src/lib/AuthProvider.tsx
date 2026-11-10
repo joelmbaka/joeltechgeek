@@ -26,14 +26,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const restore = useCallback(async () => {
     if (restoringRef.current) return;
     restoringRef.current = true;
+    const userBeforeRestore = getUser();
     setError(null);
     setSessionStatus('checking');
     try {
       const restored = await restoreSession();
-      setSessionStatus(restored || getUser() ? 'authenticated' : 'signed_out');
+      // An OAuth callback can finish while the first restoration is in flight.
+      const completedLogin = getUser() && getUser() !== userBeforeRestore;
+      setSessionStatus(restored || completedLogin ? 'authenticated' : 'signed_out');
     } catch (err) {
-      // A concurrent successful login takes precedence over a failed restore.
-      if (getUser()) {
+      // An already cached user alone is not proof the server validated it.
+      const completedLogin = getUser() && getUser() !== userBeforeRestore;
+      if (completedLogin) {
         setSessionStatus('authenticated');
       } else {
         // A connectivity failure is not proof that the saved session expired.
