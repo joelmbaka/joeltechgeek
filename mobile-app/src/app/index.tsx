@@ -70,7 +70,6 @@ export default function HomeScreen() {
   // Identify pages by the exact user, filters, and offset so an old page never
   // appears under a new search/category/queue during a request.
   const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry]) : '';
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reviewAvailable, setReviewAvailable] = useState(false);
@@ -121,7 +120,6 @@ export default function HomeScreen() {
     setMessage(null);
     // Retain confirmed results for background/focus refreshes; only switch
     // to skeletons when the query, category, page, or account changes.
-    setLoading(!confirmed);
     setData(confirmed);
     const params = new URLSearchParams({
       limit: String(PER_PAGE), offset: String(offset),
@@ -143,7 +141,6 @@ export default function HomeScreen() {
       })
       .finally(() => {
         if (!signal.aborted && version === requestVersion.current) {
-          setLoading(false);
           setRefreshing(false);
         }
       });
@@ -223,7 +220,7 @@ export default function HomeScreen() {
   const pageLoading = shellLoading || (!currentPage && !message);
   // Metadata is global to the user's workspace. Preserve it when switching
   // pages and during foreground refreshes, never across different accounts.
-  const cachedCatalog = !shellLoading && catalog?.userId === user.id ? catalog.result : null;
+  const cachedCatalog = user && !shellLoading && catalog?.userId === user.id ? catalog.result : null;
   const currentMeta = currentPage || cachedCatalog;
   const stats = currentMeta?.stats || null;
   const categoryCounts = currentMeta?.industry_counts;
@@ -318,7 +315,7 @@ export default function HomeScreen() {
             <SelectSheet title="Business category" value={industry}
               options={industryOptions} onChange={setIndustry} searchable
               disabled={shellLoading}
-              loading={!currentMeta} loadingError={message}/>
+              loading={!currentMeta && !message} loadingError={!currentMeta ? message : null}/>
           </View>
         </View>
         {view === 'closed' ? <SelectSheet title="Closed status" value={closedStatus}
