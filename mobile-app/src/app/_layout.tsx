@@ -9,7 +9,7 @@ import { AppDialogProvider } from '@/components/AppDialog';
 import { useTheme } from '@/lib/config';
 
 function Navigation() {
-  const { user } = useAuth();
+  const { user, sessionStatus } = useAuth();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const theme = useTheme();
@@ -24,7 +24,7 @@ function Navigation() {
     }}>
       <Stack.Screen name="index" options={{
         title: '',
-        headerShown: !!user,
+        headerShown: sessionStatus !== 'signed_out',
         headerTitleAlign: 'left',
         headerTitle: () => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 }}>
           <Image
@@ -40,10 +40,15 @@ function Navigation() {
         </View>,
         headerBackVisible: false,
         headerLeft: () => null,
-        headerRight: () => <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <NotificationBell />
-          <HeaderProfileMenu />
-        </View>,
+        headerRight: () => sessionStatus === 'authenticated' && user
+          ? <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <NotificationBell />
+              <HeaderProfileMenu />
+            </View>
+          : <View accessible={false} style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingRight: 10 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 8, backgroundColor: theme.surfaceMuted }}/>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.surfaceMuted }}/>
+            </View>,
       }}/>
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }}/>
       <Stack.Screen name="profile" options={{ title: 'Profile' }}/>
