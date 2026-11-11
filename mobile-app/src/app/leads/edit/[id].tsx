@@ -4,6 +4,7 @@ import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Text, View } from 'react-native';
 import { Button, Field, Page, useUIStyles } from '@/components/ui';
 import { EditLeadSkeleton } from '@/components/Skeleton';
+import { COUNTRIES, countryCode } from '../../../../../lib/agent-crm/countries';
 import { LeadResearchGuide, getLeadResearchExamples } from '@/components/LeadResearchGuide';
 import { SelectSheet } from '@/components/SelectSheet';
 import { useTheme } from '@/lib/config';
@@ -48,7 +49,7 @@ export default function EditLead() {
         if(signal.aborted)return;
         const lead=details.lead;
         setOriginal(lead);setCompany(lead.company_name||'');setIndustry(lead.industry||'');
-        setCountry(lead.country||'');setCity(lead.city||'');setWebsite(lead.website||'');
+        setCountry(countryCode(lead.country)||lead.country||'');setCity(lead.city||'');setWebsite(lead.website||'');
         setPriority(lead.priority||'normal');setBrief(lead.lead_brief||'');
         setDetails(lead.important_details||'');setLoaded(true);
       }).catch((reason:unknown)=>{
@@ -72,7 +73,7 @@ export default function EditLead() {
   };
   const changed=!!original && (
     company.trim()!==(original.company_name||'') || industry!==(original.industry||'') ||
-    country.trim()!==(original.country||'') || city.trim()!==(original.city||'') ||
+    country!==(countryCode(original.country)||original.country||'') || city.trim()!==(original.city||'') ||
     website.trim()!==(original.website||'') || priority!==original.priority ||
     brief.trim()!==(original.lead_brief||'') ||
     details.trim()!==(original.important_details||'')
@@ -87,7 +88,9 @@ export default function EditLead() {
     try {
       await apiFetch('/api/agent-crm/leads/'+encodeURIComponent(id)+'/identity',{
         method:'PATCH',body:JSON.stringify({
-          company_name:company.trim(),industry,country:country.trim(),city:city.trim(),
+          company_name:company.trim(),industry,
+          ...(country !== (countryCode(original?.country)||original?.country||'') ? {country} : {}),
+          city:city.trim(),
           website:website.trim(),priority,lead_brief:brief.trim(),
           important_details:details.trim(),
         }),
@@ -113,7 +116,20 @@ export default function EditLead() {
             loading={categoriesLoading} loadingError={categoriesError}/>
         </View>
       </View>
-      <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>
+      <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
+        <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Country</Text>
+        <View style={{flex:1,minWidth:0}}>
+          <SelectSheet title="Country" value={country} hideTriggerLabel
+            placeholder="Not specified"
+            options={[
+              {value:'',label:'Not specified'},
+              ...COUNTRIES.map(({code,name})=>({value:code,label:name})),
+              ...(country && !countryCode(country)
+                ? [{value:country,label:country+' (unrecognized)'}] : []),
+            ]}
+            onChange={setCountry} searchable autoFocusSearch dismissKeyboardOnOpen/>
+        </View>
+      </View>
       <Field label="City" value={city} onChangeText={setCity} placeholder="Optional" inline/>
       <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" inline/>
       <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
