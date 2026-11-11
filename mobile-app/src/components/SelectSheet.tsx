@@ -246,7 +246,7 @@ export function SelectSheet({
             contentContainerStyle={{ paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}>
             {visible.length === 0 ? <Text style={[styles.subtitle, { paddingVertical: 18 }]}>
-              No matching options.
+              {title === 'Country' ? 'No matching countries.' : 'No matching options.'}
             </Text> : null}
             {visible.map((option) => <Pressable key={option.value}
               accessibilityRole="button" accessibilityState={{ selected: value === option.value }}
