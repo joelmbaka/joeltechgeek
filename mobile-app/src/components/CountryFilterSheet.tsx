@@ -62,17 +62,16 @@ export function CountryFilterSheet({ selected, counts, disabled = false, onApply
       accessibilityState={{ disabled }}
       disabled={disabled} onPress={openSheet}
       style={{
-        // Give an active country filter a larger touch surface than Search
-        // without reducing the search field unnecessarily while unfiltered.
-        minWidth: active ? 126 : 108, minHeight: active ? 64 : 54,
+        // Match the adjacent search field's height in both filter states.
+        minWidth: 108, height: 54,
         flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'center', paddingHorizontal: active ? 12 : 10, gap: 8,
+        justifyContent: 'center', paddingHorizontal: 10, gap: 8,
         borderRadius: 12, borderWidth: active ? 2 : 1,
         borderColor: active ? theme.primary : theme.border,
         backgroundColor: theme.white, opacity: disabled ? .6 : 1,
       }}>
       <Text style={{ color: active ? theme.primaryDark : theme.ink,
-        fontSize: active ? 14 : 13, fontWeight: '800' }}>Country</Text>
+        fontSize: 13, fontWeight: '800' }}>Country</Text>
       {active ? <View style={{
         minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5,
         backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center',
