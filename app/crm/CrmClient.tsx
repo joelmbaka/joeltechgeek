@@ -1,4 +1,5 @@
 'use client';
+import { countryCode, countryName } from '@/lib/agent-crm/countries';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -184,7 +185,7 @@ function LeadCard({ lead, onOpen }: { lead: Lead; onOpen: (lead: Lead) => void }
             {lead.company_name || lead.contact_name || 'Unnamed lead'}
           </h3>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {[lead.industry, lead.city, lead.country !== 'Kenya' ? lead.country : null]
+            {[lead.industry, lead.city, countryCode(lead.country) !== 'KE' ? countryName(lead.country) : null]
               .filter(Boolean).join(' · ') || 'No category'}
           </p>
         </div>
