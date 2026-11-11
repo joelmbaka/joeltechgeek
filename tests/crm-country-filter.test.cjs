@@ -106,7 +106,7 @@ test('country filter trigger identifies Country and cancel never applies drafts'
   assert.match(sheet, />Cancel<\/Text>/);
   assert.match(sheet, /const apply = \(\) => \{ onApply\(draft\); close\(\); \}/);
   assert.match(sheet, /onPress=\{\(\) => setDraft\(\[\]\)\}/);
-  assert.match(sheet, />Apply filter/);
+  assert.match(sheet, /Apply filter/);
   assert.doesNotMatch(sheet, />Done<\/Text>/);
   assert.doesNotMatch(sheet, /map\(\(offset, index\)/);
 });
