@@ -9,6 +9,12 @@ import { useTheme } from '@/lib/config';
 import { apiFetch } from '@/lib/api';
 import { useFreshOnFocus } from '@/lib/useFreshOnFocus';
 import type { Lead } from '@/lib/types';
+import { COUNTRIES } from '../../../../lib/agent-crm/countries';
+
+const COUNTRY_OPTIONS = [
+  { value: '', label: 'Not specified' },
+  ...COUNTRIES.map(({ code, name }) => ({ value: code, label: name })),
+];
 
 export default function AddLead() {
   const styles = useUIStyles();
@@ -99,7 +105,14 @@ export default function AddLead() {
         />
       </View>
     </View>
-    <Field label="Country" value={country} onChangeText={setCountry} placeholder="Optional" inline/>
+    <View style={{flexDirection:'row',alignItems:'center',gap:12,minHeight:48}}>
+      <Text style={[styles.label,{width:112,fontSize:13,color:theme.ink}]}>Country</Text>
+      <View style={{flex:1,minWidth:0}}>
+        <SelectSheet title="Country" value={country} hideTriggerLabel
+          placeholder="Not specified" options={COUNTRY_OPTIONS}
+          onChange={setCountry} searchable autoFocusSearch dismissKeyboardOnOpen/>
+      </View>
+    </View>
     <Field label="City" value={city} onChangeText={setCity} placeholder="Optional" inline/>
     <Field label="Contact role" value={role} onChangeText={setRole} inline/>
     <Field label="Website" value={website} onChangeText={setWebsite} autoCapitalize="none" inline/>
