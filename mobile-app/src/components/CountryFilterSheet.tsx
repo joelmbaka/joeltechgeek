@@ -118,7 +118,7 @@ export function CountryFilterSheet({ selected, counts, disabled = false, onApply
             </Pressable>
           </View>
           <FlatList keyboardShouldPersistTaps="handled" data={visible}
-            keyExtractor={item => item.code} style={{ flexGrow: 0 }}
+            keyExtractor={item => item.code} style={{ flexGrow: 0, flexShrink: 1 }}
             ListEmptyComponent={<Text style={[styles.subtitle, { paddingVertical: 22 }]}>
               {options.length ? 'No matching countries.' : 'No countries in your leads yet.'}
             </Text>}
