@@ -62,21 +62,29 @@ export function CountryFilterSheet({ selected, counts, disabled = false, onApply
       accessibilityState={{ disabled }}
       disabled={disabled} onPress={openSheet}
       style={{
-        minWidth: 108, minHeight: 54, flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'center', paddingHorizontal: 10, gap: 6,
-        borderRadius: 12, borderWidth: active ? 1.5 : 1,
+        // Give an active country filter a larger touch surface than Search
+        // without reducing the search field unnecessarily while unfiltered.
+        minWidth: active ? 126 : 108, minHeight: active ? 64 : 54,
+        flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', paddingHorizontal: active ? 12 : 10, gap: 8,
+        borderRadius: 12, borderWidth: active ? 2 : 1,
         borderColor: active ? theme.primary : theme.border,
         backgroundColor: theme.white, opacity: disabled ? .6 : 1,
       }}>
       <Text style={{ color: active ? theme.primaryDark : theme.ink,
-        fontSize: 13, fontWeight: '800' }}>Country</Text>
+        fontSize: active ? 14 : 13, fontWeight: '800' }}>Country</Text>
       {active ? <View style={{
-        minWidth: 19, height: 19, borderRadius: 10, paddingHorizontal: 4,
+        minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5,
         backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center',
       }}>
-        <Text style={{ color: theme.onPrimary, fontSize: 11, fontWeight: '800' }}>{active}</Text>
-      </View> : <Text accessibilityElementsHidden
-        style={{ color: theme.muted, fontSize: 17, fontWeight: '700' }}>⌄</Text>}
+        <Text style={{ color: theme.onPrimary, fontSize: 12, fontWeight: '800' }}>{active}</Text>
+      </View> : <View accessibilityElementsHidden importantForAccessibility="no"
+        style={{ width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{
+          width: 8, height: 8, borderRightWidth: 2, borderBottomWidth: 2,
+          borderColor: theme.muted, transform: [{ rotate: '45deg' }], marginTop: -4,
+        }}/>
+      </View>}
     </Pressable>
     <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }}
