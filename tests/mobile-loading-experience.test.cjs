@@ -28,7 +28,7 @@ test('For You is the loading shell, with no restoration spinner or active protec
 
 test('same-page focus refresh keeps confirmed rows but different queries do not leak them', () => {
   const home = source('app/index.tsx');
-  assert.match(home, /JSON\.stringify\(\[user\.id, offset, debounced, apiView, industry\]\)/);
+  assert.match(home, /JSON\.stringify\(\[user\.id, offset, debounced, apiView, industry, countriesParam\]\)/);
   assert.match(home, /pageCache\.current\?\.key === key \? pageCache\.current\.result : null/);
   assert.match(home, /setData\(confirmed\)/);
   assert.match(home, /pageCache\.current\?\.key === activeQueryKey \? data : null/);
