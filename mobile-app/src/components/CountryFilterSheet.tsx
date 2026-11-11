@@ -62,34 +62,26 @@ export function CountryFilterSheet({ selected, counts, disabled = false, onApply
       accessibilityState={{ disabled }}
       disabled={disabled} onPress={openSheet}
       style={{
-        width: 54, minHeight: 54, alignItems: 'center', justifyContent: 'center',
-        borderRadius: 12, borderWidth: active ? 1.5 : 1, gap: 4,
+        minWidth: 108, minHeight: 54, flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', paddingHorizontal: 10, gap: 6,
+        borderRadius: 12, borderWidth: active ? 1.5 : 1,
         borderColor: active ? theme.primary : theme.border,
         backgroundColor: theme.white, opacity: disabled ? .6 : 1,
       }}>
-      <View style={{ gap: 4, justifyContent: 'center', width: 20, height: 22 }}>
-        {[7, 13, 9].map((offset, index) => <View key={index} style={{
-          width: 20, height: 2, backgroundColor: theme.ink, borderRadius: 2,
-          justifyContent: 'center',
-        }}>
-          <View style={{
-            position: 'absolute', left: offset, width: 5, height: 6, top: -2,
-            backgroundColor: theme.primary, borderRadius: 2,
-          }}/>
-        </View>)}
-      </View>
+      <Text style={{ color: active ? theme.primaryDark : theme.ink,
+        fontSize: 13, fontWeight: '800' }}>Country</Text>
       {active ? <View style={{
-        position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18,
-        borderRadius: 9, backgroundColor: theme.primary, paddingHorizontal: 3,
-        alignItems: 'center', justifyContent: 'center',
+        minWidth: 19, height: 19, borderRadius: 10, paddingHorizontal: 4,
+        backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center',
       }}>
-        <Text style={{ color: theme.onPrimary, fontSize: 10, fontWeight: '800' }}>{active}</Text>
-      </View> : null}
+        <Text style={{ color: theme.onPrimary, fontSize: 11, fontWeight: '800' }}>{active}</Text>
+      </View> : <Text accessibilityElementsHidden
+        style={{ color: theme.muted, fontSize: 17, fontWeight: '700' }}>⌄</Text>}
     </Pressable>
     <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close country filters"
+        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss country filters without applying"
           onPress={close} style={{
             position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
             backgroundColor: 'rgba(7,17,29,.52)',
@@ -103,8 +95,8 @@ export function CountryFilterSheet({ selected, counts, disabled = false, onApply
             backgroundColor: theme.border, alignSelf: 'center' }}/>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={[styles.title, { fontSize: 19 }]}>Filter by country</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close sheet" onPress={close}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.muted }}>Done</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cancel country filter changes" onPress={close}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.muted }}>Cancel</Text>
             </Pressable>
           </View>
           <TextInput autoFocus autoCorrect={false} autoCapitalize="none"
