@@ -111,12 +111,13 @@ test('country filter trigger identifies Country and cancel never applies drafts'
   assert.doesNotMatch(sheet, /map\(\(offset, index\)/);
 });
 
-test('selected country control is larger and inactive chevron is visually centered', () => {
+test('country button and Search have equal height with a centered chevron', () => {
   const sheet = source('mobile-app/src/components/CountryFilterSheet.tsx');
-  assert.match(sheet, /minWidth: active \? 126 : 108, minHeight: active \? 64 : 54/);
+  assert.match(sheet, /minWidth: 108, height: 54/);
   assert.match(sheet, /borderWidth: active \? 2 : 1/);
-  assert.match(sheet, /fontSize: active \? 14 : 13/);
+  assert.match(sheet, /fontSize: 13, fontWeight: '800'/);
   assert.match(sheet, /width: 18, height: 18, alignItems: 'center', justifyContent: 'center'/);
   assert.match(sheet, /transform: \[\{ rotate: '45deg' \}\]/);
   assert.doesNotMatch(sheet, />⌄<\/Text>/);
+  assert.match(source('mobile-app/src/app/index.tsx'), /style=\{\[styles.input, \{ flex: 1, height: 54 \}\]\}/);
 });
