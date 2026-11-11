@@ -98,3 +98,15 @@ test('Save & Next retains the country filter when crossing page boundaries', () 
   assert.match(detail, /queueCountries:queueCountries\|\|''/);
   assert.match(detail, /countries:queueCountries\|\|''/);
 });
+
+test('country filter trigger identifies Country and cancel never applies drafts', () => {
+  const sheet = source('mobile-app/src/components/CountryFilterSheet.tsx');
+  assert.match(sheet, />Country<\/Text>/);
+  assert.match(sheet, /accessibilityLabel="Cancel country filter changes" onPress={close}/);
+  assert.match(sheet, />Cancel<\/Text>/);
+  assert.match(sheet, /const apply = \(\) => \{ onApply\(draft\); close\(\); \}/);
+  assert.match(sheet, /onPress=\{\(\) => setDraft\(\[\]\)\}/);
+  assert.match(sheet, />Apply filter/);
+  assert.doesNotMatch(sheet, />Done<\/Text>/);
+  assert.doesNotMatch(sheet, /map\(\(offset, index\)/);
+});
