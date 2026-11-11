@@ -4,6 +4,7 @@ import { getCrmPool, LEAD_COLUMNS } from '@/lib/agent-crm/db';
 import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { canUseBusinessCategory } from '@/lib/agent-crm/categories';
 import type { Lead } from '@/lib/agent-crm/types';
+import { countryCode } from '@/lib/agent-crm/countries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,11 @@ export async function PATCH(request: Request, { params }: Params) {
     if (typeof body[field] !== 'string' || body[field].length > limit)
       return fail('Invalid ' + field.replaceAll('_', ' ') + ' value.', 400);
     edits[field] = body[field].trim();
+  }
+  if (edits.country) {
+    const code = countryCode(edits.country);
+    if (!code) return fail('Choose a valid country.', 400);
+    edits.country = code;
   }
   if (edits.priority !== undefined && !['normal', 'high', 'low'].includes(edits.priority))
     return fail('Invalid priority.', 400);
