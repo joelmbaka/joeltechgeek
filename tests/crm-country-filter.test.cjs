@@ -110,3 +110,13 @@ test('country filter trigger identifies Country and cancel never applies drafts'
   assert.doesNotMatch(sheet, />Done<\/Text>/);
   assert.doesNotMatch(sheet, /map\(\(offset, index\)/);
 });
+
+test('selected country control is larger and inactive chevron is visually centered', () => {
+  const sheet = source('mobile-app/src/components/CountryFilterSheet.tsx');
+  assert.match(sheet, /minWidth: active \? 126 : 108, minHeight: active \? 64 : 54/);
+  assert.match(sheet, /borderWidth: active \? 2 : 1/);
+  assert.match(sheet, /fontSize: active \? 14 : 13/);
+  assert.match(sheet, /width: 18, height: 18, alignItems: 'center', justifyContent: 'center'/);
+  assert.match(sheet, /transform: \[\{ rotate: '45deg' \}\]/);
+  assert.doesNotMatch(sheet, />⌄<\/Text>/);
+});
