@@ -379,7 +379,7 @@ export default function LeadScreen() {
       <View style={{gap:4}}>
         <Text style={styles.title}>{activeLead.company_name||activeLead.contact_name||'Unnamed lead'}</Text>
         <Text style={styles.subtitle}>
-          {[activeLead.industry,activeLead.city||countryName(activeLead.country)].filter(Boolean).join(' · ')}
+          {[activeLead.industry,activeLead.city,countryName(activeLead.country)].filter(Boolean).join(' · ')}
         </Text>
         <Text style={{color:theme.ink,fontWeight:'700',textTransform:'capitalize'}}>
           {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
