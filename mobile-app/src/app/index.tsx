@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, useUIStyles } from '@/components/ui';
 import { SelectSheet, type SelectOption } from '@/components/SelectSheet';
 import { LeadCardSkeleton } from '@/components/Skeleton';
+import { CountryFilterSheet } from '@/components/CountryFilterSheet';
+import { countryName, UNSPECIFIED_COUNTRY, UNRECOGNIZED_COUNTRY } from '../../../lib/agent-crm/countries';
 import { PriorityChip } from '@/components/PriorityChip';
 import { useTheme, API_BASE_URL } from '@/lib/config';
 import { useAuth } from '@/lib/AuthProvider';
@@ -60,6 +62,8 @@ export default function HomeScreen() {
   const [view, setView] = useState('for_you');
   const [closedStatus, setClosedStatus] = useState('all');
   const [industry, setIndustry] = useState('all');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const countriesParam = selectedCountries.join(',');
   const [alphabetical, setAlphabetical] = useState(false);
   // Snapshot the exact API view and ordering the user is looking at.
   const apiView = view === 'all' ? (alphabetical ? 'all_az_active' : 'all_active') :
@@ -69,7 +73,7 @@ export default function HomeScreen() {
   const [catalog, setCatalog] = useState<{ userId: string; result: LeadList } | null>(null);
   // Identify pages by the exact user, filters, and offset so an old page never
   // appears under a new search/category/queue during a request.
-  const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry]) : '';
+  const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry, countriesParam]) : '';
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reviewAvailable, setReviewAvailable] = useState(false);
@@ -81,7 +85,9 @@ export default function HomeScreen() {
   const searchFocused = useRef(false);
   const pendingPageScroll = useRef(false);
 
-  useEffect(() => { setOffset(0); }, [debounced, view, closedStatus, industry, alphabetical]);
+  useEffect(() => { setOffset(0); }, [debounced, view, closedStatus, industry, countriesParam, alphabetical]);
+  // Country filters belong to a workspace, never carry them to another account.
+  useEffect(() => { setSelectedCountries([]); }, [user?.id]);
 
   // The search input sits below the dashboard controls inside the FlatList header.
   // When Android opens the keyboard, scroll the actual input into view.
@@ -125,7 +131,8 @@ export default function HomeScreen() {
       limit: String(PER_PAGE), offset: String(offset),
       q: debounced,
       view: apiView,
-      industry, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
+      industry, countries: countriesParam,
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC',
     });
     void apiFetch<LeadList>('/api/agent-crm/leads?' + params, { signal })
       .then((result) => {
@@ -144,7 +151,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, sessionStatus, activeQueryKey, offset, debounced, apiView, industry]);
+  }, [user?.id, sessionStatus, activeQueryKey, offset, debounced, apiView, industry, countriesParam]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -185,7 +192,7 @@ export default function HomeScreen() {
     router.push({ pathname: '/leads/[id]', params: {
       id, view, industry, queueIds: queueIds.join(','),
       queueOffset: String(queueOffset), queueMore: queueMore ? '1' : '0',
-      queueView, queueQuery,
+      queueView, queueQuery, queueCountries: countriesParam,
     } });
   };
 
@@ -368,7 +375,25 @@ export default function HomeScreen() {
             onPress={() => setSearch('')}>
             <Text style={{ color: theme.muted, fontSize: 22 }}>×</Text>
           </Pressable> : null}
+          <CountryFilterSheet
+            selected={selectedCountries} counts={currentMeta?.country_counts || {}}
+            disabled={shellLoading || !currentMeta}
+            onApply={setSelectedCountries}/>
         </View>
+        {selectedCountries.length ? <View style={{
+          flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 1,
+        }}>
+          {selectedCountries.map(code => <Pressable key={code}
+            accessibilityRole="button" accessibilityLabel={'Remove country filter ' + code}
+            onPress={() => setSelectedCountries(prev => prev.filter(x => x !== code))}
+            style={{ borderRadius: 18, borderWidth: 1, borderColor: theme.border,
+              backgroundColor: theme.surfaceMuted, paddingHorizontal: 10, paddingVertical: 6 }}>
+            <Text style={{ color: theme.ink, fontSize: 12, fontWeight: '700' }}>
+              {code === UNSPECIFIED_COUNTRY ? 'Not specified' :
+                code === UNRECOGNIZED_COUNTRY ? 'Unrecognized country' : countryName(code)}  ×
+            </Text>
+          </Pressable>)}
+        </View> : null}
         {sessionStatus === 'connection_error' ? <View style={[styles.card, { gap: 10 }]}>
           <Text style={styles.error}>{authError || 'Unable to verify your session.'}</Text>
           <Button secondary onPress={() => void retryRestore()}>Retry connection</Button>
