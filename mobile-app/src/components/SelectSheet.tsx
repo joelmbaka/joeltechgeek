@@ -30,7 +30,7 @@ function ChevronDown() {
 export function SelectSheet({
   title, value, options, onChange, searchable = false,
   disabled = false, placeholder, compact = false, onCreateOption, dismissKeyboardOnOpen = false,
-  hideTriggerLabel = false, loading = false, loadingError,
+  hideTriggerLabel = false, loading = false, loadingError, autoFocusSearch = false,
 }: {
   title: string;
   value: string;
@@ -47,6 +47,7 @@ export function SelectSheet({
   /** Show category-shaped placeholders until the server response is complete. */
   loading?: boolean;
   loadingError?: string | null;
+  autoFocusSearch?: boolean;
 }) {
   const theme = useTheme();
   const styles = useUIStyles();
@@ -177,7 +178,7 @@ export function SelectSheet({
             </Pressable>
           </View>
           {searchable && !adding && !loading && !loadingError ? <TextInput
-            autoCorrect={false} autoCapitalize="none"
+            autoFocus={autoFocusSearch} autoCorrect={false} autoCapitalize="none"
             value={query} onChangeText={setQuery}
             placeholder={'Search ' + title.toLowerCase()}
             placeholderTextColor={theme.muted}
@@ -244,6 +245,9 @@ export function SelectSheet({
             !adding ? <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 8 }}
             showsVerticalScrollIndicator={false}>
+            {visible.length === 0 ? <Text style={[styles.subtitle, { paddingVertical: 18 }]}>
+              No matching options.
+            </Text> : null}
             {visible.map((option) => <Pressable key={option.value}
               accessibilityRole="button" accessibilityState={{ selected: value === option.value }}
               onPress={() => { onChange(option.value); close(); }}
