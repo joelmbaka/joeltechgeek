@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { CrmUser, Lead } from './types';
 import { getCrmPool, LEAD_COLUMNS } from './db';
 import { crmError } from './auth';
+import { COUNTRIES, UNSPECIFIED_COUNTRY, UNRECOGNIZED_COUNTRY,
+  countryCountMap, countryFilterTerms } from './countries';
 
 export const WORK_VIEWS = ['for_you','to_call','followups','done_today','priority','all','all_az','all_active','all_az_active','closed','closed_competitor','closed_dnc','closed_won','closed_lost'] as const;
 export type WorkView = (typeof WORK_VIEWS)[number];
@@ -124,7 +126,16 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
     return NextResponse.json({ok:false,error:'Invalid pagination.'},{status:400});
   const search=(params.get('q')||'').trim().replace(/\s+/g,' ');
   const industry=(params.get('industry')||'').trim();
-  if(search.length>120||industry.length>100) return NextResponse.json({ok:false,error:'Invalid filter.'},{status:400});
+  const rawCountries = params.get('countries') || '';
+  const selected = rawCountries ? rawCountries.split(',') : [];
+  const validCodes = new Set(COUNTRIES.map(country => country.code));
+  if (search.length > 120 || industry.length > 100 ||
+    selected.length > COUNTRIES.length + 2 ||
+    selected.some(code => !validCodes.has(code) &&
+      code !== UNSPECIFIED_COUNTRY && code !== UNRECOGNIZED_COUNTRY)) {
+    return NextResponse.json({ok:false,error:'Invalid filter.'},{status:400});
+  }
+  const countries = [...new Set(selected)];
   const values:unknown[]=[user.id,zone];
   const bind=(value:unknown)=>{values.push(value);return '$'+values.length;};
   // For You search may discover scheduled ACTIVE records; never surface
@@ -132,6 +143,22 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   const filters:string[]=[search && view==='for_you' ? ACTIVE : workViewFilter(view)];
   if(industry==='__uncategorized__') filters.push("btrim(w.industry)=''");
   else if(industry && industry!=='all') filters.push('w.industry='+bind(industry));
+  if (countries.length) {
+    const alternatives: string[] = [];
+    const codes = countries.filter(code => validCodes.has(code));
+    if (codes.length) {
+      const terms = bind(countryFilterTerms(codes));
+      alternatives.push('lower(btrim(w.country)) = ANY(' + terms + '::text[])');
+    }
+    if (countries.includes(UNSPECIFIED_COUNTRY))
+      alternatives.push("btrim(coalesce(w.country,''))=''");
+    if (countries.includes(UNRECOGNIZED_COUNTRY)) {
+      const known = bind(countryFilterTerms(COUNTRIES.map(item => item.code)));
+      alternatives.push("(btrim(coalesce(w.country,''))<>'' AND NOT (lower(btrim(w.country)) = ANY(" +
+        known + "::text[])))");
+    }
+    filters.push('(' + alternatives.join(' OR ') + ')');
+  }
   for(const word of search.split(/\s+/).filter(Boolean).slice(0,8)){
     const p=bind('%'+word.replace(/[!%_]/g,match=>'!'+match)+'%');
     const fields=['w.company_name','w.contact_name','w.phone','w.email','w.industry','w.city','w.country','w.problem_summary','w.lead_brief'];
@@ -146,7 +173,7 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   const count=prefix+' SELECT count(*)::int total FROM classified w WHERE '+condition;
   try {
     const db=getCrmPool();
-    const [rows,counts,stats,categories,toCall]=await Promise.all([
+    const [rows,counts,stats,categories,toCall,countryRows]=await Promise.all([
       db.query<Lead & {work_state:string}>(select,listArgs),
       db.query<{total:number}>(count,values),
       db.query(`SELECT count(*)::int AS total,
@@ -158,12 +185,16 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
         FROM public.crm_leads WHERE user_id=$1`,[user.id]),
       db.query<{industry:string;count:number}>("SELECT c.name AS industry, count(l.id)::int AS count FROM public.crm_business_categories c LEFT JOIN public.crm_leads l ON l.business_category_id=c.id AND l.user_id=c.user_id WHERE c.user_id=$1 GROUP BY c.id,c.name ORDER BY lower(c.name)",[user.id]),
       db.query<{total:number}>(prefix+' SELECT count(*)::int total FROM classified w WHERE '+workViewFilter('to_call'),[user.id,zone]),
+      db.query<{country:string|null;count:number}>(
+        'SELECT country, count(*)::int AS count FROM public.crm_leads WHERE user_id=$1 GROUP BY country',
+        [user.id]),
     ]);
     return NextResponse.json({ok:true,user,leads:rows.rows.slice(0,limit),has_more:rows.rows.length>limit,
       filtered_total:counts.rows[0]?.total??0,limit,offset,
       stats:{...stats.rows[0],to_call:toCall.rows[0]?.total??0},
       industries:categories.rows.map(x=>x.industry),
-      industry_counts:Object.fromEntries(categories.rows.map(x=>[x.industry,x.count]))},
+      industry_counts:Object.fromEntries(categories.rows.map(x=>[x.industry,x.count])),
+      country_counts:countryCountMap(countryRows.rows)},
       {headers:{'Cache-Control':'private, no-store'}});
   }catch(error){return crmError(error);}
 }
