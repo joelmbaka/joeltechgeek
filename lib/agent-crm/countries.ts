@@ -318,8 +318,12 @@ export function countrySearchMatches(value: string, query: string): boolean {
 /** Codes and historical names, for parameterized SQL matching before a data migration. */
 export function countryFilterTerms(codes: readonly string[]): string[] {
   const wanted = new Set(codes);
-  return [...codeByKey.entries()].filter(([, code]) => wanted.has(code))
-    .map(([name]) => name);
+  const values = [
+    ...COUNTRIES.filter(item => wanted.has(item.code))
+      .flatMap(item => [item.code, item.name]),
+    ...Object.entries(ALIASES).filter(([, code]) => wanted.has(code)).map(([name]) => name),
+  ];
+  return [...new Set(values.flatMap(value => [value.toLowerCase(), countryKey(value)]))];
 }
 export function countryCountMap(rows: readonly {country: string | null; count: number}[]): Record<string, number> {
   const counts: Record<string, number> = {};
