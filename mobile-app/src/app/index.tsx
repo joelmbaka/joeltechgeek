@@ -358,7 +358,7 @@ export default function HomeScreen() {
           onLayout={(event) => { searchRowY.current = event.nativeEvent.layout.y; }}>
           <TextInput
             editable={!shellLoading}
-            style={[styles.input, { flex: 1 }]}
+            style={[styles.input, { flex: 1, height: 54 }]}
             value={search}
             onChangeText={setSearch}
             onFocus={() => { searchFocused.current = true; }}
