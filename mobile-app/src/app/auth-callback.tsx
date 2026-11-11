@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { Page, Button, useUIStyles } from '@/components/ui';
-import { LoadingState } from '@/components/LoadingState';
 import { exchangeGoogleCode, getUser } from '@/lib/session';
 
 const ERRORS: Record<string, string> = {
@@ -47,6 +46,12 @@ export default function AuthCallback() {
     }}>
       <Text style={[styles.error, { fontSize: 15, textAlign: 'center' }]}>{error}</Text>
       <Button onPress={() => router.replace('/')}>Choose another Google account</Button>
-    </View> : <LoadingState label="Completing Google sign-in…" fullScreen/>}
+    </View> : <View accessible accessibilityLabel="Completing Google sign-in"
+      style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 }}>
+      <Text style={[styles.title, { textAlign: 'center' }]}>CallsBound</Text>
+      <Text style={[styles.subtitle, { textAlign: 'center' }]}>
+        Completing Google sign-in…
+      </Text>
+    </View>}
   </Page>;
 }

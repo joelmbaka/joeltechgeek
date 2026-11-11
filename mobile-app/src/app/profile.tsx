@@ -1,5 +1,5 @@
+import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useAppDialog } from '@/components/AppDialog';
 import { Page, useUIStyles } from '@/components/ui';
 import { useAuth } from '@/lib/AuthProvider';
@@ -16,8 +16,8 @@ function DetailRow({ title, value }: { title: string; value: string }) {
 export default function ProfileScreen() {
   const theme = useTheme();
   const styles = useUIStyles();
-  const { user } = useAuth();
-  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const showDialog = useAppDialog();
   if (!user) return <Page><Text style={styles.subtitle}>Sign in to view your profile.</Text></Page>;
   const signOut = () => showDialog({
@@ -25,7 +25,14 @@ export default function ProfileScreen() {
     message: 'Your session on this device will end. To access your workspace again, sign in with your Google account.',
     cancelLabel: 'Stay signed in',
     confirmLabel: 'Sign out',
-    onConfirm: () => router.replace('/signing-out'),
+    onConfirm: () => {
+      if (signingOut) return;
+      setSigningOut(true);
+      void logout().catch(() => {
+        showDialog({ title: 'Sign out unsuccessful',
+          message: 'Could not finish signing out. Please try again.' });
+      }).finally(() => setSigningOut(false));
+    },
   });
   return <Page>
     <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
@@ -71,10 +78,10 @@ export default function ProfileScreen() {
     </View>
     <Text style={styles.label}>ACCESS</Text>
     <View style={[styles.card, { padding: 0 }]}>
-      <Pressable accessibilityRole="button" onPress={signOut}
+      <Pressable accessibilityRole="button" disabled={signingOut} onPress={signOut}
         style={{ minHeight: 58, paddingHorizontal: 16, flexDirection: 'row',
           justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontWeight: '700', color: theme.ink }}>Sign out</Text>
+        <Text style={{ fontWeight: '700', color: theme.ink }}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
         <Text style={{ color: theme.muted, fontSize: 20 }}>›</Text>
       </Pressable>
     </View>

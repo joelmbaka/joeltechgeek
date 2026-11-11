@@ -1,4 +1,4 @@
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useTheme } from '@/lib/config';
 
 type Props = {
@@ -6,7 +6,7 @@ type Props = {
   fullScreen?: boolean;
 };
 
-/** Shared, centered progress indicator for OAuth, restoration and sign-out. */
+/** Shared non-spinner placeholder for any remaining inline loading states. */
 export function LoadingState({ label, fullScreen = false }: Props) {
   const theme = useTheme();
   return <View
@@ -19,13 +19,11 @@ export function LoadingState({ label, fullScreen = false }: Props) {
       gap: 16,
     }}>
     <View style={{
-      width: 72, height: 72, borderRadius: 36,
+      width: '100%', maxWidth: 280, borderRadius: 14, padding: 17, gap: 10,
       backgroundColor: theme.white, borderWidth: 1, borderColor: theme.border,
-      alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#000000', shadowOpacity: .07, shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 }, elevation: 2,
     }}>
-      <ActivityIndicator size="large" color={theme.primary}/>
+      <View style={{ width: '58%', height: 16, borderRadius: 6, backgroundColor: theme.surfaceMuted }}/>
+      <View style={{ width: '82%', height: 12, borderRadius: 6, backgroundColor: theme.surfaceMuted }}/>
     </View>
     <Text style={{ color: theme.ink, fontSize: 15,
       fontWeight: '700', textAlign: 'center' }}>{label}</Text>

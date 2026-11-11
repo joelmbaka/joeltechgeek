@@ -45,13 +45,23 @@ export async function refreshSession(): Promise<CrmUser | null> {
   refreshing = (async () => {
     const oldToken = await SecureStore.getItemAsync(SESSION_KEY);
     if (!oldToken) { publish(null, null); return null; }
+    // A stalled network must not leave the launch shell loading indefinitely.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     let response: Response;
     try {
       response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/refresh', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: oldToken }),
+        signal: controller.signal,
       });
-    } catch { throw new Error('Cannot reach the CRM. Check your internet connection.'); }
+    } catch {
+      throw new Error(controller.signal.aborted
+        ? 'Connection timed out. Check your internet and retry.'
+        : 'Cannot reach the CRM. Check your internet connection.');
+    } finally {
+      clearTimeout(timeout);
+    }
     if (response.status === 401 || response.status === 403) {
       await SecureStore.deleteItemAsync(SESSION_KEY);
       publish(null, null);
@@ -118,14 +128,21 @@ export function exchangeGoogleCode(code: string): Promise<CrmUser> {
   const work = (async () => {
     const verifier = await SecureStore.getItemAsync(PKCE_KEY);
     if (!verifier) throw new Error('Google sign-in expired. Please try again.');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     let response: Response;
     try {
       response = await fetch(API_BASE_URL + '/api/agent-crm/mobile/oauth/exchange', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, verifier }),
+        signal: controller.signal,
       });
     } catch {
-      throw new Error('Unable to reach the CRM to complete sign-in.');
+      throw new Error(controller.signal.aborted
+        ? 'Google sign-in timed out. Please retry.'
+        : 'Unable to reach the CRM to complete sign-in.');
+    } finally {
+      clearTimeout(timeout);
     }
     const value = await response.json().catch(() => ({})) as Tokens & { error?: string };
     if (!response.ok) throw new Error(value.error || 'Google sign-in failed.');
