@@ -73,7 +73,7 @@ test('server applies multi-country filters before page limit and calculates per-
 
 test('POST and identity PATCH normalize country names and codes before storing', () => {
   assert.match(source('app/api/agent-crm/leads/route.ts'), /values\.country = code/);
-  assert.match(source('app/api/agent-crm/leads/\[id\]/identity/route.ts'), /edits\.country = code/);
+  assert.match(source('app/api/agent-crm/leads/[id]/identity/route.ts'), /edits\.country = code/);
 });
 
 test('Add and Edit use searchable world-country pickers, filter uses checkbox sheet', () => {
