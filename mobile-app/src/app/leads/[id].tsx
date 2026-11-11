@@ -25,6 +25,7 @@ import {
   QUEUE_PAGE_SIZE, nextSnapshotId, nextPageAfterSnapshot, parseQueueIds,
 } from '@/lib/lead-queue';
 import type { Lead, LeadContact, LeadDetails, LeadEvent, LeadList } from '@/lib/types';
+import { countryName } from '../../../../lib/agent-crm/countries';
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -59,10 +60,10 @@ export default function LeadScreen() {
   const headerHeight = useHeaderHeight();
   const {
     id, view, industry, queueIds:queueIdsParam, queueOffset:queueOffsetParam,
-    queueMore, queueView, queueQuery,
+    queueMore, queueView, queueQuery, queueCountries,
   } = useLocalSearchParams<{
     id:string;view?:string;industry?:string;queueIds?:string;
-    queueOffset?:string;queueMore?:string;queueView?:string;queueQuery?:string;
+    queueOffset?:string;queueMore?:string;queueView?:string;queueQuery?:string;queueCountries?:string;
   }>();
   const {user} = useAuth();
   const [lead,setLead] = useState<Lead|null>(null);
@@ -193,6 +194,7 @@ export default function LeadScreen() {
             id:nextId,view:selectedView,industry:selectedIndustry,
             queueIds:nextIds.join(','),queueOffset:String(nextOffset),
             queueMore:hasMore?'1':'0',queueView:apiView,queueQuery:queueQuery||'',
+            queueCountries:queueCountries||'',
           }});
         };
         const nextId = nextSnapshotId(ids, response.lead.id);
@@ -207,6 +209,7 @@ export default function LeadScreen() {
             Math.max(0, offset - QUEUE_PAGE_SIZE) : 0;
           const params = new URLSearchParams({
             view:apiView, industry:selectedIndustry, q:queueQuery||'',
+            countries:queueCountries||'',
             tz:timezone, limit:String(QUEUE_PAGE_SIZE*3), offset:String(queryOffset),
           });
           const loadNext = async (): Promise<void> => {
@@ -376,7 +379,7 @@ export default function LeadScreen() {
       <View style={{gap:4}}>
         <Text style={styles.title}>{activeLead.company_name||activeLead.contact_name||'Unnamed lead'}</Text>
         <Text style={styles.subtitle}>
-          {[activeLead.industry,activeLead.city||activeLead.country].filter(Boolean).join(' · ')}
+          {[activeLead.industry,activeLead.city||countryName(activeLead.country)].filter(Boolean).join(' · ')}
         </Text>
         <Text style={{color:theme.ink,fontWeight:'700',textTransform:'capitalize'}}>
           {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
