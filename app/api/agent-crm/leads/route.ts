@@ -9,6 +9,7 @@ import { normalizeLeadIdentity } from '@/lib/agent-crm/lead-identity';
 import { parseFollowupSchedule, followupDueAtSQL } from '@/lib/agent-crm/followups';
 import { getSmartPagedLeads } from '@/lib/agent-crm/work-queue';
 import { parseActionType } from '@/lib/agent-crm/action-types';
+import { countryCode } from '@/lib/agent-crm/countries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -224,6 +225,12 @@ export async function POST(request: Request) {
     values[name as keyof typeof limits] = raw.trim();
   }
 
+  // Accept ISO codes from mobile and legacy full names from web, storing ISO codes.
+  if (values.country) {
+    const code = countryCode(values.country);
+    if (!code) return badInput('Choose a valid country.');
+    values.country = code;
+  }
   const identity = normalizeLeadIdentity(body);
   if (!identity.ok) return badInput(identity.error);
   const priority = values.priority || 'normal';
