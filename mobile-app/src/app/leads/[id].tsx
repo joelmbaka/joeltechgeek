@@ -78,6 +78,8 @@ export default function LeadScreen() {
   const [inlineFollowupMode,setInlineFollowupMode] = useState<'edit'|'complete'|null>(null);
   const [savingKind,setSavingKind] = useState<'stay'|'next'|null>(null);
   const [nextRetry,setNextRetry] = useState<(() => void) | null>(null);
+  const [navigating,setNavigating] = useState<'previous'|'next'|null>(null);
+  const [unavailable,setUnavailable] = useState<{id:string;direction:'previous'|'next'}|null>(null);
   const savingRef = useRef(false);
   // Discard older detail GETs when focus, a save, and foreground refresh overlap.
   const detailsRequestVersion = useRef(0);
@@ -143,6 +145,66 @@ export default function LeadScreen() {
     if (!activeLead || locked) return;
     setInlineFollowupMode(null);
     setUpdateOpen(true);setNotice('');
+  };
+
+  // Preserve the exact ordered directory page and filters from which this lead opened.
+  // Deep-linked leads have no snapshot, so navigation is disabled rather than guessing.
+  const queueIds = parseQueueIds(queueIdsParam);
+  const queueIndex = queueIds.indexOf(String(id));
+  const rawOffset = Number(queueOffsetParam);
+  const queueOffset = Number.isSafeInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+  const canPrevious = queueIndex >= 0 && (queueIndex > 0 || queueOffset > 0) &&
+    !(unavailable?.id === id && unavailable.direction === 'previous');
+  const canNext = queueIndex >= 0 && (queueIndex < queueIds.length - 1 || queueMore === '1') &&
+    !(unavailable?.id === id && unavailable.direction === 'next');
+
+  const navigateLead = async (direction:'previous'|'next') => {
+    if (!activeLead || navigating || savingKind || updateOpen || queueIndex < 0) return;
+    const nextIndex = queueIndex + (direction === 'next' ? 1 : -1);
+    let targetId = queueIds[nextIndex];
+    let targetIds = queueIds;
+    let targetOffset = queueOffset;
+    let hasMore = queueMore === '1';
+
+    if (!targetId) {
+      // Fetch only a neighboring page of the SAME pipeline. This also covers
+      // filtered categories, searched lists, and Closed & Excluded queues.
+      const offset = direction === 'next' ? queueOffset + queueIds.length :
+        Math.max(0, queueOffset - QUEUE_PAGE_SIZE);
+      const params = new URLSearchParams({
+        view:queueView || (view === 'all' ? 'all_active' : view || 'for_you'),
+        industry:industry || 'all', q:queueQuery || '', countries:queueCountries || '',
+        tz:timezone, limit:String(QUEUE_PAGE_SIZE), offset:String(offset),
+      });
+      setNavigating(direction);
+      setError(null);
+      try {
+        const page = await apiFetch<LeadList>('/api/agent-crm/leads?' + params);
+        targetIds = page.leads.map(row => row.id);
+        targetId = direction === 'next' ? targetIds[0] : targetIds[targetIds.length - 1];
+        targetOffset = offset;
+        hasMore = page.has_more;
+        if (!targetId) {
+          setUnavailable({id:String(id),direction});
+          return;
+        }
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : 'Could not load the adjacent leads.');
+        return;
+      } finally {
+        setNavigating(null);
+      }
+    }
+    // Replace within the detail route; Back still goes to the original lead list.
+    setLead(null);setContacts([]);setHistory([]);setLoading(true);
+    setNotice('');setError(null);setUnavailable(null);
+    router.replace({pathname:'/leads/[id]',params:{
+      id:targetId,view:view || 'for_you',industry:industry || 'all',
+      queueIds:targetIds.join(','),queueOffset:String(targetOffset),
+      queueMore:hasMore ? '1' : '0',
+      queueView:queueView || (view === 'all' ? 'all_active' : view || 'for_you'),
+      queueQuery:queueQuery || '',queueCountries:queueCountries || '',
+    }});
   };
 
   const saveUnified = async (payload:UnifiedUpdate, advance:boolean) => {
@@ -505,7 +567,23 @@ export default function LeadScreen() {
       </View>
       <LeadContacts lead={activeLead} contacts={contacts}
         onRefresh={()=>{reload();void reconcileReminders(user).catch(()=>{});}}/>
-      <Button secondary onPress={()=>router.back()}>← Back to leads</Button>
+      <View style={{flexDirection:'row',gap:10}}>
+        <View style={{flex:1}}>
+          <Button secondary disabled={!canPrevious || !!navigating || !!savingKind}
+            onPress={()=>void navigateLead('previous')}>
+            {navigating==='previous' ? 'Loading…' : '← Previous lead'}
+          </Button>
+        </View>
+        <View style={{flex:1}}>
+          <Button secondary disabled={!canNext || !!navigating || !!savingKind}
+            onPress={()=>void navigateLead('next')}>
+            {navigating==='next' ? 'Loading…' : 'Next lead →'}
+          </Button>
+        </View>
+      </View>
+      <Button disabled={!!navigating || !!savingKind} onPress={()=>router.back()}>
+        ← Back to leads
+      </Button>
       <RecordUpdateSheet visible={updateOpen} lead={activeLead} contacts={contacts}
         savingKind={savingKind}
         onClose={()=>{if(!savingKind)setUpdateOpen(false);}}
