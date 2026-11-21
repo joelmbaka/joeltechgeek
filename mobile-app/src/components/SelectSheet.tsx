@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/config';
 import { useUIStyles } from './ui';
 import { CategoryOptionSkeleton } from './Skeleton';
+import { WhatsAppIcon } from './WhatsAppIcon';
 
 export type SelectOption = { value: string; label: string; icon?: string; count?: number };
 
@@ -134,8 +135,8 @@ export function SelectSheet({
             {selectedLabel}
             {selected?.count !== undefined ? ' (' + selected.count + ')' : ''}
           </Text>
-          {selected?.icon ? <Text accessibilityElementsHidden
-            style={{fontSize:17}}>{selected.icon}</Text> : null}
+          {selected?.value === 'whatsapp' ? <WhatsAppIcon size={18}/> : selected?.icon ?
+            <Text accessibilityElementsHidden style={{fontSize:17}}>{selected.icon}</Text> : null}
         </View>
         <View pointerEvents="none" style={{
           position: 'absolute', right: 10, top: 0, bottom: 0,
@@ -265,8 +266,8 @@ export function SelectSheet({
                   {option.label}
                   {option.count !== undefined ? ' (' + option.count + ')' : ''}
                 </Text>
-                {option.icon ? <Text accessibilityElementsHidden
-                  style={{fontSize:18}}>{option.icon}</Text> : null}
+                {option.value === 'whatsapp' ? <WhatsAppIcon size={19}/> : option.icon ?
+                  <Text accessibilityElementsHidden style={{fontSize:18}}>{option.icon}</Text> : null}
               </View>
               {value === option.value ?
                 <Text style={{ color: theme.primary, fontWeight: '900',
