@@ -9,6 +9,7 @@ import { SymbolView } from 'expo-symbols';
 import { Field, useUIStyles } from './ui';
 import { NativeSchedulePicker } from './NativeSchedulePicker';
 import { SelectSheet } from './SelectSheet';
+import { WhatsAppIcon } from './WhatsAppIcon';
 import { useTheme } from '@/lib/config';
 import { useAppDialog } from '@/components/AppDialog';
 import {
@@ -36,7 +37,7 @@ export type UnifiedUpdate = {
 };
 const ACTION_TYPES = [
   {value:'call',label:'Call',icon:'📞'}, {value:'email',label:'Email',icon:'✉️'},
-  {value:'whatsapp',label:'WhatsApp',icon:'💬'}, {value:'meeting',label:'Meeting',icon:'📅'},
+  {value:'whatsapp',label:'WhatsApp',icon:''}, {value:'meeting',label:'Meeting',icon:'📅'},
   {value:'other',label:'Other',icon:'⚡'},
 ];
 // Emoji is presentation-only: option values remain unchanged for the API and history.
@@ -50,7 +51,7 @@ const OUTCOME_ICONS: Record<string, string> = {
 };
 const CHANNELS = [
   {value:'call',label:'Call',icon:'📞'},
-  {value:'whatsapp',label:'WhatsApp',icon:'💬'},
+  {value:'whatsapp',label:'WhatsApp',icon:''},
   {value:'email',label:'Email',icon:'✉️'},
   {value:'other',label:'Other',icon:'⚡'},
 ];
@@ -60,17 +61,6 @@ const DISPOSITIONS = [
   {value:'competitor',label:'Competitor',icon:'🏢'},
 ];
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Etc/UTC';
-const pad2 = (value: number) => String(value).padStart(2, '0');
-// Prefill a practical upcoming local time. Crossing midnight advances the date too.
-function defaultFollowupClock() {
-  const next = new Date(Date.now() + 15 * 60 * 1000);
-  next.setMinutes(Math.ceil(next.getMinutes() / 5) * 5, 0, 0);
-  return {
-    date: [next.getFullYear(), pad2(next.getMonth() + 1), pad2(next.getDate())].join('-'),
-    time: pad2(next.getHours()) + ':' + pad2(next.getMinutes()),
-  };
-}
-
 export function RecordUpdateSheet({
   visible, lead, contacts, onClose, onSave, savingKind,
 }: {
@@ -88,15 +78,15 @@ export function RecordUpdateSheet({
   const singleActivityRow = screenWidth >= 480;
   const dialog = useAppDialog();
   const [channel, setChannel] = useState('call');
+  const [showOutcome, setShowOutcome] = useState(false);
   const [outcome, setOutcome] = useState('');
   const [notes, setNotes] = useState('');
   const [disposition, setDisposition] = useState<'keep'|'do_not_contact'|'competitor'>('keep');
-  const [includeFollowup, setIncludeFollowup] = useState(true);
+  const [includeFollowup, setIncludeFollowup] = useState(false);
   const [nextAction, setNextAction] = useState('');
   const [actionType, setActionType] = useState('call');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [scheduleTouched, setScheduleTouched] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [stage, setStage] = useState('');
   const [interactionContact, setInteractionContact] = useState('');
@@ -111,16 +101,11 @@ export function RecordUpdateSheet({
   const primary = contacts.find((c)=>c.is_primary)?.id || contacts[0]?.id || '';
   useEffect(() => {
     if (!visible) return;
-    setChannel('call');setOutcome('');setNotes('');setStage('');setError('');
-    setDisposition('keep');setIncludeFollowup(true);setScheduleTouched(false);
-    setNextAction(lead.next_action || '');
-    setActionType(lead.next_action_type || 'call');
-    const clock = defaultFollowupClock();
-    setDate(lead.next_action ? (lead.next_action_at || '') : clock.date);
-    setTime(lead.next_action ? (lead.next_action_time?.slice(0,5) || '') : clock.time);
-    setInteractionContact(primary);
-    // Preserve an explicitly company-level task; never silently select primary.
-    setFollowupContact(lead.next_action ? (lead.next_action_contact_id || '') : primary);
+    setChannel('call');setShowOutcome(false);setOutcome('');setNotes('');setStage('');setError('');
+    setDisposition('keep');setIncludeFollowup(false);
+    // This modal records a new update, not an edit of the saved follow-up.
+    setNextAction('');setActionType('call');setDate('');setTime('');
+    setInteractionContact(primary);setFollowupContact(primary);
   }, [visible, lead.id, primary]);
 
   const choices = [
@@ -128,23 +113,15 @@ export function RecordUpdateSheet({
     ...contacts.map(c=>({value:c.id,label:
       (c.name || c.phone || c.email || 'Contact') + (c.is_primary?' (Primary)':'')})),
   ];
-  const hasInteraction = !!channel;
+  const hasInteraction = showOutcome && !!channel && !!outcome;
   // Closed dispositions and outcomes must never create an outreach reminder.
   const completingSale = stage === 'won' || stage === 'lost' ||
     outcome === 'onboarding_completed' || outcome === 'not_interested';
   const followupOpen = includeFollowup && disposition === 'keep' && !completingSale;
-  // Prefilled date/time are suggestions, not an instruction to schedule.
-  // A note/outcome must never silently overwrite a saved reminder.
-  const followupFieldsChanged = nextAction.trim() !== (lead.next_action || '').trim() ||
-    date !== (lead.next_action_at || '') ||
-    time !== (lead.next_action_time?.slice(0, 5) || '') ||
-    actionType !== (lead.next_action_type || 'call') ||
-    (followupContact || null) !== (lead.next_action_contact_id || null);
-  const scheduling = followupOpen && (lead.next_action
-    ? scheduleTouched && followupFieldsChanged
-    : scheduleTouched || !!nextAction.trim());
+  // Scheduling is always an explicit opt-in, and 'keep' preserves existing reminders.
+  const scheduling = followupOpen;
   const validSchedule = !scheduling || (!!nextAction.trim() && !!date);
-  const changedFollowup = scheduling && followupFieldsChanged;
+  const changedFollowup = scheduling;
   const hasChange = !!(hasInteraction && outcome) || !!notes.trim() ||
     changedFollowup || disposition !== 'keep';
   const canSave = !savingKind && validSchedule && hasChange &&
@@ -162,12 +139,12 @@ export function RecordUpdateSheet({
     }
     setError('');
     const payload: UnifiedUpdate = {
-      channel: channel && outcome ? channel as ActivityChannel : null,
-      outcome: channel && outcome ? outcome : null,
+      channel: hasInteraction ? channel as ActivityChannel : null,
+      outcome: hasInteraction ? outcome : null,
       notes: notes.trim(),
       contact_id: interactionContact || null,
       disposition,
-      ...(stage && channel && outcome ? {stage} : {}),
+      ...(stage && hasInteraction ? {stage} : {}),
       followup: {
         mode: scheduling ? 'set' : 'keep',
         ...(scheduling ? {
@@ -212,44 +189,56 @@ export function RecordUpdateSheet({
               </View>
               <View style={{flex:1,gap:2}}>
                 <Text style={[styles.value,{fontSize:17}]}>Interaction</Text>
-                <Text style={[styles.label,{fontWeight:'500'}]}>Record an outcome or leave a note</Text>
+                <Text style={[styles.label,{fontWeight:'500'}]}>Add a note; record an outcome only when needed</Text>
               </View>
             </View>
             <View style={{padding:15,gap:13}}>
-              <Text style={styles.label}>Activity type</Text>
-              <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
-                {CHANNELS.map(option => <Pressable key={option.value} accessibilityRole="button"
-                  accessibilityLabel={option.label}
-                  accessibilityState={{selected:channel===option.value}}
-                  onPress={() => { Keyboard.dismiss();setChannel(option.value);setOutcome('');setStage('');
-                    if (disposition==='competitor') setDisposition('keep'); }}
-                  style={{flexGrow:1,flexBasis:singleActivityRow?'0%':'47%',
-                    flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,
-                    paddingHorizontal:8,minHeight:44,borderRadius:11,borderWidth:1,
-                    borderColor:channel===option.value?theme.primary:theme.border,
-                    backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
-                  <Text style={{fontSize:16}}>{option.icon}</Text>
-                  <Text numberOfLines={1} style={{color:channel===option.value?theme.chipHighText:theme.ink,
-                    fontWeight:channel===option.value?'800':'600',fontSize:13}}>
-                    {option.label}
-                  </Text>
-                </Pressable>)}
-              </View>
-            {hasInteraction ? <>
-              {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
-                options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
-              <SelectSheet title="Outcome (optional)" value={outcome}
-                placeholder="Choose outcome" dismissKeyboardOnOpen
-                options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({
-                  value,label,icon:OUTCOME_ICONS[value] || '📝',
-                }))}
-                onChange={(value)=>{setOutcome(value);setStage('');}}/>
-              {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
-                options={[{value:'',label:'Suggested automatically'},
-                  ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
-                onChange={setStage}/> : null}
-            </> : null}
-              <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
+              <Pressable accessibilityRole="button" accessibilityLabel="Record outcome (optional)"
+                 accessibilityState={{expanded:showOutcome}}
+                 onPress={() => { Keyboard.dismiss();setShowOutcome(v=>!v);setOutcome('');setStage(''); }}
+                 style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',
+                   minHeight:44,paddingHorizontal:12,borderRadius:10,borderWidth:1,
+                   borderColor:theme.border,backgroundColor:theme.surfaceMuted}}>
+                 <Text style={[styles.value,{fontSize:14}]}>Record outcome (optional)</Text>
+                 <Text style={{color:theme.primaryDark,fontSize:15,fontWeight:'800'}}>
+                   {showOutcome ? 'Hide −' : 'Add +'}
+                 </Text>
+               </Pressable>
+               {showOutcome ? <>
+                 <Text style={styles.label}>Activity type</Text>
+                 <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+                   {CHANNELS.map(option => <Pressable key={option.value} accessibilityRole="button"
+                     accessibilityLabel={option.label}
+                     accessibilityState={{selected:channel===option.value}}
+                     onPress={() => { Keyboard.dismiss();setChannel(option.value);setOutcome('');setStage('');
+                       if (disposition==='competitor') setDisposition('keep'); }}
+                     style={{flexGrow:1,flexBasis:singleActivityRow?'0%':'47%',
+                       flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,
+                       paddingHorizontal:8,minHeight:44,borderRadius:11,borderWidth:1,
+                       borderColor:channel===option.value?theme.primary:theme.border,
+                       backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
+                     {option.value==='whatsapp' ? <WhatsAppIcon size={17}/> :
+                       <Text style={{fontSize:16}}>{option.icon}</Text>}
+                     <Text numberOfLines={1} style={{color:channel===option.value?theme.chipHighText:theme.ink,
+                       fontWeight:channel===option.value?'800':'600',fontSize:13}}>
+                       {option.label}
+                     </Text>
+                   </Pressable>)}
+                 </View>
+                 {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
+                   options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
+                 <SelectSheet title="Outcome" value={outcome}
+                   placeholder="Choose outcome" dismissKeyboardOnOpen
+                   options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({
+                     value,label,icon:OUTCOME_ICONS[value] || '📝',
+                   }))}
+                   onChange={(value)=>{setOutcome(value);setStage('');}}/>
+                 {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
+                   options={[{value:'',label:'Suggested automatically'},
+                     ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
+                   onChange={setStage}/> : null}
+               </> : null}
+               <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
                 placeholder="Conversation details, research, or a standalone note" multiline/>
             </View>
           </View>
@@ -268,7 +257,7 @@ export function RecordUpdateSheet({
               <View style={{flex:1,gap:3}}>
                 <Text style={[styles.value,{fontSize:17}]}>Schedule follow-up</Text>
                 <Text style={[styles.label,{fontWeight:'500'}]}>
-                  {lead.next_action ? 'Edit the saved reminder' : 'Choose the next action and when to do it'}
+                  {lead.next_action ? 'Schedule a replacement; existing reminder stays until Save' : 'Off by default; opt in to schedule a reminder'}
                 </Text>
               </View>
               <SymbolView name={{ios:followupOpen?'checkmark.circle.fill':'circle',
@@ -278,11 +267,11 @@ export function RecordUpdateSheet({
             {followupOpen ? <View style={{padding:15,gap:13,borderTopWidth:1,borderTopColor:theme.border}}>
               {contacts.length>1 ? <SelectSheet title="Follow-up contact"
                 value={followupContact} options={choices} searchable dismissKeyboardOnOpen
-                onChange={(value)=>{setFollowupContact(value);setScheduleTouched(true);}}/> : null}
+                onChange={(value)=>{setFollowupContact(value);}}/> : null}
               <SelectSheet title="Action type" value={actionType} dismissKeyboardOnOpen
-                options={ACTION_TYPES} onChange={(value)=>{setActionType(value);setScheduleTouched(true);}}/>
+                options={ACTION_TYPES} onChange={(value)=>{setActionType(value);}}/>
               <Field label="Next action (required)" value={nextAction}
-                onChangeText={(value)=>{setNextAction(value);setScheduleTouched(true);}}
+                onChangeText={(value)=>{setNextAction(value);}}
                 placeholder="e.g. Call to confirm proposal"/>
               <View style={{backgroundColor:theme.surfaceMuted,borderRadius:15,
                 borderWidth:1,borderColor:theme.border,padding:12,gap:11}}>
@@ -291,18 +280,18 @@ export function RecordUpdateSheet({
                     size={19} tintColor={theme.primaryDark}/>
                   <Text style={[styles.value,{fontSize:14}]}>Reminder</Text>
                   <View style={{flex:1}}/>
-                  {!lead.next_action ? <Text style={[styles.label,{fontSize:11}]}>Suggested time</Text> : null}
+
                 </View>
                 <View style={{flexDirection:'row',gap:10}}>
                   <NativeSchedulePicker label="Date" mode="date" value={date} decorated
-                    onChange={(v)=>{setDate(v);setScheduleTouched(true);if(!v)setTime('');}}/>
+                    onChange={(v)=>{setDate(v);if(!v)setTime('');}}/>
                   <NativeSchedulePicker label="Time" mode="time" value={time} decorated
-                    disabled={!date} onChange={(v)=>{setTime(v);setScheduleTouched(true);}}/>
+                    disabled={!date} onChange={(v)=>{setTime(v);}}/>
                 </View>
               </View>
-              {!lead.next_action ? <Text style={[styles.label,{fontWeight:'500'}]}>
-                The suggested date and time are not scheduled until you enter a next action and save.
-              </Text> : null}
+              <Text style={[styles.label,{fontWeight:'500'}]}>
+                 Choose a date and enter a next action. Time is optional.
+               </Text>
             </View> : lead.next_action && disposition==='keep' && !completingSale ?
               <Text style={[styles.subtitle,{padding:15}]}>Existing follow-up remains unchanged.</Text> : null}
           </View>
@@ -322,7 +311,7 @@ export function RecordUpdateSheet({
                 const next=v as 'keep'|'do_not_contact'|'competitor';
                 setDisposition(next);
                 if (next!=='keep') { setIncludeFollowup(false);setStage(''); }
-                if (next==='competitor') {setChannel('');setOutcome('');}
+                if (next==='competitor') {setShowOutcome(false);setChannel('');setOutcome('');}
               }}/>
               {disposition !== 'keep' ? <Text style={styles.subtitle}>
                 Outreach will be blocked and outstanding reminders canceled.
