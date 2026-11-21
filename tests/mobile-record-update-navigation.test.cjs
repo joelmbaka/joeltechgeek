@@ -21,7 +21,7 @@ test('a new record update never imports or silently modifies an existing follow-
   assert.doesNotMatch(src, /setNextAction\(lead\.next_action/);
   assert.match(src, /const scheduling = followupOpen/);
   assert.match(src, /mode: scheduling \? 'set' : 'keep'/);
-  assert.match(src, /const validSchedule = !scheduling \|\| \(\(!!nextAction\.trim\(\) && !!date\)\)/);
+  assert.match(src, /const validSchedule = !scheduling \|\| \(!!nextAction\.trim\(\) && !!date\)/);
 });
 
 test('WhatsApp uses a reusable offline image instead of emoji/text glyphs', () => {
