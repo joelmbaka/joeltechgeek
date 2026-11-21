@@ -14,7 +14,7 @@ export type InlineFollowupUpdate =
 
 const ACTION_TYPES = [
   { value: 'call', label: 'Call', icon: '📞' },
-  { value: 'whatsapp', label: 'WhatsApp', icon: '💬' },
+  { value: 'whatsapp', label: 'WhatsApp', icon: '' },
   { value: 'email', label: 'Email', icon: '✉️' },
   { value: 'meeting', label: 'Meeting', icon: '📅' },
   { value: 'other', label: 'Other', icon: '⚡' },
