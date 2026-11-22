@@ -8,6 +8,7 @@ on:
       - 'lib/agent-crm/**'
       - 'mobile-app/**'
       - 'tests/agent-crm-*.test.cjs'
+      - 'tests/mobile-record-update-navigation.test.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/crm-workflow-ci.yml'
@@ -55,4 +56,5 @@ jobs:
           cache: npm
           cache-dependency-path: mobile-app/package-lock.json
       - run: npm ci
+      - run: node --test ../tests/mobile-record-update-navigation.test.cjs
       - run: npx tsc --noEmit
