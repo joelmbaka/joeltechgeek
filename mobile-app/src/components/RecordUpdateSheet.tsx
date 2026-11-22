@@ -106,7 +106,8 @@ export function RecordUpdateSheet({
     // This modal records a new update, not an edit of the saved follow-up.
     setNextAction('');setActionType('call');setDate('');setTime('');
     setInteractionContact(primary);setFollowupContact(primary);
-  }, [visible, lead.id, primary]);
+  // Do not erase typed drafts if contact data refreshes while the sheet is open.
+  }, [visible, lead.id]);
 
   const choices = [
     {value:'',label:'Company / unspecified contact'},
