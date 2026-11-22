@@ -47,3 +47,11 @@ test('lead detail has previous and next controls bound to the current list snaps
   assert.match(src, /disabled=\{!canNext \|\| !!navigating/);
   assert.match(src, /← Back to leads/);
 });
+
+test('record update drafts survive contact refreshes but reset on every reopening', () => {
+  const src = mobile('components/RecordUpdateSheet.tsx');
+  assert.match(src, /const initializedFor = useRef<string \| null>\(null\)/);
+  assert.match(src, /if \(!visible\) \{ initializedFor\.current = null; return; \}/);
+  assert.match(src, /if \(initializedFor\.current === lead\.id\) return/);
+  assert.match(src, /\[visible, lead\.id, primary\]/);
+});
