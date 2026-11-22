@@ -26,6 +26,15 @@ on:
 permissions:
   contents: read
 jobs:
+  mobile-source:
+    name: CRM mobile regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - run: node --test tests/mobile-record-update-navigation.test.cjs
   web-crm:
     name: Web CRM types and unit tests
     runs-on: ubuntu-latest
