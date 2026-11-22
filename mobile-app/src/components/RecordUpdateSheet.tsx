@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard, KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
   useWindowDimensions,
@@ -99,15 +99,18 @@ export function RecordUpdateSheet({
     return () => { show.remove(); hide.remove(); };
   }, []);
   const primary = contacts.find((c)=>c.is_primary)?.id || contacts[0]?.id || '';
+  const initializedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) { initializedFor.current = null; return; }
+    if (initializedFor.current === lead.id) return;
+    initializedFor.current = lead.id;
     setChannel('call');setShowOutcome(false);setOutcome('');setNotes('');setStage('');setError('');
     setDisposition('keep');setIncludeFollowup(false);
     // This modal records a new update, not an edit of the saved follow-up.
     setNextAction('');setActionType('call');setDate('');setTime('');
     setInteractionContact(primary);setFollowupContact(primary);
-  // Do not erase typed drafts if contact data refreshes while the sheet is open.
-  }, [visible, lead.id]);
+  // Preserve typed drafts during contact refreshes; reset on each new opening.
+  }, [visible, lead.id, primary]);
 
   const choices = [
     {value:'',label:'Company / unspecified contact'},
