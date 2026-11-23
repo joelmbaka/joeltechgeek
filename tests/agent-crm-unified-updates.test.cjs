@@ -26,8 +26,8 @@ test('all update combinations: optional interaction, note, task, or exclusion',(
   assert.match(api,/classification_changed/);
   assert.match(api,/disposition === 'do_not_contact'/);
   assert.match(api,/willChangeFollowup/);
-  assert.match(editor,/Record an outcome or leave a note/);
-  assert.match(editor,/channel: channel && outcome \? channel as ActivityChannel : null/);
+  assert.match(editor,/Choose activity type and contact/);
+  assert.match(editor,/channel: hasInteraction \? channel as ActivityChannel : null/);
   assert.match(editor,/Notes \(optional\)/);
   assert.match(editor,/Save & Stay/);
   assert.match(editor,/Save & Next/);
@@ -117,14 +117,16 @@ test('Record Update modal keeps status bar visible in both themes',()=>{
   const modal=read('mobile-app/src/components/RecordUpdateSheet.tsx');
   assert.match(modal,/useColorScheme/);
   assert.match(modal,/statusBarTranslucent=\{false\}/);
-  assert.match(modal,/<StatusBar style=\{dark \? 'light' : 'dark'\} hidden=\{false\}/);
+  assert.match(modal,/<StatusBar barStyle=\{dark \? 'light-content' : 'dark-content'\}/);
   assert.match(modal,/SafeAreaView style=\{\{flex:1,backgroundColor:theme.background\}\}/);
-  assert.doesNotMatch(modal,/<StatusBar[^>]*backgroundColor=/);
+  assert.match(modal,/backgroundColor=\{theme\.background\} translucent=\{false\}/);
+  assert.match(modal,/StatusBar\.setBarStyle/);
 });
-test('Record Update starts with follow-up form open, but keeps outcome-only possible',()=>{
+test('Record Update starts with follow-up unchecked and no outcome selector',()=>{
   const editor=read('mobile-app/src/components/RecordUpdateSheet.tsx');
-  assert.match(editor,/useState\(true\)/);
-  assert.match(editor,/setIncludeFollowup\(true\)/);
+  assert.match(editor,/const \[includeFollowup, setIncludeFollowup\] = useState\(false\)/);
+  assert.match(editor,/setIncludeFollowup\(false\)/);
+  assert.doesNotMatch(editor,/title="Outcome"|Record outcome \(optional\)/);
   assert.match(editor,/const followupOpen = includeFollowup/);
   assert.match(editor,/const scheduling = followupOpen/);
   assert.match(editor,/const validSchedule = !scheduling/);
@@ -153,7 +155,7 @@ test('lead hierarchy and header Edit match requested ordering',()=>{
   const overview=screen.indexOf('Lead overview');
   const record=screen.indexOf('+ Record update');
   const history=screen.indexOf('Activity history (');
-  assert.ok(overview >= 0 && overview < record && record < history);
+  assert.ok(record >= 0 && record < overview && overview < history);
   assert.match(screen,/<Stack.Screen options=\{\{/);
   assert.match(screen,/headerRight: \(\) => <Pressable/);
   assert.match(screen,/onPress=\{\(\)=>router\.push\(\{pathname:'\/leads\/edit\/\[id\]'/);
@@ -178,4 +180,18 @@ test('time display accepts stored 24-hour values and formats 12-hour',()=>{
   assert.ok(picker.includes('/^' + String.fromCharCode(92) + 'd{2}:' +
     String.fromCharCode(92) + 'd{2}$/'));
   assert.doesNotMatch(picker,/is24Hour(?!=\{false\})/);
+});
+
+test('backend keeps outcome-based updates and stores channel/contact for coded-outcome-free notes',()=>{
+  const api=read('app/api/agent-crm/leads/[id]/updates/route.ts');
+  const lead=read('mobile-app/src/app/leads/[id].tsx');
+  assert.match(api,/const hasOutcome = typeof outcome === 'string'/);
+  assert.match(api,/const noteActivity = !hasOutcome/);
+  assert.match(api,/resolveActivityChannel\(body.channel, hasOutcome \? outcome : 'other'\)/);
+  assert.match(api,/\(lead_id,event_type,notes,channel,contact_id,contact_name_snapshot\)/);
+  assert.match(api,/last_contacted_at=CASE WHEN \$10::boolean/);
+  assert.match(lead,/activityChannelLabel\(event.channel\) \+ ': Note'/);
+  const schema=read('migrations/2026-11-06-crm-unified-updates.sql');
+  assert.match(schema,/event_type = 'note_added'/);
+  assert.match(schema,/outcome IS NULL/);
 });
