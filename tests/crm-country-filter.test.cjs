@@ -64,11 +64,44 @@ test('server applies multi-country filters before page limit and calculates per-
   assert.match(sql, /countryFilterTerms\(codes\)/);
   assert.match(sql, /filters\.push\('\(' \+ alternatives\.join\(' OR '\) \+ '\)'\)/);
   assert.match(sql, /countryCountMap\(countryRows\.rows\)/);
-  assert.match(sql, /WHERE user_id=\$1 GROUP BY country/);
+  assert.match(sql, /const countryFacetSQL =/);
+  assert.match(sql, /GROUP BY w.country/);
   const conditionPos = sql.indexOf("const condition=filters.join(' AND ')");
   const filterPos = sql.indexOf("if (countries.length)");
   const limitPos = sql.indexOf("const select=prefix+' SELECT w.*");
   assert.ok(filterPos > 0 && filterPos < conditionPos && conditionPos < limitPos);
+});
+
+test('country and category option counts apply each other\'s filter, not their own', () => {
+  const sql = source('lib/agent-crm/work-queue.ts');
+  const category = sql.slice(sql.indexOf('const categoryArgs: unknown[]'), sql.indexOf('const countryArgs: unknown[]'));
+  const country = sql.slice(sql.indexOf('const countryArgs: unknown[]'), sql.indexOf('  try {', sql.indexOf('const countryArgs: unknown[]')));
+  assert.match(category, /categoryCountryConditions/);
+  assert.match(category, /categoryBind\(countryFilterTerms\(codes\)\)/);
+  assert.match(category, /UNSPECIFIED_COUNTRY/);
+  assert.match(category, /UNRECOGNIZED_COUNTRY/);
+  assert.match(category, /GROUP BY btrim\(w\.industry\)/);
+  assert.doesNotMatch(category, /countryIndustryCondition/);
+  assert.match(country, /industry === '__uncategorized__'/);
+  assert.match(country, /w\.industry=' \+ countryBind\(industry\)/);
+  assert.match(country, /GROUP BY w\.country/);
+  assert.doesNotMatch(country, /categoryCountryConditions|countries\.length/);
+  assert.match(sql, /db\.query<\{country:string\|null;count:number\}>\(countryFacetSQL,countryArgs\)/);
+  assert.match(sql, /db\.query<\{industry:string;count:number\}>\(categoryFacetSQL,categoryArgs\)/);
+  assert.match(sql, /industry_counts:industryCounts, uncategorized_count:uncategorizedCount/);
+  assert.match(sql, /countries\.length \?\s*Object\.keys\(industryCounts\)/);
+  assert.match(sql, /country_counts:countryCountMap\(countryRows\.rows\)/);
+});
+
+test('mobile facet metadata is keyed by category and country, never stale across selections', () => {
+  const home = source('mobile-app/src/app/index.tsx');
+  assert.match(home, /activeFacetKey = user \? JSON\.stringify\(\[user\.id, industry, countriesParam\]\)/);
+  assert.match(home, /catalog\?\.facetKey === activeFacetKey/);
+  assert.match(home, /const categoryCounts = currentMeta\?\.industry_counts/);
+  assert.match(home, /uncategorizedCount = currentMeta\?\.uncategorized_count \?\? 0/);
+  assert.match(home, /counts=\{currentMeta\?\.country_counts \|\| \{\}\}/);
+  assert.match(home, /selected=\{selectedCountries\}/);
+  assert.doesNotMatch(home, /stats\.total - categorizedCount/);
 });
 
 test('POST and identity PATCH normalize country names and codes before storing', () => {
