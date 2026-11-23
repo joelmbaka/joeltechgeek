@@ -44,7 +44,7 @@ export function workQueueSQL(): string {
     'count(*) FILTER(WHERE reset_count=0 AND outcome IN '+FAIL+')::int failed_call_streak',
     'FROM ranked GROUP BY lead_id,target_id),',
     'worked AS (SELECT lead_id,max(created_at) last_worked_at FROM (',
-    "SELECT e.lead_id::text lead_id,e.created_at FROM public.crm_lead_events e JOIN base b ON b.id=e.lead_id WHERE e.event_type IN ('outreach','action_completed')",
+    "SELECT e.lead_id::text lead_id,e.created_at FROM public.crm_lead_events e JOIN base b ON b.id=e.lead_id WHERE e.event_type IN ('outreach','action_completed','note_added')",
     'UNION ALL SELECT u.lead_id::text,u.created_at FROM public.crm_lead_updates u JOIN base b ON b.id=u.lead_id',
     ') a GROUP BY lead_id),',
     'work AS (SELECT b.*,coalesce(s.last_call_at,legacy.last_call_at) last_call_at,',
