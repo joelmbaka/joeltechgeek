@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Text, View, useColorScheme,
+  Keyboard, KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
 import { Field, useUIStyles } from './ui';
 import { NativeSchedulePicker } from './NativeSchedulePicker';
@@ -142,14 +143,8 @@ export function RecordUpdateSheet({
   };
   return <Modal visible={visible} animationType="slide" presentationStyle="fullScreen"
     statusBarTranslucent={false}
-    onShow={() => {
-      // Android modal windows can reset light/dark status bar icons on display.
-      StatusBar.setBarStyle(dark ? 'light-content' : 'dark-content');
-      if (Platform.OS === 'android') StatusBar.setBackgroundColor(theme.background);
-    }}
     onRequestClose={() => { if (!savingKind) onClose(); }}>
-    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'}
-      backgroundColor={theme.background} translucent={false} hidden={false}/>
+    <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
     <SafeAreaView style={{flex:1,backgroundColor:theme.background}}>
       <KeyboardAvoidingView style={{flex:1}} behavior="padding">
         <View style={{paddingHorizontal:18,paddingVertical:12,
