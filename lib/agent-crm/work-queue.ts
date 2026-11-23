@@ -171,9 +171,47 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
   const select=prefix+' SELECT w.* FROM classified w WHERE '+condition+' ORDER BY '+viewOrder(view)+
     ' LIMIT $'+(listArgs.length-1)+' OFFSET $'+listArgs.length;
   const count=prefix+' SELECT count(*)::int total FROM classified w WHERE '+condition;
+  // Each facet ignores its own selections and applies the opposite facet.
+  // These counts cover all the user's leads, independent of the work queue.
+  const categoryArgs: unknown[] = [user.id];
+  const categoryBind = (value: unknown) => {
+    categoryArgs.push(value); return '$' + categoryArgs.length;
+  };
+  const categoryCountryConditions: string[] = [];
+  if (countries.length) {
+    const codes = countries.filter(code => validCodes.has(code));
+    if (codes.length) {
+      const terms = categoryBind(countryFilterTerms(codes));
+      categoryCountryConditions.push('lower(btrim(w.country)) = ANY(' + terms + '::text[])');
+    }
+    if (countries.includes(UNSPECIFIED_COUNTRY))
+      categoryCountryConditions.push("btrim(coalesce(w.country,''))=''");
+    if (countries.includes(UNRECOGNIZED_COUNTRY)) {
+      const known = categoryBind(countryFilterTerms(COUNTRIES.map(item => item.code)));
+      categoryCountryConditions.push("(btrim(coalesce(w.country,''))<>'' AND NOT (lower(btrim(w.country)) = ANY(" +
+        known + "::text[])))");
+    }
+  }
+  const categoryFacetSQL =
+    'SELECT btrim(w.industry) AS industry, count(*)::int AS count' +
+    ' FROM public.crm_leads w WHERE w.user_id=$1' +
+    (categoryCountryConditions.length ? ' AND (' + categoryCountryConditions.join(' OR ') + ')' : '') +
+    ' GROUP BY btrim(w.industry)';
+  const countryArgs: unknown[] = [user.id];
+  const countryBind = (value: unknown) => {
+    countryArgs.push(value); return '$' + countryArgs.length;
+  };
+  const countryIndustryCondition = industry === '__uncategorized__' ?
+    "btrim(w.industry)=''" :
+    industry && industry !== 'all' ? 'w.industry=' + countryBind(industry) : null;
+  const countryFacetSQL =
+    'SELECT w.country AS country, count(*)::int AS count' +
+    ' FROM public.crm_leads w WHERE w.user_id=$1' +
+    (countryIndustryCondition ? ' AND ' + countryIndustryCondition : '') +
+    ' GROUP BY w.country';
   try {
     const db=getCrmPool();
-    const [rows,counts,stats,categories,toCall,countryRows]=await Promise.all([
+    const [rows,counts,stats,categories,toCall,countryRows,categoryRows]=await Promise.all([
       db.query<Lead & {work_state:string}>(select,listArgs),
       db.query<{total:number}>(count,values),
       db.query(`SELECT count(*)::int AS total,
@@ -185,15 +223,24 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
         FROM public.crm_leads WHERE user_id=$1`,[user.id]),
       db.query<{industry:string;count:number}>("SELECT c.name AS industry, count(l.id)::int AS count FROM public.crm_business_categories c LEFT JOIN public.crm_leads l ON l.business_category_id=c.id AND l.user_id=c.user_id WHERE c.user_id=$1 GROUP BY c.id,c.name ORDER BY lower(c.name)",[user.id]),
       db.query<{total:number}>(prefix+' SELECT count(*)::int total FROM classified w WHERE '+workViewFilter('to_call'),[user.id,zone]),
-      db.query<{country:string|null;count:number}>(
-        'SELECT country, count(*)::int AS count FROM public.crm_leads WHERE user_id=$1 GROUP BY country',
-        [user.id]),
+      db.query<{country:string|null;count:number}>(countryFacetSQL,countryArgs),
+      db.query<{industry:string;count:number}>(categoryFacetSQL,categoryArgs),
     ]);
+    const industryCounts: Record<string, number> = {};
+    let uncategorizedCount = 0;
+    for (const row of categoryRows.rows) {
+      if (!row.industry) uncategorizedCount += row.count;
+      else industryCounts[row.industry] = (industryCounts[row.industry] ?? 0) + row.count;
+    }
+    // Keep the user's saved zero-lead categories when no country is chosen.
+    // Within selected countries, expose only populated categories.
+    const industries = countries.length ?
+      Object.keys(industryCounts) :
+      [...new Set([...categories.rows.map(x=>x.industry), ...Object.keys(industryCounts)])];
     return NextResponse.json({ok:true,user,leads:rows.rows.slice(0,limit),has_more:rows.rows.length>limit,
       filtered_total:counts.rows[0]?.total??0,limit,offset,
       stats:{...stats.rows[0],to_call:toCall.rows[0]?.total??0},
-      industries:categories.rows.map(x=>x.industry),
-      industry_counts:Object.fromEntries(categories.rows.map(x=>[x.industry,x.count])),
+      industries, industry_counts:industryCounts, uncategorized_count:uncategorizedCount,
       country_counts:countryCountMap(countryRows.rows)},
       {headers:{'Cache-Control':'private, no-store'}});
   }catch(error){return crmError(error);}
