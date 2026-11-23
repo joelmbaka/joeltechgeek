@@ -231,12 +231,11 @@ export default function LeadScreen() {
       if(advance) {
         // Continue through the snapshot in the order seen on the original list.
         // A save may remove or reorder the current lead in the live query.
-        const ids = view === 'closed' ? [] : parseQueueIds(queueIdsParam);
+        const ids = parseQueueIds(queueIdsParam);
         const savedIndex = ids.indexOf(response.lead.id);
-        const selectedView = view && view !== 'closed' ? view : 'for_you';
+        const selectedView = view || 'for_you';
         const selectedIndustry = industry || 'all';
-        const apiView = view === 'closed' ? 'for_you' :
-          (queueView || (selectedView === 'all' ? 'all_active' : selectedView));
+        const apiView = queueView || (selectedView === 'all' ? 'all_active' : selectedView);
         const originalOffset = Number(queueOffsetParam);
         const offset = Number.isSafeInteger(originalOffset) &&
           originalOffset >= 0 ? originalOffset : 0;
