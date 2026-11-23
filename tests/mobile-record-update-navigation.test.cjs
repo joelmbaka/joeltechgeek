@@ -81,3 +81,28 @@ test('record update is above the follow-up and overview, and modal status bar ha
   assert.match(modal, /StatusBar\.setBarStyle\(dark \? 'light-content' : 'dark-content'\)/);
   assert.match(modal, /backgroundColor={theme\.background} translucent={false}/);
 });
+
+test('a saved note counts as work done today without hiding overdue follow-ups', () => {
+  const queue = readFileSync(join(__dirname, '..', 'lib', 'agent-crm', 'work-queue.ts'), 'utf8');
+  const updates = readFileSync(join(__dirname, '..', 'app', 'api', 'agent-crm',
+    'leads', '[id]', 'updates', 'route.ts'), 'utf8');
+  assert.match(updates, /VALUES \(\$1,'note_added',\$2,\$3,\$4::uuid,\$5\)/);
+  assert.match(queue, /e\.event_type IN \('outreach','action_completed','note_added'\)/);
+  assert.match(queue, /a\.last_worked_at AT TIME ZONE \$2/);
+  assert.match(queue, /if\(view==='done_today'\) return ACTIVE \+ ' AND w\.done_today'/);
+  assert.match(queue, /w\.is_due OR \(NOT w\.done_today AND w\.next_action_at IS NULL/);
+  assert.match(queue, /WHEN e\.is_due THEN 'due'/);
+});
+
+test('lead contact card shows legacy company details only without linked contacts', () => {
+  const src = mobile('components/LeadContacts.tsx');
+  assert.match(src, /contacts\.length === 0 && !!\(lead\.phone\?\.trim\(\) \|\| lead\.email\?\.trim\(\)\)/);
+  assert.match(src, /const displayedContactCount = contacts\.length \+ \(showCompanyContact \? 1 : 0\)/);
+  assert.match(src, /Contacts \(\{displayedContactCount\}\)/);
+  assert.match(src, /displayedContactCount === 0/);
+  assert.match(src, /showCompanyContact \? <View/);
+  assert.match(src, /lead\.contact_name\?\.trim\(\) \|\| 'Company contact'/);
+  assert.match(src, /phone=\{lead\.phone\} email=\{lead\.email\}/);
+  assert.match(src, /contacts\.map\(\(c\) =>/);
+  assert.doesNotMatch(src, /apiFetch\([^)]*companyContact/);
+});
