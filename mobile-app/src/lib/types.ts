@@ -39,7 +39,8 @@ export type Stats = {
 };
 export type LeadList = { ok: true; leads: Lead[]; has_more: boolean; filtered_total: number;
   limit: number; offset: number; stats: Stats; industries: string[];
-  industry_counts?: Record<string, number>; country_counts?: Record<string, number> };
+  industry_counts?: Record<string, number>; country_counts?: Record<string, number>;
+  uncategorized_count?: number };
 export type LeadDetails = { ok: true; lead: Lead; history: LeadEvent[]; contacts: LeadContact[] };
 export const ACTIVITY_CHANNELS = ['call','email','whatsapp','other'] as const;
 export type ActivityChannel = (typeof ACTIVITY_CHANNELS)[number];
