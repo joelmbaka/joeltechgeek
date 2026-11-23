@@ -315,7 +315,7 @@ export function RecordUpdateSheet({
                 const next=v as 'keep'|'do_not_contact'|'competitor';
                 setDisposition(next);
                 if (next!=='keep') { setIncludeFollowup(false);setStage(''); }
-                if (next==='competitor') {setShowOutcome(false);setChannel('');setOutcome('');}
+                if (next==='competitor') {setShowOutcome(false);setChannel('call');setOutcome('');}
               }}/>
               {disposition !== 'keep' ? <Text style={styles.subtitle}>
                 Outreach will be blocked and outstanding reminders canceled.
