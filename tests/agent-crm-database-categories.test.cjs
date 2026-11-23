@@ -32,14 +32,14 @@ test('web and Android industry filters use the current user lead categories', ()
   const queue = read('lib/agent-crm/work-queue.ts');
   assert.match(web, /data\?\.industries \|\| \[\]/);
   assert.doesNotMatch(web, /CRM_INDUSTRIES/);
-  assert.match(android, /data\?\.industries/);
+  assert.match(android, /currentMeta\?\.industries/);
   assert.match(queue, /FROM public\.crm_business_categories/);
   assert.match(queue, /LEFT JOIN public\.crm_leads/);
 });
 
 test('Android category creation is an isolated bottom-sheet view with bounded preview', () => {
   const sheet = read('mobile-app/src/components/SelectSheet.tsx');
-  assert.match(sheet, /\{!adding \? <ScrollView/);
+  assert.match(sheet, /!adding \? <ScrollView/);
   assert.match(sheet, /\{adding \? 'New category' : title\}/);
   assert.match(sheet, /existingCategories\.slice\(0, 5\)/);
   assert.match(sheet, /Show all /);
