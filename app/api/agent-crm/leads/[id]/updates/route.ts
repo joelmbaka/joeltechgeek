@@ -65,7 +65,11 @@ export async function POST(request: Request, { params }: Params) {
     return fail('Excluded leads cannot schedule follow-ups.');
   const hasOutcome = typeof outcome === 'string' && outcome.length > 0;
   if (outcome !== null && !hasOutcome) return fail('Choose a valid outcome.');
-  const activity = hasOutcome ? resolveActivityChannel(body.channel, outcome) : null;
+  // Keep outcome-based clients compatible, while accepting channel-aware notes.
+  const noteActivity = !hasOutcome && !!notes.trim() && disposition === 'keep' &&
+    typeof body.channel === 'string';
+  const activity = (hasOutcome || noteActivity)
+    ? resolveActivityChannel(body.channel, hasOutcome ? outcome : 'other') : null;
   if (activity && !activity.ok) return fail(activity.error);
   if (stageOverride !== undefined && (
     !hasOutcome || typeof stageOverride !== 'string' ||
@@ -133,7 +137,7 @@ export async function POST(request: Request, { params }: Params) {
       return fail('There is no outstanding action to complete.', 409);
     }
 
-    const activityContact = hasOutcome
+    const activityContact = hasOutcome || noteActivity
       ? await resolveContactTarget(client, id, body.contact_id)
       : { ok: true as const, id: null, name: null };
     if (!activityContact.ok) { await client.query('ROLLBACK'); return fail(activityContact.error); }
@@ -211,8 +215,12 @@ export async function POST(request: Request, { params }: Params) {
     }
     if (!hasOutcome && disposition === 'keep' && effectiveMode !== 'complete' && notes.trim()) {
       await client.query(
-        `INSERT INTO public.crm_lead_events (lead_id,event_type,notes)
-         VALUES ($1,'note_added',$2)`,[id,notes.trim()],
+        `INSERT INTO public.crm_lead_events
+           (lead_id,event_type,notes,channel,contact_id,contact_name_snapshot)
+         VALUES ($1,'note_added',$2,$3,$4::uuid,$5)`,
+        [id,notes.trim(),noteActivity && activity?.ok ? activity.channel : null,
+          noteActivity ? activityContact.id : null,
+          noteActivity ? activityContact.name : null],
       );
     }
     if (willChangeFollowup) {
@@ -235,14 +243,15 @@ export async function POST(request: Request, { params }: Params) {
            SET stage=$3,do_not_contact=$4,
                priority=CASE WHEN $5::boolean THEN 'low' ELSE priority END,
                last_outcome_v2=CASE WHEN $6::boolean THEN $7 ELSE last_outcome_v2 END,
-               last_activity_channel=CASE WHEN $6::boolean THEN $8 ELSE last_activity_channel END,
-               last_contacted_at=CASE WHEN $6::boolean THEN now() ELSE last_contacted_at END,
+               last_activity_channel=CASE WHEN $10::boolean THEN $8 ELSE last_activity_channel END,
+               last_contacted_at=CASE WHEN $10::boolean THEN now() ELSE last_contacted_at END,
                last_notes=CASE WHEN $9::text IS NOT NULL THEN $9 ELSE last_notes END,
                updated_at=now()
          WHERE id=$1 AND user_id=$2`,
         [id,access.user.id,stage,disposition==='do_not_contact',
          disposition==='competitor',hasOutcome,outcome,
-         activity?.ok ? activity.channel : null,notes.trim()||null],
+         activity?.ok ? activity.channel : null,notes.trim()||null,
+         hasOutcome || noteActivity],
       );
     }
     if (willChangeFollowup) {
