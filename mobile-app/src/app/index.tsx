@@ -70,10 +70,12 @@ export default function HomeScreen() {
     view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view;
   const [data, setData] = useState<LeadList | null>(null);
   const pageCache = useRef<{ key: string; result: LeadList } | null>(null);
-  const [catalog, setCatalog] = useState<{ userId: string; result: LeadList } | null>(null);
+  const [catalog, setCatalog] = useState<{ userId: string; facetKey: string; result: LeadList } | null>(null);
   // Identify pages by the exact user, filters, and offset so an old page never
   // appears under a new search/category/queue during a request.
   const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry, countriesParam]) : '';
+  // Facet counts are independent of view/search/page, but depend on category and countries.
+  const activeFacetKey = user ? JSON.stringify([user.id, industry, countriesParam]) : '';
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reviewAvailable, setReviewAvailable] = useState(false);
@@ -139,7 +141,7 @@ export default function HomeScreen() {
         if (signal.aborted || version !== requestVersion.current) return;
         pageCache.current = { key, result };
         setData(result);
-        setCatalog({ userId: user.id, result });
+        setCatalog({ userId: user.id, facetKey: activeFacetKey, result });
       })
       .catch((reason: unknown) => {
         if (!signal.aborted && version === requestVersion.current) {
@@ -151,7 +153,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, sessionStatus, activeQueryKey, offset, debounced, apiView, industry, countriesParam]);
+  }, [user?.id, sessionStatus, activeQueryKey, activeFacetKey, offset, debounced, apiView, industry, countriesParam]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -225,24 +227,24 @@ export default function HomeScreen() {
   const shellLoading = sessionStatus !== 'authenticated' || !user;
   const currentPage = !shellLoading && pageCache.current?.key === activeQueryKey ? data : null;
   const pageLoading = shellLoading || (!currentPage && !message);
-  // Metadata is global to the user's workspace. Preserve it when switching
-  // pages and during foreground refreshes, never across different accounts.
-  const cachedCatalog = user && !shellLoading && catalog?.userId === user.id ? catalog.result : null;
+  // Never reuse country/category counts from a different facet selection.
+  // Global dashboard stats can still use the last result for this user.
+  const userCatalog = user && !shellLoading && catalog?.userId === user.id ? catalog.result : null;
+  const cachedCatalog = catalog?.facetKey === activeFacetKey ? userCatalog : null;
   const currentMeta = currentPage || cachedCatalog;
-  const stats = currentMeta?.stats || null;
+  const stats = (currentMeta || userCatalog)?.stats || null;
   const categoryCounts = currentMeta?.industry_counts;
-  const categorizedCount = Object.values(categoryCounts || {})
-    .reduce((total, count) => total + count, 0);
+  const uncategorizedCount = currentMeta?.uncategorized_count ?? 0;
   const industryOptions: SelectOption[] = [
-    { value: 'all', label: 'All categories', count: currentMeta?.industries?.length },
-    ...[...(currentMeta?.industries || (industry === 'all' || industry === '__uncategorized__' ? [] : [industry]))]
+    { value: 'all', label: 'All categories',
+      count: currentMeta ? currentMeta.industries.length + (uncategorizedCount > 0 ? 1 : 0) : undefined },
+    ...[...(currentMeta?.industries || [])]
       .sort((a, b) => (categoryCounts?.[b] ?? 0) - (categoryCounts?.[a] ?? 0) || a.localeCompare(b))
       .map((name) => ({
         value: name, label: name, count: categoryCounts?.[name] ?? 0,
       })),
-    { value: '__uncategorized__', label: 'Other',
-      count: stats?.total === undefined ? undefined :
-        Math.max(0, stats.total - categorizedCount) },
+    ...(!selectedCountries.length || uncategorizedCount > 0 ?
+      [{ value: '__uncategorized__', label: 'Other', count: uncategorizedCount }] : []),
   ];
   return <SafeAreaView edges={['left','right','bottom']} style={styles.screen}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={headerHeight}>
@@ -321,6 +323,7 @@ export default function HomeScreen() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <SelectSheet title="Business category" value={industry}
               options={industryOptions} onChange={setIndustry} searchable
+              placeholder={industry === '__uncategorized__' ? 'Other' : industry !== 'all' ? industry : undefined}
               disabled={shellLoading}
               loading={!currentMeta && !message} loadingError={!currentMeta ? message : null}/>
           </View>
