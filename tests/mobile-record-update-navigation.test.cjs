@@ -78,8 +78,9 @@ test('record update is above the follow-up and overview, and modal status bar ha
   const modal = mobile('components/RecordUpdateSheet.tsx');
   assert.ok(lead.indexOf('+ Record update') < lead.indexOf('Next follow-up'));
   assert.ok(lead.indexOf('+ Record update') < lead.indexOf('Lead overview'));
-  assert.match(modal, /StatusBar\.setBarStyle\(dark \? 'light-content' : 'dark-content'\)/);
-  assert.match(modal, /backgroundColor={theme\.background} translucent={false}/);
+  assert.match(modal, /<StatusBar style=\{dark \? 'light' : 'dark'\} hidden=\{false\}\/>/);
+  assert.match(modal, /statusBarTranslucent=\{false\}/);
+  assert.match(modal, /SafeAreaView style=\{\{flex:1,backgroundColor:theme\.background\}\}/);
 });
 
 test('a saved note counts as work done today without hiding overdue follow-ups', () => {
