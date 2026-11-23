@@ -25,6 +25,10 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const locked = lead.do_not_contact || ['competitor','do_not_contact','won','lost'].includes(lead.stage);
+  // Older CRM leads can have a usable phone/email without a linked contact row.
+  // Render a display-only company contact, never a synthetic database contact.
+  const showCompanyContact = contacts.length === 0 && !!(lead.phone?.trim() || lead.email?.trim());
+  const displayedContactCount = contacts.length + (showCompanyContact ? 1 : 0);
   const base = '/api/agent-crm/leads/' + encodeURIComponent(lead.id) + '/contacts';
 
   const begin = (id: string, contact?: LeadContact) => {
@@ -75,13 +79,29 @@ export function LeadContacts({ lead, contacts, onRefresh }: {
 
   return <View style={[styles.card, { gap: 12 }]}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-      <Text style={[styles.title, { fontSize: 19 }]}>Contacts ({contacts.length})</Text>
+      <Text style={[styles.title, { fontSize: 19 }]}>Contacts ({displayedContactCount})</Text>
       {!locked && editing === null ? <Pressable accessibilityRole="button" disabled={busy}
         onPress={() => begin('new')} style={{ paddingVertical: 9, paddingHorizontal: 10 }}>
         <Text style={{ color: theme.primaryDark, fontWeight: '800' }}>+ Add contact</Text>
       </Pressable> : null}
     </View>
-    {contacts.length === 0 ? <Text style={styles.subtitle}>No contacts yet. Add your first contact.</Text> : null}
+    {displayedContactCount === 0 ?
+      <Text style={styles.subtitle}>No contacts yet. Add your first contact.</Text> : null}
+    {showCompanyContact ? <View style={{
+      borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 6,
+    }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text numberOfLines={1} style={[styles.value, { flex: 1, fontSize: 16 }]}>
+          {lead.contact_name?.trim() || 'Company contact'}
+        </Text>
+        <Text style={styles.label}>Saved on lead</Text>
+      </View>
+      {lead.contact_role ? <Text style={styles.subtitle}>{lead.contact_role}</Text> : null}
+      {lead.phone?.trim() ? <Text selectable style={styles.subtitle}>{lead.phone}</Text> : null}
+      {lead.email?.trim() ? <Text selectable style={styles.subtitle}>{lead.email}</Text> : null}
+      <LeadContactActions phone={lead.phone} email={lead.email} country={lead.country}
+        disabled={locked || busy}/>
+    </View> : null}
     {contacts.map((c) => <View key={c.id} style={{ borderTopWidth: 1, borderColor: theme.border, paddingTop: 12, gap: 6 }}>
       <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
         <Text numberOfLines={1} style={[styles.value,{flex:1,fontSize:16}]}>
