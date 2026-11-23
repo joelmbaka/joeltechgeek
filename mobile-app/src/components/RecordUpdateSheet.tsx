@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Keyboard, KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, View, useColorScheme,
+  Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Text, View, useColorScheme,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
 import { Field, useUIStyles } from './ui';
 import { NativeSchedulePicker } from './NativeSchedulePicker';
@@ -12,9 +11,6 @@ import { SelectSheet } from './SelectSheet';
 import { WhatsAppIcon } from './WhatsAppIcon';
 import { useTheme } from '@/lib/config';
 import { useAppDialog } from '@/components/AppDialog';
-import {
-  OUTCOMES_BY_CHANNEL, STAGE_OPTIONS,
-} from '@/lib/types';
 import type { ActivityChannel, Lead, LeadContact } from '@/lib/types';
 
 export type FollowupChoice = 'keep'|'set'|'complete'|'cancel';
@@ -40,15 +36,6 @@ const ACTION_TYPES = [
   {value:'whatsapp',label:'WhatsApp',icon:''}, {value:'meeting',label:'Meeting',icon:'📅'},
   {value:'other',label:'Other',icon:'⚡'},
 ];
-// Emoji is presentation-only: option values remain unchanged for the API and history.
-const OUTCOME_ICONS: Record<string, string> = {
-  number_unavailable:'🚫', switched_off:'📵', no_answer:'📵', busy:'☎️',
-  wrong_number:'❌', spoke_to_contact:'🗣️', referred_to_contact:'👥',
-  information_requested:'📄', call_back:'🔁', decision_pending:'⏳',
-  demo_requested:'📱', meeting_booked:'📅', proposal_requested:'📋',
-  trial_started:'🚀', onboarding_completed:'✅', not_interested:'👎',
-  sent:'📤', reply_received:'💬', other:'📝',
-};
 const CHANNELS = [
   {value:'call',label:'Call',icon:'📞'},
   {value:'whatsapp',label:'WhatsApp',icon:''},
@@ -78,8 +65,6 @@ export function RecordUpdateSheet({
   const singleActivityRow = screenWidth >= 480;
   const dialog = useAppDialog();
   const [channel, setChannel] = useState('call');
-  const [showOutcome, setShowOutcome] = useState(false);
-  const [outcome, setOutcome] = useState('');
   const [notes, setNotes] = useState('');
   const [disposition, setDisposition] = useState<'keep'|'do_not_contact'|'competitor'>('keep');
   const [includeFollowup, setIncludeFollowup] = useState(false);
@@ -88,7 +73,6 @@ export function RecordUpdateSheet({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [stage, setStage] = useState('');
   const [interactionContact, setInteractionContact] = useState('');
   const [followupContact, setFollowupContact] = useState('');
   const [error, setError] = useState('');
@@ -104,7 +88,7 @@ export function RecordUpdateSheet({
     if (!visible) { initializedFor.current = null; return; }
     if (initializedFor.current === lead.id) return;
     initializedFor.current = lead.id;
-    setChannel('call');setShowOutcome(false);setOutcome('');setNotes('');setStage('');setError('');
+    setChannel('call');setNotes('');setError('');
     setDisposition('keep');setIncludeFollowup(false);
     // This modal records a new update, not an edit of the saved follow-up.
     setNextAction('');setActionType('call');setDate('');setTime('');
@@ -117,19 +101,15 @@ export function RecordUpdateSheet({
     ...contacts.map(c=>({value:c.id,label:
       (c.name || c.phone || c.email || 'Contact') + (c.is_primary?' (Primary)':'')})),
   ];
-  const hasInteraction = showOutcome && !!channel && !!outcome;
-  // Closed dispositions and outcomes must never create an outreach reminder.
-  const completingSale = stage === 'won' || stage === 'lost' ||
-    outcome === 'onboarding_completed' || outcome === 'not_interested';
-  const followupOpen = includeFollowup && disposition === 'keep' && !completingSale;
+  // Preserve selected activity type/contact in note-only updates.
+  const hasInteraction = !!notes.trim() && disposition === 'keep';
+  const followupOpen = includeFollowup && disposition === 'keep';
   // Scheduling is always an explicit opt-in, and 'keep' preserves existing reminders.
   const scheduling = followupOpen;
   const validSchedule = !scheduling || (!!nextAction.trim() && !!date);
   const changedFollowup = scheduling;
-  const hasChange = !!(hasInteraction && outcome) || !!notes.trim() ||
-    changedFollowup || disposition !== 'keep';
-  const canSave = !savingKind && validSchedule && hasChange &&
-    !(disposition === 'competitor' && hasInteraction);
+  const hasChange = !!notes.trim() || changedFollowup || disposition !== 'keep';
+  const canSave = !savingKind && validSchedule && hasChange;
   const submit = async (advance: boolean, confirmed = false) => {
     if (!canSave) return;
     if (disposition !== 'keep' && !confirmed) {
@@ -144,11 +124,10 @@ export function RecordUpdateSheet({
     setError('');
     const payload: UnifiedUpdate = {
       channel: hasInteraction ? channel as ActivityChannel : null,
-      outcome: hasInteraction ? outcome : null,
+      outcome: null,
       notes: notes.trim(),
-      contact_id: interactionContact || null,
+      contact_id: hasInteraction ? interactionContact || null : null,
       disposition,
-      ...(stage && hasInteraction ? {stage} : {}),
       followup: {
         mode: scheduling ? 'set' : 'keep',
         ...(scheduling ? {
@@ -163,8 +142,14 @@ export function RecordUpdateSheet({
   };
   return <Modal visible={visible} animationType="slide" presentationStyle="fullScreen"
     statusBarTranslucent={false}
+    onShow={() => {
+      // Android modal windows can reset light/dark status bar icons on display.
+      StatusBar.setBarStyle(dark ? 'light-content' : 'dark-content');
+      if (Platform.OS === 'android') StatusBar.setBackgroundColor(theme.background);
+    }}
     onRequestClose={() => { if (!savingKind) onClose(); }}>
-    <StatusBar style={dark ? 'light' : 'dark'} hidden={false}/>
+    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'}
+      backgroundColor={theme.background} translucent={false} hidden={false}/>
     <SafeAreaView style={{flex:1,backgroundColor:theme.background}}>
       <KeyboardAvoidingView style={{flex:1}} behavior="padding">
         <View style={{paddingHorizontal:18,paddingVertical:12,
@@ -193,64 +178,40 @@ export function RecordUpdateSheet({
               </View>
               <View style={{flex:1,gap:2}}>
                 <Text style={[styles.value,{fontSize:17}]}>Interaction</Text>
-                <Text style={[styles.label,{fontWeight:'500'}]}>Add a note; record an outcome only when needed</Text>
+                <Text style={[styles.label,{fontWeight:'500'}]}>Choose activity type and contact; capture the details in Notes</Text>
               </View>
             </View>
             <View style={{padding:15,gap:13}}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Record outcome (optional)"
-                 accessibilityState={{expanded:showOutcome}}
-                 onPress={() => { Keyboard.dismiss();setShowOutcome(v=>!v);setOutcome('');setStage(''); }}
-                 style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',
-                   minHeight:44,paddingHorizontal:12,borderRadius:10,borderWidth:1,
-                   borderColor:theme.border,backgroundColor:theme.surfaceMuted}}>
-                 <Text style={[styles.value,{fontSize:14}]}>Record outcome (optional)</Text>
-                 <Text style={{color:theme.primaryDark,fontSize:15,fontWeight:'800'}}>
-                   {showOutcome ? 'Hide −' : 'Add +'}
-                 </Text>
-               </Pressable>
-               {showOutcome ? <>
-                 <Text style={styles.label}>Activity type</Text>
-                 <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
-                   {CHANNELS.map(option => <Pressable key={option.value} accessibilityRole="button"
-                     accessibilityLabel={option.label}
-                     accessibilityState={{selected:channel===option.value}}
-                     onPress={() => { Keyboard.dismiss();setChannel(option.value);setOutcome('');setStage('');
-                       if (disposition==='competitor') setDisposition('keep'); }}
-                     style={{flexGrow:1,flexBasis:singleActivityRow?'0%':'47%',
-                       flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,
-                       paddingHorizontal:8,minHeight:44,borderRadius:11,borderWidth:1,
-                       borderColor:channel===option.value?theme.primary:theme.border,
-                       backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
-                     {option.value==='whatsapp' ? <WhatsAppIcon size={17}/> :
-                       <Text style={{fontSize:16}}>{option.icon}</Text>}
-                     <Text numberOfLines={1} style={{color:channel===option.value?theme.chipHighText:theme.ink,
-                       fontWeight:channel===option.value?'800':'600',fontSize:13}}>
-                       {option.label}
-                     </Text>
-                   </Pressable>)}
-                 </View>
-                 {contacts.length>1 ? <SelectSheet title="Contact" value={interactionContact}
-                   options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/> : null}
-                 <SelectSheet title="Outcome" value={outcome}
-                   placeholder="Choose outcome" dismissKeyboardOnOpen
-                   options={OUTCOMES_BY_CHANNEL[channel as ActivityChannel].map(([value,label])=>({
-                     value,label,icon:OUTCOME_ICONS[value] || '📝',
-                   }))}
-                   onChange={(value)=>{setOutcome(value);setStage('');}}/>
-                 {outcome ? <SelectSheet title="Lead stage (optional)" value={stage} dismissKeyboardOnOpen
-                   options={[{value:'',label:'Suggested automatically'},
-                     ...STAGE_OPTIONS.map(value=>({value,label:value.replaceAll('_',' ')}))]}
-                   onChange={setStage}/> : null}
-               </> : null}
-               <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
+              <Text style={styles.label}>Activity type</Text>
+              <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+                {CHANNELS.map(option => <Pressable key={option.value} accessibilityRole="button"
+                  accessibilityLabel={option.label}
+                  accessibilityState={{selected:channel===option.value}}
+                  onPress={() => { Keyboard.dismiss();setChannel(option.value); }}
+                  style={{flexGrow:1,flexBasis:singleActivityRow?'0%':'47%',
+                    flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,
+                    paddingHorizontal:8,minHeight:44,borderRadius:11,borderWidth:1,
+                    borderColor:channel===option.value?theme.primary:theme.border,
+                    backgroundColor:channel===option.value?theme.chipHighBg:theme.white}}>
+                  {option.value==='whatsapp' ? <WhatsAppIcon size={17}/> :
+                    <Text style={{fontSize:16}}>{option.icon}</Text>}
+                  <Text numberOfLines={1} style={{color:channel===option.value?theme.chipHighText:theme.ink,
+                    fontWeight:channel===option.value?'800':'600',fontSize:13}}>
+                    {option.label}
+                  </Text>
+                </Pressable>)}
+              </View>
+              <SelectSheet title="Contact" value={interactionContact}
+                options={choices} searchable dismissKeyboardOnOpen onChange={setInteractionContact}/>
+              <Field label="Notes (optional)" value={notes} onChangeText={setNotes}
                 placeholder="Conversation details, research, or a standalone note" multiline/>
             </View>
           </View>
           <View style={{backgroundColor:theme.white,borderRadius:18,borderWidth:1,
             borderColor:followupOpen?theme.primary:theme.border,overflow:'hidden'}}>
             <Pressable accessibilityRole="checkbox"
-              accessibilityState={{checked:followupOpen,disabled:disposition!=='keep'||completingSale}}
-              disabled={!!savingKind || disposition!=='keep' || completingSale}
+              accessibilityState={{checked:followupOpen,disabled:disposition!=='keep'}}
+              disabled={!!savingKind || disposition!=='keep'}
               onPress={()=>setIncludeFollowup(value=>!value)}
               style={{flexDirection:'row',alignItems:'center',gap:11,minHeight:64,padding:15,
                 backgroundColor:followupOpen?theme.chipHighBg:theme.surfaceMuted}}>
@@ -296,7 +257,7 @@ export function RecordUpdateSheet({
               <Text style={[styles.label,{fontWeight:'500'}]}>
                  Choose a date and enter a next action. Time is optional.
                </Text>
-            </View> : lead.next_action && disposition==='keep' && !completingSale ?
+            </View> : lead.next_action && disposition==='keep' ?
               <Text style={[styles.subtitle,{padding:15}]}>Existing follow-up remains unchanged.</Text> : null}
           </View>
           <View style={{backgroundColor:theme.white,borderRadius:18,borderWidth:1,
@@ -314,8 +275,7 @@ export function RecordUpdateSheet({
               options={DISPOSITIONS} onChange={(v)=>{
                 const next=v as 'keep'|'do_not_contact'|'competitor';
                 setDisposition(next);
-                if (next!=='keep') { setIncludeFollowup(false);setStage(''); }
-                if (next==='competitor') {setShowOutcome(false);setChannel('call');setOutcome('');}
+                if (next!=='keep') setIncludeFollowup(false);
               }}/>
               {disposition !== 'keep' ? <Text style={styles.subtitle}>
                 Outreach will be blocked and outstanding reminders canceled.
@@ -324,8 +284,8 @@ export function RecordUpdateSheet({
             </View>
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {!hasInteraction && !notes.trim() && !changedFollowup && disposition==='keep' ?
-            <Text style={styles.subtitle}>Record an outcome, add a note, or change a follow-up to enable Save.</Text> : null}
+          {!hasChange ?
+            <Text style={styles.subtitle}>Add notes, schedule a follow-up, or change classification to enable Save.</Text> : null}
         </ScrollView>
         {!keyboardVisible ? <View style={{flexDirection:'row',gap:10,paddingHorizontal:16,
           paddingTop:12,paddingBottom:12,backgroundColor:theme.white,
