@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/lib/config';
+import { WhatsAppIcon } from './WhatsAppIcon';
 import { useAppDialog } from '@/components/AppDialog';
 
 type Kind = 'call' | 'whatsapp' | 'email';
@@ -32,7 +33,7 @@ export function LeadContactActions({phone, email, country, disabled = false}: Pr
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address);
   const actions: {kind:Kind;label:string;icon:string;url:string|null}[] = [
     {kind:'call',label:'Call',icon:'☎',url:number.replace(/\D/g,'').length>=7?'tel:'+number:null},
-    {kind:'whatsapp',label:'WhatsApp',icon:'◉',url:whatsapp?'https://wa.me/'+whatsapp:null},
+    {kind:'whatsapp',label:'WhatsApp',icon:'',url:whatsapp?'https://wa.me/'+whatsapp:null},
     {kind:'email',label:'Email',icon:'✉',url:emailValid?'mailto:'+address:null},
   ];
   const open = async (kind: Kind,url:string) => {
@@ -54,7 +55,8 @@ export function LeadContactActions({phone, email, country, disabled = false}: Pr
           paddingVertical:9,gap:3,borderRadius:12,borderWidth:1,
           borderColor:enabled?theme.border:theme.surfaceMuted,
           backgroundColor:enabled?theme.white:theme.surfaceMuted,opacity:enabled?1:0.55}}>
-        <Text style={{fontSize:20,color:enabled?theme.primaryDark:theme.muted}}>{item.icon}</Text>
+        {item.kind==='whatsapp' ? <WhatsAppIcon size={22}/> :
+          <Text style={{fontSize:20,color:enabled?theme.primaryDark:theme.muted}}>{item.icon}</Text>}
         <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
           style={{fontSize:12,fontWeight:'800',color:enabled?theme.ink:theme.muted}}>{item.label}</Text>
       </Pressable>;
