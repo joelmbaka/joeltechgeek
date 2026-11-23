@@ -55,3 +55,17 @@ test('record update drafts survive contact refreshes but reset on every reopenin
   assert.match(src, /if \(initializedFor\.current === lead\.id\) return/);
   assert.match(src, /\[visible, lead\.id, primary\]/);
 });
+
+test('competitor classification cannot leave the outcome picker with an invalid channel', () => {
+  const src = mobile('components/RecordUpdateSheet.tsx');
+  assert.match(src, /if \(next==='competitor'\) \{setShowOutcome\(false\);setChannel\('call'\);setOutcome\(''\);\}/);
+  assert.doesNotMatch(src, /setChannel\(''\)/);
+});
+
+test('Save & Next respects Closed & Excluded and original pipeline views', () => {
+  const src = mobile('app/leads/[id].tsx');
+  assert.match(src, /const ids = parseQueueIds\(queueIdsParam\);/);
+  assert.match(src, /const selectedView = view \|\| 'for_you';/);
+  assert.match(src, /const apiView = queueView \|\| \(selectedView === 'all' \? 'all_active' : selectedView\);/);
+  assert.doesNotMatch(src, /view === 'closed' \? \[\]/);
+});
