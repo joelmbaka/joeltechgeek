@@ -47,7 +47,8 @@ function eventLabel(event: LeadEvent): string {
     activityChannelLabel(event.channel,event.outcome) : 'Outreach') +
     ': ' + outcomeLabel(event.outcome);
   if (event.event_type === 'action_completed') return event.action || 'Action completed';
-  if (event.event_type === 'note_added') return 'Note added';
+  if (event.event_type === 'note_added') return event.channel ?
+    activityChannelLabel(event.channel) + ': Note' : 'Note added';
   if (event.event_type === 'classification_changed') return event.action || 'Classification changed';
   return 'Follow-up updated';
 }
@@ -446,6 +447,7 @@ export default function LeadScreen() {
           {activeLead.stage.replaceAll('_',' ')} · {activeLead.last_contacted_at||activeLead.last_outcome?'Previously contacted':'Never contacted'}
         </Text>
       </View>
+      {!locked ? <Button onPress={openUpdate}>+ Record update</Button> : null}
       {locked ? <View style={styles.card}>
         <Text style={[styles.value,{fontSize:17}]}>Closed & Excluded</Text>
         <Text style={styles.subtitle}>
@@ -538,7 +540,6 @@ export default function LeadScreen() {
           </View>
         </>}
       </View>
-      {!locked ? <Button onPress={openUpdate}>+ Record update</Button> : null}
       <View style={styles.card}>
         <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
           <Text style={[styles.value,{fontSize:17}]}>Activity history ({history.length})</Text>
