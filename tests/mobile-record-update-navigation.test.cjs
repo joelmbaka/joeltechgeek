@@ -107,3 +107,13 @@ test('lead contact card shows legacy company details only without linked contact
   assert.match(src, /contacts\.map\(\(c\) =>/);
   assert.doesNotMatch(src, /apiFetch\([^)]*companyContact/);
 });
+
+test('activity history appears above lead overview on the lead details screen', () => {
+  const src = mobile('app/leads/[id].tsx');
+  const history = src.indexOf('Activity history ({history.length})');
+  const overview = src.indexOf('>Lead overview</Text>');
+  const contacts = src.indexOf('<LeadContacts lead={activeLead}');
+  assert.ok(history >= 0 && overview >= 0 && contacts >= 0);
+  assert.ok(history < overview, 'Activity history should appear above Lead overview');
+  assert.ok(overview < contacts, 'Contacts should remain below Lead overview');
+});
