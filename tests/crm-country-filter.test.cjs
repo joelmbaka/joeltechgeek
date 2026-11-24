@@ -154,3 +154,29 @@ test('country button and Search have equal height with a centered chevron', () =
   assert.doesNotMatch(sheet, />⌄<\/Text>/);
   assert.match(source('mobile-app/src/app/index.tsx'), /style=\{\[styles.input, \{ flex: 1, height: 54 \}\]\}/);
 });
+
+test('dashboard metrics apply category, country and search across every page and view', () => {
+  const sql = source('lib/agent-crm/work-queue.ts');
+  assert.match(sql, /const metricCondition=\[ACTIVE,\.\.\.filters\.slice\(1\)\]\.join\(' AND '\)/);
+  assert.match(sql, /const filters:string\[\]=\[search && view==='for_you' \? ACTIVE : workViewFilter\(view\)\]/);
+  assert.match(sql, /filters\.push\('w\.industry='\+bind\(industry\)\)/);
+  assert.match(sql, /filters\.push\('\(' \+ alternatives\.join\(' OR '\) \+ '\)'\)/);
+  assert.match(sql, /filters\.push\('\('\+matches\.join\(' OR '\)\+'\)'\)/);
+  assert.match(sql, /count\(\*\) FILTER \(WHERE w\.to_call_now\)::int AS to_call/);
+  assert.match(sql, /count\(\*\) FILTER \(WHERE w\.is_due\)::int AS followups_due/);
+  assert.match(sql, /FROM classified w WHERE '\+metricCondition,values/);
+  assert.match(sql, /stats:\{\.\.\.stats\.rows\[0\],to_call:scopedStats\.rows\[0\]\?\.to_call\?\?0,/);
+  assert.match(sql, /followups_due:scopedStats\.rows\[0\]\?\.followups_due\?\?0/);
+  assert.doesNotMatch(sql, /workViewFilter\('to_call'\),\[user\.id,zone\]/);
+});
+
+test('mobile dashboard never reuses metrics from different workspace filters', () => {
+  const home = source('mobile-app/src/app/index.tsx');
+  assert.match(home, /activeStatsKey = user \? JSON\.stringify\(\[user\.id, debounced, industry, countriesParam\]\)/);
+  assert.match(home, /statsKey: activeStatsKey, result/);
+  assert.match(home, /const stats = currentPage\?\.stats \|\| \(catalog\?\.statsKey === activeStatsKey \? userCatalog\?\.stats : null\)/);
+  assert.match(home, /label: 'Ready to call', value: stats\?\.to_call/);
+  assert.match(home, /label: 'Follow-ups due', value: stats\?\.followups_due/);
+  assert.match(home, /\{ value: 'to_call', label: 'Ready to call' \}/);
+  assert.doesNotMatch(home, /const stats = \(currentMeta \|\| userCatalog\)\?\.stats/);
+});
