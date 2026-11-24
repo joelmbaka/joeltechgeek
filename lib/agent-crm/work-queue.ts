@@ -167,6 +167,9 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
     filters.push('('+matches.join(' OR ')+')');
   }
   const condition=filters.join(' AND '),prefix=workQueueSQL();
+  // The dashboard metrics obey category, country and search filters, but not
+  // the selected View or pagination. Keep closed/excluded leads out of both.
+  const metricCondition=[ACTIVE,...filters.slice(1)].join(' AND ');
   const listArgs=[...values,limit+1,offset];
   const select=prefix+' SELECT w.* FROM classified w WHERE '+condition+' ORDER BY '+viewOrder(view)+
     ' LIMIT $'+(listArgs.length-1)+' OFFSET $'+listArgs.length;
@@ -211,7 +214,7 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
     ' GROUP BY w.country';
   try {
     const db=getCrmPool();
-    const [rows,counts,stats,categories,toCall,countryRows,categoryRows]=await Promise.all([
+    const [rows,counts,stats,categories,scopedStats,countryRows,categoryRows]=await Promise.all([
       db.query<Lead & {work_state:string}>(select,listArgs),
       db.query<{total:number}>(count,values),
       db.query(`SELECT count(*)::int AS total,
@@ -222,7 +225,10 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
         count(*) FILTER(WHERE stage='won')::int AS won
         FROM public.crm_leads WHERE user_id=$1`,[user.id]),
       db.query<{industry:string;count:number}>("SELECT c.name AS industry, count(l.id)::int AS count FROM public.crm_business_categories c LEFT JOIN public.crm_leads l ON l.business_category_id=c.id AND l.user_id=c.user_id WHERE c.user_id=$1 GROUP BY c.id,c.name ORDER BY lower(c.name)",[user.id]),
-      db.query<{total:number}>(prefix+' SELECT count(*)::int total FROM classified w WHERE '+workViewFilter('to_call'),[user.id,zone]),
+      db.query<{to_call:number;followups_due:number}>(
+        prefix+' SELECT count(*) FILTER (WHERE w.to_call_now)::int AS to_call,'+
+          ' count(*) FILTER (WHERE w.is_due)::int AS followups_due'+
+          ' FROM classified w WHERE '+metricCondition,values),
       db.query<{country:string|null;count:number}>(countryFacetSQL,countryArgs),
       db.query<{industry:string;count:number}>(categoryFacetSQL,categoryArgs),
     ]);
@@ -239,7 +245,8 @@ export async function getSmartPagedLeads(params: URLSearchParams, user: CrmUser)
       [...new Set([...categories.rows.map(x=>x.industry), ...Object.keys(industryCounts)])];
     return NextResponse.json({ok:true,user,leads:rows.rows.slice(0,limit),has_more:rows.rows.length>limit,
       filtered_total:counts.rows[0]?.total??0,limit,offset,
-      stats:{...stats.rows[0],to_call:toCall.rows[0]?.total??0},
+      stats:{...stats.rows[0],to_call:scopedStats.rows[0]?.to_call??0,
+        followups_due:scopedStats.rows[0]?.followups_due??0},
       industries, industry_counts:industryCounts, uncategorized_count:uncategorizedCount,
       country_counts:countryCountMap(countryRows.rows)},
       {headers:{'Cache-Control':'private, no-store'}});
