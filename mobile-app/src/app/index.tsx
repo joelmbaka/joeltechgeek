@@ -30,7 +30,7 @@ function todayLabel(date: Date): string {
 }
 const WORK_VIEWS: SelectOption[] = [
   { value: 'for_you', label: 'For You' },
-  { value: 'to_call', label: 'To Call' },
+  { value: 'to_call', label: 'Ready to call' },
   { value: 'followups', label: 'Follow-ups' },
   { value: 'done_today', label: 'Done Today' },
   { value: 'priority', label: 'High Priority' },
@@ -70,12 +70,14 @@ export default function HomeScreen() {
     view === 'closed' && closedStatus !== 'all' ? 'closed_' + closedStatus : view;
   const [data, setData] = useState<LeadList | null>(null);
   const pageCache = useRef<{ key: string; result: LeadList } | null>(null);
-  const [catalog, setCatalog] = useState<{ userId: string; facetKey: string; result: LeadList } | null>(null);
+  const [catalog, setCatalog] = useState<{ userId: string; facetKey: string; statsKey: string; result: LeadList } | null>(null);
   // Identify pages by the exact user, filters, and offset so an old page never
   // appears under a new search/category/queue during a request.
   const activeQueryKey = user ? JSON.stringify([user.id, offset, debounced, apiView, industry, countriesParam]) : '';
   // Facet counts are independent of view/search/page, but depend on category and countries.
   const activeFacetKey = user ? JSON.stringify([user.id, industry, countriesParam]) : '';
+  // Counts are cross-view/page, but must never show another search/filter's totals.
+  const activeStatsKey = user ? JSON.stringify([user.id, debounced, industry, countriesParam]) : '';
   const [message, setMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reviewAvailable, setReviewAvailable] = useState(false);
@@ -141,7 +143,7 @@ export default function HomeScreen() {
         if (signal.aborted || version !== requestVersion.current) return;
         pageCache.current = { key, result };
         setData(result);
-        setCatalog({ userId: user.id, facetKey: activeFacetKey, result });
+        setCatalog({ userId: user.id, facetKey: activeFacetKey, statsKey: activeStatsKey, result });
       })
       .catch((reason: unknown) => {
         if (!signal.aborted && version === requestVersion.current) {
@@ -153,7 +155,7 @@ export default function HomeScreen() {
           setRefreshing(false);
         }
       });
-  }, [user?.id, sessionStatus, activeQueryKey, activeFacetKey, offset, debounced, apiView, industry, countriesParam]);
+  }, [user?.id, sessionStatus, activeQueryKey, activeFacetKey, activeStatsKey, offset, debounced, apiView, industry, countriesParam]);
 
   useFreshOnFocus(fetchPage, [fetchPage]);
 
@@ -227,12 +229,11 @@ export default function HomeScreen() {
   const shellLoading = sessionStatus !== 'authenticated' || !user;
   const currentPage = !shellLoading && pageCache.current?.key === activeQueryKey ? data : null;
   const pageLoading = shellLoading || (!currentPage && !message);
-  // Never reuse country/category counts from a different facet selection.
-  // Global dashboard stats can still use the last result for this user.
+  // Facet counts ignore search; dashboard stats must match category, country and search.
   const userCatalog = user && !shellLoading && catalog?.userId === user.id ? catalog.result : null;
   const cachedCatalog = catalog?.facetKey === activeFacetKey ? userCatalog : null;
   const currentMeta = currentPage || cachedCatalog;
-  const stats = (currentMeta || userCatalog)?.stats || null;
+  const stats = currentPage?.stats || (catalog?.statsKey === activeStatsKey ? userCatalog?.stats : null);
   const categoryCounts = currentMeta?.industry_counts;
   const uncategorizedCount = currentMeta?.uncategorized_count ?? 0;
   const industryOptions: SelectOption[] = [
@@ -290,7 +291,7 @@ export default function HomeScreen() {
         </View>
         <View style={{ flexDirection: 'row', gap: 9 }}>
           {([
-            { label: 'To call', value: stats?.to_call, queue: 'to_call' },
+            { label: 'Ready to call', value: stats?.to_call, queue: 'to_call' },
             { label: 'Follow-ups due', value: stats?.followups_due, queue: 'followups' },
           ] as const).map((metric) => (
             <Pressable key={metric.queue}
