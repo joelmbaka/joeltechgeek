@@ -497,6 +497,31 @@ export default function LeadScreen() {
       </View>
       <View style={styles.card}>
         <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+          <Text style={[styles.value,{fontSize:17}]}>Activity history ({history.length})</Text>
+          {history.length>3 ? <Pressable onPress={()=>setHistoryExpanded(v=>!v)}>
+            <Text style={{color:theme.primaryDark,fontWeight:'700'}}>
+              {historyExpanded?'Show recent':'View all'}
+            </Text>
+          </Pressable> : null}
+        </View>
+        {history.length===0 ? <Text style={styles.subtitle}>No activity recorded yet.</Text> :
+          (historyExpanded?history:history.slice(0,3)).map(event=>
+            <View key={event.id} style={{borderTopWidth:1,borderColor:theme.border,paddingTop:10,gap:4}}>
+              <Text style={styles.value}>{eventLabel(event)}</Text>
+              <Text style={styles.label}>{new Date(event.created_at).toLocaleString(undefined,{
+                month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',
+              })}</Text>
+              {event.contact_name_snapshot ? <Text style={styles.subtitle}>
+                {event.contact_name_snapshot}</Text> : null}
+              {event.notes ? <Text style={styles.subtitle}>{event.notes}</Text> : null}
+              {event.next_action ? <Text style={styles.subtitle}>Next: {event.next_action}</Text> : null}
+              {event.next_action_at ? <Text style={styles.subtitle}>
+                Due: {formatFollowupDue(event)}</Text> : null}
+            </View>,
+          )}
+      </View>
+      <View style={styles.card}>
+        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
           <Text style={[styles.value,{fontSize:17}]}>Lead overview</Text>
           {!contextEditing ? <Pressable onPress={editContext} accessibilityRole="button">
             <Text style={{color:theme.primaryDark,fontWeight:'700'}}>Edit</Text>
@@ -539,31 +564,6 @@ export default function LeadScreen() {
               onPress={()=>setContextEditing(false)}>Cancel</Button></View>
           </View>
         </>}
-      </View>
-      <View style={styles.card}>
-        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
-          <Text style={[styles.value,{fontSize:17}]}>Activity history ({history.length})</Text>
-          {history.length>3 ? <Pressable onPress={()=>setHistoryExpanded(v=>!v)}>
-            <Text style={{color:theme.primaryDark,fontWeight:'700'}}>
-              {historyExpanded?'Show recent':'View all'}
-            </Text>
-          </Pressable> : null}
-        </View>
-        {history.length===0 ? <Text style={styles.subtitle}>No activity recorded yet.</Text> :
-          (historyExpanded?history:history.slice(0,3)).map(event=>
-            <View key={event.id} style={{borderTopWidth:1,borderColor:theme.border,paddingTop:10,gap:4}}>
-              <Text style={styles.value}>{eventLabel(event)}</Text>
-              <Text style={styles.label}>{new Date(event.created_at).toLocaleString(undefined,{
-                month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',
-              })}</Text>
-              {event.contact_name_snapshot ? <Text style={styles.subtitle}>
-                {event.contact_name_snapshot}</Text> : null}
-              {event.notes ? <Text style={styles.subtitle}>{event.notes}</Text> : null}
-              {event.next_action ? <Text style={styles.subtitle}>Next: {event.next_action}</Text> : null}
-              {event.next_action_at ? <Text style={styles.subtitle}>
-                Due: {formatFollowupDue(event)}</Text> : null}
-            </View>,
-          )}
       </View>
       <LeadContacts lead={activeLead} contacts={contacts}
         onRefresh={()=>{reload();void reconcileReminders(user).catch(()=>{});}}/>
